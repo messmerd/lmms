@@ -41,7 +41,7 @@ extern "C"
 {
 
 //! Standardized plugin descriptor for MIDI exporter
-static Plugin::Descriptor PLUGIN_EXPORT midiexport_plugin_descriptor =
+Plugin::Descriptor PLUGIN_EXPORT midiexport_plugin_descriptor =
 {
 	STRINGIFY(PLUGIN_NAME),
 	"MIDI Export",
@@ -62,65 +62,65 @@ static Plugin::Descriptor PLUGIN_EXPORT midiexport_plugin_descriptor =
 
 void MidiExport::Clip::write(const QDomNode &root,
 		int basePitch, double baseVolume, int baseTime)
-	{
-		// TODO interpret steps="12" muted="0" type="1" name="Piano1" len="259"
-		for (QDomNode node = root.firstChild(); not node.isNull();
-				node = node.nextSibling())
-		{
-			QDomElement element = node.toElement();
-
-			// Ignore zero-length notes
-			if (element.attribute("len", "0") == "0") continue;
-
-			// Adjust note attributes based on base measures
-			MidiNote note;
-			int pitch = element.attribute("key", "0").toInt() + basePitch;
-			note.m_pitch = qBound(0, pitch, 127);
-			double volume =
-					LocaleHelper::toDouble(element.attribute("vol", "100"));
-			volume *= baseVolume * (127.0 / 200.0);
-			note.m_volume = qMin(qRound(volume), 127);
-			note.m_time = baseTime + element.attribute("pos", "0").toInt();
-			note.m_duration = element.attribute("len", "0").toInt();
-
-			// Append note to vector
-			m_notes.push_back(note);
-		}
-	}
-
-void MidiExport::Clip::writeToTrack(MidiFile::Track &mTrack) const
 {
-	for (const MidiNote &n : m_notes) {
-		mTrack.addNote(n.m_pitch, n.m_volume,
-				n.m_time / 48.0, n.m_duration / 48.0);
+	// TODO interpret steps="12" muted="0" type="1" name="Piano1" len="259"
+	for (QDomNode node = root.firstChild(); not node.isNull();
+			node = node.nextSibling())
+	{
+		QDomElement element = node.toElement();
+
+		// Ignore zero-length notes
+		if (element.attribute("len", "0") == "0") continue;
+
+		// Adjust note attributes based on base measures
+		Note note;
+		int pitch = element.attribute("key", "0").toInt() + basePitch;
+		note.m_pitch = qBound(0, pitch, 127);
+		double volume =
+				LocaleHelper::toDouble(element.attribute("vol", "100"));
+		volume *= baseVolume * (127.0 / 200.0);
+		note.m_volume = qMin(qRound(volume), 127);
+		note.m_time = baseTime + element.attribute("pos", "0").toInt();
+		note.m_duration = element.attribute("len", "0").toInt();
+
+		// Append note to vector
+		m_notes.push_back(note);
 	}
 }
 
-void MidiExport::Clip::processBBNotes(int cutPos)
+void MidiExport::Clip::writeToTrack(MidiFile::Track &mTrack) const
+{
+	for (const Note &note : m_notes) {
+		mTrack.addNote(note.m_pitch, note.m_volume,
+				note.m_time / 48.0, note.m_duration / 48.0);
+	}
+}
+
+void MidiExport::Clip::processBbNotes(int cutPos)
 {
 	// Sort in reverse order
 	sort(m_notes.rbegin(), m_notes.rend());
 
 	int cur = INT_MAX, next = INT_MAX;
-	for (MidiNote &n : m_notes)
+	for (Note &note : m_notes)
 	{
-		if (n.m_time < cur)
+		if (note.m_time < cur)
 		{
 			// Set last two notes positions
 			next = cur;
-			cur = n.m_time;
+			cur = note.m_time;
 		}
-		if (n.m_duration < 0)
+		if (note.m_duration < 0)
 		{
 			// Note should have positive duration that neither
 			// overlaps next one nor exceeds cutPos
-			n.m_duration = qMin(-n.m_duration, next - cur);
-			n.m_duration = qMin(n.m_duration, cutPos - n.m_time);
+			note.m_duration = qMin(-note.m_duration, next - cur);
+			note.m_duration = qMin(note.m_duration, cutPos - note.m_time);
 		}
 	}
 }
 
-void MidiExport::Clip::writeToBB(Clip &bbClip,
+void MidiExport::Clip::writeToBb(Clip &bbClip,
 		int len, int base, int start, int end)
 {
 	// Avoid misplaced start and end positions
@@ -131,7 +131,7 @@ void MidiExport::Clip::writeToBB(Clip &bbClip,
 	end -= base;
 
 	sort(m_notes.begin(), m_notes.end());
-	for (MidiNote note : m_notes)
+	for (Note note : m_notes)
 	{
 		// Insert periodically repeating notes from <t0> and spaced
 		// by <len> to mimic BB clip behavior
@@ -146,7 +146,6 @@ void MidiExport::Clip::writeToBB(Clip &bbClip,
 
 /*---------------------------------------------------------------------------*/
 
-// Constructor and destructor
 MidiExport::MidiExport() :
 		ExportFilter(&midiexport_plugin_descriptor) {}
 
@@ -172,7 +171,7 @@ bool MidiExport::tryExport(const TrackContainer::TrackList &tracks,
 	// Write header info
 	m_file->m_header.writeToBuffer();
 
-	// Some useful class members
+	// Set tempo and pitch properties
 	m_tempo = tempo;
 	m_masterPitch = masterPitch;
 
@@ -182,34 +181,33 @@ bool MidiExport::tryExport(const TrackContainer::TrackList &tracks,
 	{
 		if (track->type() == Track::InstrumentTrack)
 		{
-			foo(track, channel_id);
+			processTrack(track, channel_id);
 		}
 		else if (track->type() == Track::BBTrack)
 		{
-			goo(track);
+			processBbTrack(track);
 		}
 	}
 	// Iterate through BB tracks
-	for (Track* track : tracksBB)
+	for (Track *track : tracksBB)
 	{
-		foo(track, channel_id, true);
+		processTrack(track, channel_id, true);
 	}
-	// Write buffered data to stream
+	// Write all buffered data to stream
 	m_file->writeAllToStream();
 
 	// Always returns success... for now?
 	return true;
 }
 
-void MidiExport::foo(Track *track, uint8_t &channelID, bool isBB)
+void MidiExport::processTrack(Track *track, uint8_t &channelID, bool isBB)
 {
 	// Cast track as a instrument one and save info from it to element
 	InstrumentTrack *instTrack = dynamic_cast<InstrumentTrack *>(track);
-	QDomElement element =
-			instTrack->saveState(m_dataFile, m_dataFile.content());
+	QDomElement root = instTrack->saveState(m_dataFile, m_dataFile.content());
 
 	// Create track with incremental id
-	MidiFile::Track &midiTrack = m_file->m_tracks[channelID];
+	MidiFile::Track &midiTrack = m_file->m_tracks[channelID++];
 
 	// Add info about tempo and track name
 	midiTrack.addTempo(m_tempo, 0);
@@ -228,113 +226,105 @@ void MidiExport::foo(Track *track, uint8_t &channelID, bool isBB)
 	}
 	midiTrack.addProgramChange(patch, 0);
 
-	// Get track info and then update clip
-	int basePitch = 57;
-	double baseVolume = 1.0;
-	Clip midiClip;
-	int i = 0;
-	for (QDomNode node = element.firstChild(); not node.isNull();
-			node = node.nextSibling())
+	// ---- Instrument track ---- //
+	QDomNode trackNode = root.firstChildElement("instrumenttrack");
+	QDomElement trackElem = trackNode.toElement();
+	int basePitch = 69 - trackElem.attribute("basenote", "69").toInt();
+	// Adjust to masterPitch if enabled
+	if (trackElem.attribute("usemasterpitch", "1").toInt())
 	{
-		QDomElement e = node.toElement();
-
-		if (node.nodeName() == "instrumenttrack")
-		{
-			// Adjust to masterPitch if enabled
-			basePitch = 69 - e.attribute("basenote", "69").toInt();
-			if (e.attribute("usemasterpitch", "1").toInt())
-			{
-				basePitch += m_masterPitch;
-			}
-			// Volume ranges in [0.0, 2.0]
-			baseVolume = LocaleHelper::toDouble(
-					e.attribute("volume", "100")) / 100.0;
-		}
-		else if (node.nodeName() == "pattern") //TODO: rename to "midiClip"
-		{
-			if (not isBB)
-			{
-				// Base time == initial position
-				int baseTime = e.attribute("pos", "0").toInt();
-
-				// Write track notes to clip
-				midiClip.write(node, basePitch, baseVolume, baseTime);
-
-				// Write clip info to MIDI file track
-				midiClip.processBBNotes(INT_MAX);
-				midiClip.writeToTrack(midiTrack);
-			}
-			else
-			{
-				// Write to-be repeated BB notes to clip
-				// (notice base time of 0)
-				Clip midiClip, bbClip; // FIXME: midiClip shadowing
-				midiClip.write(node, basePitch, baseVolume, 0);
-
-				// Workaround for nested BBClips
-				int pos = 0;
-				int len = 12 * e.attribute("steps", "1").toInt();
-
-				// Iterate through BBClip pairs of current list
-				// TODO: This *may* need some corrections?
-				const vector<pair<int,int>> &plist = m_plists[i++];
-				stack<pair<int, int>> st;
-				for (const pair<int, int> &p : plist)
-				{
-					while (not st.empty() and st.top().second <= p.first)
-					{
-						midiClip.writeToBB(bbClip, len, st.top().first, pos, st.top().second);
-						pos = st.top().second;
-						st.pop();
-					}
-					if (not st.empty() and st.top().second <= p.second)
-					{
-						midiClip.writeToBB(bbClip, len, st.top().first, pos, p.first);
-						pos = p.first;
-						while (!st.empty() && st.top().second <= p.second)
-						{
-							st.pop();
-						}
-					}
-					st.push(p);
-					pos = p.first;
-				}
-				while (not st.empty())
-				{
-					midiClip.writeToBB(bbClip, len, st.top().first, pos, st.top().second);
-					pos = st.top().second;
-					st.pop();
-				}
-				// Write clip info to MIDI file track
-				bbClip.processBBNotes(pos);
-				bbClip.writeToTrack(midiTrack);
-
-				// Write track data to buffer
-				midiTrack.writeToBuffer();
-			}
-		}
+		basePitch += m_masterPitch;
 	}
+	// Volume ranges in [0.0, 2.0]
+	double baseVolume = LocaleHelper::toDouble(
+			trackElem.attribute("volume", "100")) / 100.0;
+
+	// ---- Clip ---- //
+	QDomNode clipNode = root.firstChildElement("pattern"); // TODO: Rename to "midiClip"
+	QDomElement clipElem = clipNode.toElement();
+	Clip clip;
+	if (not isBB)
+	{
+		// Base time == initial position
+		int baseTime = clipElem.attribute("pos", "0").toInt();
+
+		// Write track notes to clip
+		clip.write(clipNode, basePitch, baseVolume, baseTime);
+
+		// Write clip info to MIDI file track
+		clip.processBbNotes(INT_MAX);
+		clip.writeToTrack(midiTrack);
+	}
+	else
+	{
+		// Write to-be repeated BB notes to clip
+		// (notice base time of 0)
+		clip.write(clipNode, basePitch, baseVolume, 0);
+	}
+
+	// Write track data to buffer
+	midiTrack.writeToBuffer();
 }
 
-void MidiExport::goo(Track *track)
+void MidiExport::writeBbClip(Clip &clip, const QDomElement &clipElem,
+		uint8_t channelID, MidiFile::Track &midiTrack)
+{
+	// Workaround for nested BBClips
+	int pos = 0;
+	int len = 12 * clipElem.attribute("steps", "1").toInt();
+
+	// Iterate through BBClip pairs of current list
+	// TODO: This *may* need some corrections?
+	const vector<pair<int,int>> &plist = m_plists[channelID - 1];
+	stack<pair<int, int>> st;
+	Clip bbClip;
+	for (const pair<int, int> &p : plist)
+	{
+		while (not st.empty() and st.top().second <= p.first)
+		{
+			clip.writeToBb(bbClip, len, st.top().first, pos, st.top().second);
+			pos = st.top().second;
+			st.pop();
+		}
+		if (not st.empty() and st.top().second <= p.second)
+		{
+			clip.writeToBb(bbClip, len, st.top().first, pos, p.first);
+			pos = p.first;
+			while (not st.empty() and st.top().second <= p.second)
+			{
+				st.pop();
+			}
+		}
+		st.push(p);
+		pos = p.first;
+	}
+	while (not st.empty())
+	{
+		clip.writeToBb(bbClip, len, st.top().first, pos, st.top().second);
+		pos = st.top().second;
+		st.pop();
+	}
+	// Write clip info to MIDI file track
+	bbClip.processBbNotes(pos);
+	bbClip.writeToTrack(midiTrack);
+}
+
+void MidiExport::processBbTrack(Track *track)
 {
 	// Cast track as a BB one and save info from it to element
 	BBTrack *bbTrack = dynamic_cast<BBTrack *>(track);
-	QDomElement element =
-			bbTrack->saveState(m_dataFile, m_dataFile.content());
+	QDomElement root = bbTrack->saveState(m_dataFile, m_dataFile.content());
 
 	// Build lists of (start, end) pairs from BB note objects
 	vector<pair<int,int>> plist;
-	for (QDomNode node = element.firstChild(); not node.isNull();
-			node = node.nextSibling())
+	for (QDomNode bbclipNode = root.firstChildElement("bbclip");
+			not bbclipNode.isNull();
+			bbclipNode = bbclipNode.nextSiblingElement("bbclip"))
 	{
-		if (node.nodeName() == "bbclip")
-		{
-			QDomElement e = node.toElement();
-			int start = e.attribute("pos", "0").toInt();
-			int end = start + e.attribute("len", "0").toInt();
-			plist.push_back(pair<int,int>(start, end));
-		}
+		QDomElement bbclipElem = bbclipNode.toElement();
+		int start = bbclipElem.attribute("pos", "0").toInt();
+		int end = start + bbclipElem.attribute("len", "0").toInt();
+		plist.push_back(pair<int,int>(start, end));
 	}
 	// Sort list in ascending order and append it to matrix
 	sort(plist.begin(), plist.end());
