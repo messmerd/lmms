@@ -64,7 +64,7 @@ void MidiExport::Clip::write(const QDomNode &root,
 		int basePitch, double baseVolume, int baseTime)
 {
 	// TODO interpret steps="12" muted="0" type="1" name="Piano1" len="259"
-	for (QDomNode node = root.firstChild(); not node.isNull();
+	for (QDomNode node = root.firstChild(); !node.isNull();
 			node = node.nextSibling())
 	{
 		QDomElement element = node.toElement();
@@ -250,12 +250,11 @@ void MidiExport::processTrack(Track *track, size_t trackIdx, bool isBb)
 	// ---- Clips ---- //
 	uint8_t bbId = 0;
 	for (QDomNode clipNode = root.firstChildElement("pattern"); // TODO: Rename to "midiClip"
-			not clipNode.isNull();
-			clipNode = clipNode.nextSiblingElement("pattern")) // TODO: Rename to "midiClip"
+			!clipNode.isNull(); clipNode = clipNode.nextSiblingElement("pattern")) // TODO: Rename to "midiClip"
 	{
 		QDomElement clipElem = clipNode.toElement();
 		Clip clip;
-		if (not isBb)
+		if (!isBb)
 		{
 			// Base time == initial position
 			int baseTime = clipElem.attribute("pos", "0").toInt();
@@ -295,17 +294,17 @@ void MidiExport::writeBbClip(Clip &clip, const QDomElement &clipElem,
 	Clip bbClip;
 	for (const pair<int, int> &p : plist)
 	{
-		while (not st.empty() and st.top().second <= p.first)
+		while (!st.empty() && st.top().second <= p.first)
 		{
 			clip.writeToBb(bbClip, len, st.top().first, pos, st.top().second);
 			pos = st.top().second;
 			st.pop();
 		}
-		if (not st.empty() and st.top().second <= p.second)
+		if (!st.empty() && st.top().second <= p.second)
 		{
 			clip.writeToBb(bbClip, len, st.top().first, pos, p.first);
 			pos = p.first;
-			while (not st.empty() and st.top().second <= p.second)
+			while (!st.empty() && st.top().second <= p.second)
 			{
 				st.pop();
 			}
@@ -313,7 +312,7 @@ void MidiExport::writeBbClip(Clip &clip, const QDomElement &clipElem,
 		st.push(p);
 		pos = p.first;
 	}
-	while (not st.empty())
+	while (!st.empty())
 	{
 		clip.writeToBb(bbClip, len, st.top().first, pos, st.top().second);
 		pos = st.top().second;
@@ -333,7 +332,7 @@ void MidiExport::processBbTrack(Track *track)
 	// Build lists of (start, end) pairs from BB note objects
 	vector<pair<int,int>> plist;
 	for (QDomNode bbclipNode = root.firstChildElement("bbclip");
-			not bbclipNode.isNull();
+			!bbclipNode.isNull();
 			bbclipNode = bbclipNode.nextSiblingElement("bbclip"))
 	{
 		QDomElement bbclipElem = bbclipNode.toElement();
