@@ -31,13 +31,12 @@
 
 #ifdef LMMS_HAVE_CLAP
 
-#include "ClapFile.h"
+#include "ClapPluginInfo.h"
 #include "Plugin.h"
 #include "lmms_export.h"
 
 namespace lmms
 {
-
 
 class LMMS_EXPORT ClapSubPluginFeatures : public Plugin::Descriptor::SubPluginFeatures
 {
@@ -54,7 +53,6 @@ public:
 private:
 	static auto pluginInfo(const Key& key) -> const ClapPluginInfo*;
 };
-
 
 } // namespace lmms
 

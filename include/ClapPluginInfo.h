@@ -29,22 +29,18 @@
 
 #ifdef LMMS_HAVE_CLAP
 
-#include <QLibrary>
-#include <memory>
 #include <optional>
-#include <vector>
 #include <clap/entry.h>
 #include <clap/factory/plugin-factory.h>
 
 #include "Plugin.h"
-#include "PluginIssue.h"
-#include "lmms_filesystem.h"
+#include "lmms_export.h"
 
 namespace lmms
 {
 
 //! Represents a CLAP plugin within a .clap file
-class ClapPluginInfo
+class LMMS_EXPORT ClapPluginInfo
 {
 public:
 	static auto create(const clap_plugin_factory& factory, std::uint32_t index) -> std::optional<ClapPluginInfo>;
@@ -54,9 +50,6 @@ public:
 	ClapPluginInfo(ClapPluginInfo&&) noexcept = default;
 	auto operator=(const ClapPluginInfo&) -> ClapPluginInfo& = default;
 	auto operator=(ClapPluginInfo&&) noexcept -> ClapPluginInfo& = default;
-
-	//auto isValid() const { return m_valid; }
-	//void invalidate() const { m_valid = false; }
 
 	auto factory() const -> const clap_plugin_factory& { return *m_factory; };
 	auto index() const { return m_index; }

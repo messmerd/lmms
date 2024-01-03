@@ -32,20 +32,17 @@
 #include <QLibrary>
 #include <memory>
 #include <vector>
-#include <clap/entry.h>
-#include <clap/factory/plugin-factory.h>
 
 #include "ClapPluginInfo.h"
 #include "NoCopyNoMove.h"
-#include "Plugin.h"
-#include "PluginIssue.h"
 #include "lmms_filesystem.h"
+#include "lmms_export.h"
 
 namespace lmms
 {
 
 //! Class representing info for one .clap file, which contains 1 or more CLAP plugins
-class ClapFile
+class LMMS_EXPORT ClapFile
 {
 public:
 	class AccessKey : public NoCopyNoMove
