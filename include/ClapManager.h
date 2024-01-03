@@ -96,7 +96,7 @@ private:
 	// Non-owning plugin caches (for fast iteration/lookup)
 
 	std::vector<const ClapPluginInfo*> m_pluginInfo; //!< successfully loaded plugins
-	std::unordered_map<std::string, const ClapPluginInfo> m_uriMap; //!< maps plugin URIs (IDs) to ClapPluginInfo
+	std::unordered_map<std::string, ClapPluginInfo> m_uriMap; //!< maps plugin URIs (IDs) to ClapPluginInfo
 
 	static inline bool s_debugging = false; //!< If LMMS_CLAP_DEBUG is set, debug output will be printed
 };
