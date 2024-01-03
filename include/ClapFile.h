@@ -31,11 +31,12 @@
 
 #include <QLibrary>
 #include <memory>
-#include <unordered_set>
 #include <vector>
 #include <clap/entry.h>
 #include <clap/factory/plugin-factory.h>
 
+#include "ClapPluginInfo.h"
+#include "NoCopyNoMove.h"
 #include "Plugin.h"
 #include "PluginIssue.h"
 #include "lmms_filesystem.h"
@@ -43,52 +44,24 @@
 namespace lmms
 {
 
-class ClapManager;
-
 //! Class representing info for one .clap file, which contains 1 or more CLAP plugins
 class ClapFile
 {
 public:
+	class AccessKey : public NoCopyNoMove
+	{
+		AccessKey() = default;
+		friend class ClapManager;
+	};
+
 	//! Loads .clap file and plugin info
 	explicit ClapFile(fs::path filename);
 	~ClapFile();
 
 	ClapFile(const ClapFile&) = delete;
-	ClapFile(ClapFile&& other) noexcept;
+	ClapFile(ClapFile&& other) noexcept = default;
 	auto operator=(const ClapFile&) -> ClapFile& = delete;
-	auto operator=(ClapFile&& rhs) noexcept -> ClapFile&;
-
-	//! Represents a CLAP plugin within a .clap file
-	class ClapPluginInfo
-	{
-	public:
-		//! Loads plugin info but does not activate
-		ClapPluginInfo(const clap_plugin_factory* factory, std::uint32_t index);
-		~ClapPluginInfo() = default;
-
-		ClapPluginInfo(const ClapPluginInfo&) = delete;
-		ClapPluginInfo(ClapPluginInfo&& other) noexcept;
-		auto operator=(const ClapPluginInfo&) -> ClapPluginInfo& = delete;
-		auto operator=(ClapPluginInfo&&) noexcept -> ClapPluginInfo& = delete;
-
-		auto isValid() const { return m_valid; }
-		void invalidate() const { m_valid = false; }
-
-		auto factory() const { return m_factory; };
-		auto index() const { return m_index; }
-		auto type() const { return m_type; }
-		auto descriptor() const { return m_descriptor; }
-
-	private:
-
-		// Are set when the .clap file is loaded:
-		const clap_plugin_factory* m_factory;
-		std::uint32_t m_index; //!< Plugin index within the .clap file
-		const clap_plugin_descriptor* m_descriptor = nullptr;
-		Plugin::Type m_type = Plugin::Type::Undefined;
-		mutable bool m_valid = false;
-		std::unordered_set<PluginIssue, PluginIssueHash> m_issues;
-	};
+	auto operator=(ClapFile&& rhs) noexcept -> ClapFile& = default;
 
 	//! Call after creating ClapFile to load the .clap file
 	auto load() -> bool;
@@ -96,31 +69,37 @@ public:
 	auto filename() const -> const fs::path& { return m_filename; }
 	auto factory() const { return m_factory; }
 
-	//! Only includes plugins that successfully loaded
+	//! Only includes plugins that successfully loaded; Some may be invalidated later
 	auto pluginInfo() const -> const auto& { return m_pluginInfo; }
+
+	//! Only includes plugins that successfully loaded; Some may be invalidated later
+	auto pluginInfo(AccessKey) -> auto& { return m_pluginInfo; }
 
 	//! Includes plugins that failed to load
 	auto pluginCount() const { return m_pluginCount; }
 
-	auto isValid() const { return m_valid; }
-
-	//! Removes any invalid plugin info objects - be careful when using
-	void purgeInvalidPlugins();
-
 private:
-	void unload();
+	void unload() noexcept;
 
-	// Are set when the .clap file is loaded:
 	fs::path m_filename;
-	std::unique_ptr<QLibrary> m_library;
-	const clap_plugin_entry* m_entry = nullptr;
-	const clap_plugin_factory* m_factory = nullptr;
-	std::vector<std::shared_ptr<const ClapPluginInfo>> m_pluginInfo; //!< Only includes info for plugins that successfully loaded
-	std::uint32_t m_pluginCount = 0; //!< Includes plugins that failed to load
-	bool m_valid = false;
-};
 
-using ClapPluginInfo = ClapFile::ClapPluginInfo;
+	std::unique_ptr<QLibrary> m_library;
+
+	struct EntryDeleter
+	{
+		void operator()(const clap_plugin_entry* ptr);
+	};
+
+	std::unique_ptr<const clap_plugin_entry, EntryDeleter> m_entry;
+
+	const clap_plugin_factory* m_factory = nullptr;
+
+	//! Only includes info for plugins that successfully loaded
+	std::vector<std::optional<const ClapPluginInfo>> m_pluginInfo;
+
+	//! Includes plugins that failed to load
+	std::uint32_t m_pluginCount = 0;
+};
 
 } // namespace lmms
 

@@ -52,7 +52,7 @@ public:
 	auto logo(const Key& key) const -> const PixmapLoader* override;
 
 private:
-	static auto pluginInfo(const Key& key) -> std::shared_ptr<const ClapPluginInfo>;
+	static auto pluginInfo(const Key& key) -> const ClapPluginInfo*;
 };
 
 
