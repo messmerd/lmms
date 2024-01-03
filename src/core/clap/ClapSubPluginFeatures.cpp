@@ -108,11 +108,11 @@ void ClapSubPluginFeatures::listSubPluginKeys(const Plugin::Descriptor* desc, Ke
 {
 	for (const auto& file : Engine::getClapManager()->files())
 	{
-		for (const auto& pluginInfo : file.pluginInfo())
+		for (const auto& info : file.pluginInfo())
 		{
-			if (!pluginInfo || pluginInfo->type() != m_type) { continue; }
+			if (!info || info->type() != m_type) { continue; }
 
-			const auto& plugin = pluginInfo->descriptor();
+			const auto& plugin = info->descriptor();
 			Key::AttributeMap atm;
 			atm["uri"] = QString::fromUtf8(plugin.id);
 

@@ -56,9 +56,9 @@ public:
 	~ClapFile();
 
 	ClapFile(const ClapFile&) = delete;
-	ClapFile(ClapFile&& other) noexcept = default;
+	ClapFile(ClapFile&&) noexcept = default;
 	auto operator=(const ClapFile&) -> ClapFile& = delete;
-	auto operator=(ClapFile&& rhs) noexcept -> ClapFile& = default;
+	auto operator=(ClapFile&&) noexcept -> ClapFile& = default;
 
 	//! Call after creating ClapFile to load the .clap file
 	auto load() -> bool;
@@ -67,7 +67,7 @@ public:
 	auto factory() const { return m_factory; }
 
 	//! Only includes plugins that successfully loaded; Some may be invalidated later
-	auto pluginInfo() const -> const auto& { return m_pluginInfo; }
+	auto pluginInfo() const -> auto& { return m_pluginInfo; }
 
 	//! Only includes plugins that successfully loaded; Some may be invalidated later
 	auto pluginInfo(AccessKey) -> auto& { return m_pluginInfo; }
@@ -92,7 +92,7 @@ private:
 	const clap_plugin_factory* m_factory = nullptr;
 
 	//! Only includes info for plugins that successfully loaded
-	std::vector<std::optional<const ClapPluginInfo>> m_pluginInfo;
+	std::vector<std::optional<ClapPluginInfo>> m_pluginInfo;
 
 	//! Includes plugins that failed to load
 	std::uint32_t m_pluginCount = 0;
