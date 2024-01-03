@@ -56,9 +56,9 @@ public:
 	~ClapFile();
 
 	ClapFile(const ClapFile&) = delete;
-	ClapFile(ClapFile&&) noexcept = default;
+	ClapFile(ClapFile&& other) noexcept;
 	auto operator=(const ClapFile&) -> ClapFile& = delete;
-	auto operator=(ClapFile&&) noexcept -> ClapFile& = default;
+	auto operator=(ClapFile&& rhs) noexcept -> ClapFile&;
 
 	//! Call after creating ClapFile to load the .clap file
 	auto load() -> bool;
