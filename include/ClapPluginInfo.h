@@ -43,7 +43,9 @@ namespace lmms
 class LMMS_EXPORT ClapPluginInfo
 {
 public:
+	//! Creates plugin info, populated via a quick scan of the plugin; may fail
 	static auto create(const clap_plugin_factory& factory, std::uint32_t index) -> std::optional<ClapPluginInfo>;
+
 	~ClapPluginInfo() = default;
 
 	ClapPluginInfo(const ClapPluginInfo&) = default;
@@ -57,7 +59,6 @@ public:
 	auto descriptor() const -> const clap_plugin_descriptor& { return *m_descriptor; }
 
 private:
-	//! Just performs quick scan of plugin info
 	ClapPluginInfo(const clap_plugin_factory& factory, std::uint32_t index);
 
 	const clap_plugin_factory* m_factory;

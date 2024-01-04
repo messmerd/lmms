@@ -36,11 +36,11 @@
 #include <clap/host.h>
 
 #include "ClapAudioPorts.h"
-#include "ClapFile.h"
 #include "ClapGui.h"
 #include "ClapLog.h"
 #include "ClapNotePorts.h"
 #include "ClapParams.h"
+#include "ClapPluginInfo.h"
 #include "ClapState.h"
 #include "ClapThreadCheck.h"
 #include "ClapTimerSupport.h"

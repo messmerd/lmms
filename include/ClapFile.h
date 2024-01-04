@@ -51,7 +51,6 @@ public:
 		friend class ClapManager;
 	};
 
-	//! Loads .clap file and plugin info
 	explicit ClapFile(fs::path filename);
 	~ClapFile();
 
@@ -60,7 +59,7 @@ public:
 	auto operator=(const ClapFile&) -> ClapFile& = delete;
 	auto operator=(ClapFile&& rhs) noexcept -> ClapFile&;
 
-	//! Call after creating ClapFile to load the .clap file
+	//! Loads the .clap file and scans for plugins
 	auto load() -> bool;
 
 	auto filename() const -> const fs::path& { return m_filename; }

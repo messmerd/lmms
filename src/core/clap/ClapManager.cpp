@@ -215,8 +215,8 @@ void ClapManager::loadClapFiles(const UniquePaths& searchPaths)
 				ClapLog::plainLog(msg);
 			}
 
-			auto& file = m_files.emplace_back(entryPath);
-			if (!file.load())
+			auto& file = m_files.emplace_back(std::make_unique<ClapFile>(entryPath));
+			if (!file || !file->load())
 			{
 				std::string msg = "Failed to load '";
 				msg += entryPath.string();
@@ -226,8 +226,8 @@ void ClapManager::loadClapFiles(const UniquePaths& searchPaths)
 				continue;
 			}
 
-			totalPlugins += file.pluginCount();
-			for (auto& plugin : file.pluginInfo(ClapFile::AccessKey{}))
+			totalPlugins += file->pluginCount();
+			for (auto& plugin : file->pluginInfo(ClapFile::AccessKey{}))
 			{
 				assert(plugin.has_value());
 				const bool added = m_uriMap.emplace(std::string{plugin->descriptor().id}, *plugin).second;
