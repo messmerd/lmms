@@ -141,12 +141,6 @@ void ClapFile::unload() noexcept
 	}
 }
 
-void ClapFile::EntryDeleter::operator()(const clap_plugin_entry* ptr) const
-{
-	// No more calls into the shared library can be made after this
-	ptr->deinit();
-}
-
 } // namespace lmms
 
 #endif // LMMS_HAVE_CLAP
