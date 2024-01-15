@@ -73,7 +73,7 @@ private:
 	//! For hashing since std::hash<std::filesystem::path> is not available until C++23's LWG issue 3657 for god knows why
 	struct PathHash
 	{
-		auto operator()(const fs::path& path) const -> std::size_t
+		auto operator()(const fs::path& path) const noexcept -> std::size_t
 		{
 			return fs::hash_value(path);
 		}

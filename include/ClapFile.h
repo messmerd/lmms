@@ -57,9 +57,9 @@ public:
 	explicit ClapFile(fs::path filename);
 	~ClapFile();
 
-	ClapFile(const ClapFile&) = delete;
+	ClapFile(const ClapFile&) = default;
 	ClapFile(ClapFile&& other) noexcept;
-	auto operator=(const ClapFile&) -> ClapFile& = delete;
+	auto operator=(const ClapFile&) -> ClapFile& = default;
 	auto operator=(ClapFile&& rhs) noexcept -> ClapFile&;
 
 	//! Loads the .clap file and scans for plugins
@@ -86,7 +86,7 @@ private:
 
 	struct EntryDeleter
 	{
-		void operator()(const clap_plugin_entry* p) const
+		void operator()(const clap_plugin_entry* p) const noexcept
 		{
 			p->deinit();
 		}
