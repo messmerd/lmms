@@ -227,7 +227,7 @@ void ClapManager::loadClapFiles(const UniquePaths& searchPaths)
 			}
 
 			totalPlugins += file->pluginCount();
-			for (auto& plugin : file->pluginInfo(ClapFile::AccessKey{}))
+			for (auto& plugin : file->pluginInfo({}))
 			{
 				assert(plugin.has_value());
 				const bool added = m_uriMap.emplace(std::string{plugin->descriptor().id}, *plugin).second;

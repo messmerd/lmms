@@ -34,7 +34,6 @@
 #include <vector>
 
 #include "ClapPluginInfo.h"
-#include "NoCopyNoMove.h"
 #include "lmms_filesystem.h"
 #include "lmms_export.h"
 
@@ -45,9 +44,13 @@ namespace lmms
 class LMMS_EXPORT ClapFile
 {
 public:
-	class AccessKey : public NoCopyNoMove
+	//! passkey idiom
+	class AccessKey
 	{
-		AccessKey() = default;
+		AccessKey() {}
+		AccessKey(const AccessKey&) = default;
+	public:
+		AccessKey(AccessKey&&) noexcept = default;
 		friend class ClapManager;
 	};
 
@@ -62,7 +65,7 @@ public:
 	//! Loads the .clap file and scans for plugins
 	auto load() -> bool;
 
-	auto filename() const -> const fs::path& { return m_filename; }
+	auto filename() const -> auto& { return m_filename; }
 	auto factory() const { return m_factory; }
 
 	//! Only includes plugins that successfully loaded; Some may be invalidated later
@@ -83,7 +86,10 @@ private:
 
 	struct EntryDeleter
 	{
-		void operator()(const clap_plugin_entry* ptr);
+		void operator()(const clap_plugin_entry* p) const
+		{
+			p->deinit();
+		}
 	};
 
 	std::unique_ptr<const clap_plugin_entry, EntryDeleter> m_entry;
