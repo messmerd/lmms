@@ -198,7 +198,7 @@ void ClapManager::loadClapFiles(const UniquePaths& searchPaths)
 	{
 		for (const auto& entry : fs::recursive_directory_iterator{path})
 		{
-			const auto& entryPath = entry.path();
+			auto& entryPath = entry.path();
 			std::error_code ec;
 			// NOTE: Using is_regular_file() free function workaround due to std::experimental::filesystem
 			if (!fs::is_regular_file(entry, ec) || entryPath.extension() != ".clap")

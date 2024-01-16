@@ -37,13 +37,14 @@
 #include <vector>
 
 #include "ClapFile.h"
+#include "NoCopyNoMove.h"
 #include "lmms_export.h"
 
 namespace lmms
 {
 
 //! Manages loaded .clap files, plugin info, and plugin instances
-class LMMS_EXPORT ClapManager
+class LMMS_EXPORT ClapManager : public NoCopyNoMove
 {
 public:
 	ClapManager();

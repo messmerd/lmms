@@ -45,7 +45,7 @@ class LMMS_EXPORT ClapFile
 {
 public:
 	//! passkey idiom
-	class AccessKey
+	class LMMS_EXPORT AccessKey
 	{
 	public:
 		AccessKey(AccessKey&&) noexcept = default;
@@ -58,7 +58,7 @@ public:
 	explicit ClapFile(fs::path filename);
 	~ClapFile();
 
-	ClapFile(const ClapFile&) = default;
+	ClapFile(const ClapFile&) = delete;
 	ClapFile(ClapFile&& other) noexcept
 		: m_filename{std::move(other.m_filename)}
 		, m_library{std::move(other.m_library)}
@@ -68,7 +68,7 @@ public:
 		, m_pluginCount{other.m_pluginCount}
 	{
 	}
-	auto operator=(const ClapFile&) -> ClapFile& = default;
+	auto operator=(const ClapFile&) -> ClapFile& = delete;
 	auto operator=(ClapFile&& rhs) noexcept -> ClapFile&
 	{
 		if (this != &rhs)
