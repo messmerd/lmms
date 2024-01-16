@@ -49,6 +49,11 @@ public:
 	ClapPluginInfo() = delete;
 	~ClapPluginInfo() = default;
 
+	ClapPluginInfo(const ClapPluginInfo&) = default;
+	ClapPluginInfo(ClapPluginInfo&&) noexcept = default;
+	auto operator=(const ClapPluginInfo&) -> ClapPluginInfo& = default;
+	auto operator=(ClapPluginInfo&&) noexcept -> ClapPluginInfo& = default;
+
 	auto factory() const -> const clap_plugin_factory& { return *m_factory; };
 	auto index() const { return m_index; }
 	auto type() const { return m_type; }

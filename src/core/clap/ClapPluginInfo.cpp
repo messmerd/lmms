@@ -35,7 +35,7 @@ namespace lmms
 auto ClapPluginInfo::create(const clap_plugin_factory& factory, std::uint32_t index) -> std::optional<ClapPluginInfo>
 {
 	auto info = std::optional{ClapPluginInfo{factory, index}};
-	return info->type() != Plugin::Type::Undefined ? std::move(info) : std::nullopt;
+	return info->type() != Plugin::Type::Undefined ? info : std::nullopt;
 }
 
 ClapPluginInfo::ClapPluginInfo(const clap_plugin_factory& factory, std::uint32_t index)
