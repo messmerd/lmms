@@ -47,20 +47,41 @@ public:
 	//! passkey idiom
 	class AccessKey
 	{
-		AccessKey() {}
-		AccessKey(const AccessKey&) = default;
 	public:
 		AccessKey(AccessKey&&) noexcept = default;
 		friend class ClapManager;
+	private:
+		AccessKey() {}
+		AccessKey(const AccessKey&) = default;
 	};
 
 	explicit ClapFile(fs::path filename);
 	~ClapFile();
 
 	ClapFile(const ClapFile&) = default;
-	ClapFile(ClapFile&& other) noexcept;
+	ClapFile(ClapFile&& other) noexcept
+		: m_filename{std::move(other.m_filename)}
+		, m_library{std::move(other.m_library)}
+		, m_entry{std::move(other.m_entry)}
+		, m_factory{other.m_factory}
+		, m_pluginInfo{std::move(other.m_pluginInfo)}
+		, m_pluginCount{other.m_pluginCount}
+	{
+	}
 	auto operator=(const ClapFile&) -> ClapFile& = default;
-	auto operator=(ClapFile&& rhs) noexcept -> ClapFile&;
+	auto operator=(ClapFile&& rhs) noexcept -> ClapFile&
+	{
+		if (this != &rhs)
+		{
+			m_filename = std::move(rhs.m_filename);
+			m_library = std::move(rhs.m_library);
+			m_entry = std::move(rhs.m_entry);
+			m_factory = rhs.m_factory;
+			m_pluginInfo = std::move(rhs.m_pluginInfo);
+			m_pluginCount = rhs.m_pluginCount;
+		}
+		return *this;
+	}
 
 	//! Loads the .clap file and scans for plugins
 	auto load() -> bool;
