@@ -215,19 +215,19 @@ void ClapManager::loadClapFiles(const UniquePaths& searchPaths)
 				ClapLog::plainLog(msg);
 			}
 
-			auto& file = m_files.emplace_back(std::make_unique<ClapFile>(entryPath));
-			if (!file || !file->load())
+			auto& file = m_files.emplace_back(std::move(entryPath));
+			if (!file.load())
 			{
 				std::string msg = "Failed to load '";
-				msg += entryPath.string();
+				msg += file.filename().string();
 				msg += "'";
 				ClapLog::globalLog(CLAP_LOG_ERROR, msg);
 				m_files.pop_back(); // Remove/unload invalid clap file
 				continue;
 			}
 
-			totalPlugins += file->pluginCount();
-			for (auto& plugin : file->pluginInfo({}))
+			totalPlugins += file.pluginCount();
+			for (auto& plugin : file.pluginInfo({}))
 			{
 				assert(plugin.has_value());
 				const bool added = m_uriMap.emplace(std::string{plugin->descriptor().id}, *plugin).second;

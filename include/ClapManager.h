@@ -91,7 +91,7 @@ private:
 	void loadClapFiles(const UniquePaths& searchPaths);
 
 	UniquePaths m_searchPaths; //!< Owns all CLAP search paths; Populated by findSearchPaths()
-	std::vector<std::unique_ptr<ClapFile>> m_files; //!< Owns all loaded .clap files; Populated by loadClapFiles()
+	std::vector<ClapFile> m_files; //!< Owns all loaded .clap files; Populated by loadClapFiles()
 
 	// Non-owning plugin caches (for fast iteration/lookup)
 
