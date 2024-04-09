@@ -374,8 +374,7 @@ auto ClapInstance::init() -> bool
 		return false;
 	}
 
-	// TODO: What if this is the 2nd instance of a mono plugin?
-	//m_gui.init();
+	m_gui.init();
 
 	m_notePorts.init();
 	if (!hasNoteInput() && info().type() == Plugin::Type::Instrument)
@@ -765,7 +764,7 @@ auto ClapInstance::clapGetExtension(const clap_host* host, const char* extension
 
 	const auto id = std::string_view{extensionId};
 	//if (id == CLAP_EXT_AUDIO_PORTS)   { return h->audioPorts().hostExt(); }
-	//if (id == CLAP_EXT_GUI)           { return h->gui().hostExt(); }
+	if (id == CLAP_EXT_GUI)           { return h->gui().hostExt(); }
 	if (id == CLAP_EXT_LATENCY)       { return &s_clapLatency; }
 	if (id == CLAP_EXT_LOG)           { return h->logger().hostExt(); }
 	if (id == CLAP_EXT_NOTE_PORTS)    { return h->notePorts().hostExt(); }

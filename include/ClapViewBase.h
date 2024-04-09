@@ -46,6 +46,7 @@ class ClapInstance;
 namespace gui
 {
 
+class ClapGuiView;
 class ControlLayout;
 class PixmapButton;
 class PresetSelector;
@@ -91,6 +92,7 @@ private:
 		LinkChannelsRow
 	};
 
+	ClapGuiView* m_gui = nullptr;
 	PresetSelector* m_presetSelector = nullptr;
 	ComboBox* m_portConfig = nullptr;
 	ClapViewParameters* m_parametersView = nullptr;

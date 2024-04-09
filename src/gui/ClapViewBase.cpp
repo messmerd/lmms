@@ -34,6 +34,7 @@
 #include <QToolBar>
 
 #include "AudioEngine.h"
+#include "ClapGuiView.h"
 #include "ClapInstance.h"
 #include "ClapManager.h"
 #include "ComboBox.h"
@@ -149,6 +150,8 @@ ClapViewBase::ClapViewBase(QWidget* pluginWidget, ClapInstance* instance)
 
 	if (instance->gui().supported())
 	{
+		m_gui = new ClapGuiView{&instance->gui(), pluginWidget};
+
 		m_toggleUIButton = new QPushButton{QObject::tr("Show GUI"), pluginWidget};
 		m_toggleUIButton->setCheckable(true);
 		m_toggleUIButton->setChecked(false);
@@ -223,6 +226,7 @@ ClapViewBase::~ClapViewBase()
 
 void ClapViewBase::toggleUI()
 {
+	m_gui->toggleGui();
 }
 
 void ClapViewBase::modelChanged(ClapInstance* instance)

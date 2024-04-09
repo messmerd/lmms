@@ -29,6 +29,7 @@
 
 #ifdef LMMS_HAVE_CLAP
 
+#include <QObject>
 #include <string_view>
 #include <clap/ext/gui.h>
 
@@ -39,8 +40,13 @@
 namespace lmms
 {
 
-class ClapGui : public ClapExtension<clap_host_gui, clap_plugin_gui>
+namespace gui { class ClapGuiView; }
+
+class ClapGui
+	: public QObject
+	, public ClapExtension<clap_host_gui, clap_plugin_gui>
 {
+	Q_OBJECT
 public:
 	ClapGui(ClapInstance* instance);
 	~ClapGui() { destroy(); }
@@ -49,11 +55,20 @@ public:
 
 	auto create() -> bool;
 	void destroy();
+	void setVisibility(bool isVisible);
 
+	auto isVisible() const { return m_visible; }
 	auto isFloating() const { return m_embedMethod == WindowEmbed::Method::Floating; }
 
 	auto supportsEmbed() const { return m_supportsEmbed; }
 	auto supportsFloating() const { return m_supportsFloating; }
+
+	//auto createView() -> gui::ClapGuiView*;
+	void setView(gui::ClapGuiView* view) { m_pluginView = view; }
+
+	auto requestResize(std::uint32_t width, std::uint32_t height) -> bool;
+	auto requestShow() -> bool;
+	auto requestHide() -> bool;
 
 private:
 	auto initImpl() noexcept -> bool override;
@@ -73,6 +88,9 @@ private:
 	static void clapRequestClosed(const clap_host* host, bool wasDestroyed);
 
 	clap_window m_window{};
+
+	//QWidget* m_pluginView = nullptr;
+	gui::ClapGuiView* m_pluginView = nullptr;
 
 	bool m_created = false;
 	bool m_visible = false;

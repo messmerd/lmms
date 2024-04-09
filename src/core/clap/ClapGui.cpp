@@ -28,6 +28,7 @@
 
 #include <cassert>
 
+#include "ClapGuiView.h"
 #include "ClapInstance.h"
 #include "GuiApplication.h"
 #include "MainWindow.h"
@@ -37,8 +38,10 @@ namespace lmms
 {
 
 ClapGui::ClapGui(ClapInstance* instance)
-	: ClapExtension{instance}
+	: QObject{instance}
+	, ClapExtension{instance}
 {
+	if (!gui::getGUI()) { return; }
 	const auto windowId = gui::getGUI()->mainWindow()->winId();
 
 #if defined(LMMS_BUILD_WIN32)
@@ -98,7 +101,7 @@ auto ClapGui::hostExtImpl() const -> const clap_host_gui*
 		&clapRequestHide,
 		&clapRequestClosed
 	};
-	return &ext;
+	return gui::getGUI() ? &ext : nullptr;
 }
 
 auto ClapGui::checkSupported(const clap_plugin_gui& ext) -> bool
@@ -127,9 +130,32 @@ auto ClapGui::windowSupported(const clap_plugin_gui& ext, bool floating) -> bool
 
 auto ClapGui::create() -> bool
 {
+#if QT_VERSION < 0x50C00
+	// Workaround for a bug in Qt versions below 5.12,
+	// where argument-dependent-lookup fails for QFlags operators
+	// declared inside a namepsace.
+	// This affects the Q_DECLARE_OPERATORS_FOR_FLAGS macro in Instrument.h
+	// See also: https://codereview.qt-project.org/c/qt/qtbase/+/225348
+
+	using ::operator|;
+
+#endif
+
 	assert(supported());
 	destroy();
 
+	if (!gui::getGUI() || !m_pluginView) { return false; }
+
+	const auto windowId = m_pluginView->winId();
+#if defined(LMMS_BUILD_WIN32)
+	m_window.win32 = reinterpret_cast<clap_hwnd>(windowId);
+#elif defined(LMMS_BUILD_APPLE)
+	m_window.cocoa = reinterpret_cast<clap_nsview>(windowId);
+#elif defined(LMMS_BUILD_LINUX)
+	m_window.x11 = windowId;
+#endif
+
+	logger().log(CLAP_LOG_DEBUG, isFloating() ? "Creating floating gui" : "Creating embedded gui");
 	if (!pluginExt()->create(plugin(), m_window.api, isFloating()))
 	{
 		logger().log(CLAP_LOG_ERROR, "Failed to create the plugin GUI");
@@ -141,6 +167,7 @@ auto ClapGui::create() -> bool
 
 	if (isFloating())
 	{
+		logger().log(CLAP_LOG_DEBUG, "Setting transient then suggest title");
 		pluginExt()->set_transient(plugin(), &m_window);
 		if (const auto name = instance()->info().descriptor().name; name && name[0] != '\0')
 		{
@@ -160,7 +187,10 @@ auto ClapGui::create() -> bool
 			return false;
 		}
 
+		logger().log(CLAP_LOG_DEBUG, "Got embedded size; width:" + std::to_string(width) + " height:" + std::to_string(height));
+
 		//mainWindow()->resizePluginView(width, height);
+		requestResize(width, height);
 
 		if (!pluginExt()->set_parent(plugin(), &m_window))
 		{
@@ -169,7 +199,11 @@ auto ClapGui::create() -> bool
 			pluginExt()->destroy(plugin());
 			return false;
 		}
+
+		logger().log(CLAP_LOG_DEBUG, "Set parent");
 	}
+
+	setVisibility(true);
 
 	return true;
 }
@@ -185,6 +219,57 @@ void ClapGui::destroy()
 	m_visible = false;
 }
 
+void ClapGui::setVisibility(bool isVisible)
+{
+	assert(ClapThreadCheck::isMainThread());
+	if (!m_created) { return; }
+
+	if (isVisible && !m_visible)
+	{
+		pluginExt()->show(plugin());
+		m_visible = true;
+	}
+	else if (!isVisible && m_visible)
+	{
+		pluginExt()->hide(plugin());
+		m_visible = false;
+	}
+}
+
+/*
+auto ClapGui::createView() -> gui::ClapGuiView*
+{
+	if (!gui::getGUI()) { return nullptr; }
+	if (m_pluginView) { return m_pluginView; }
+	m_pluginView = new gui::ClapGuiView{this};
+	return m_pluginView;
+}*/
+
+auto ClapGui::requestResize(std::uint32_t width, std::uint32_t height) -> bool
+{
+	assert(ClapThreadCheck::isMainThread());
+	ClapLog::globalLog(CLAP_LOG_ERROR, "ClapGui::requestResize()");
+	return m_pluginView->resize(width, height);
+}
+
+auto ClapGui::requestShow() -> bool
+{
+	assert(ClapThreadCheck::isMainThread());
+	ClapLog::globalLog(CLAP_LOG_ERROR, "ClapGui::clapRequestShow()");
+	m_pluginView->show();
+	//m_pluginView->subWindow()->show();
+	return true;
+}
+
+auto ClapGui::requestHide() -> bool
+{
+	assert(ClapThreadCheck::isMainThread());
+	ClapLog::globalLog(CLAP_LOG_ERROR, "ClapGui::clapRequestHide()");
+	m_pluginView->hide();
+	//m_pluginView->subWindow()->hide();
+	return true;
+}
+
 void ClapGui::clapResizeHintsChanged(const clap_host* host)
 {
 	ClapLog::globalLog(CLAP_LOG_ERROR, "ClapGui::clapResizeHintsChanged() [NOT IMPLEMENTED YET]");
@@ -193,26 +278,61 @@ void ClapGui::clapResizeHintsChanged(const clap_host* host)
 
 auto ClapGui::clapRequestResize(const clap_host* host, std::uint32_t width, std::uint32_t height) -> bool
 {
-	ClapLog::globalLog(CLAP_LOG_ERROR, "ClapGui::clapRequestResize() [NOT IMPLEMENTED YET]");
-	// TODO
+	ClapLog::globalLog(CLAP_LOG_ERROR, "ClapGui::clapRequestResize()");
 
-	return true;
+	auto h = fromHost(host);
+	if (!h) { return false; }
+	auto& gui = h->gui();
+
+	bool success = false;
+	if (!QMetaObject::invokeMethod(&gui, "requestResize", Qt::QueuedConnection,
+		Q_RETURN_ARG(bool, success),
+		Q_ARG(std::uint32_t, width),
+		Q_ARG(std::uint32_t, height)))
+	{
+		assert(false);
+		return false;
+	}
+
+	return success;
 }
 
 auto ClapGui::clapRequestShow(const clap_host* host) -> bool
 {
-	ClapLog::globalLog(CLAP_LOG_ERROR, "ClapGui::clapRequestShow() [NOT IMPLEMENTED YET]");
-	// TODO
+	ClapLog::globalLog(CLAP_LOG_ERROR, "ClapGui::clapRequestShow()");
 
-	return true;
+	auto h = fromHost(host);
+	if (!h) { return false; }
+	auto& gui = h->gui();
+
+	bool success = false;
+	if (!QMetaObject::invokeMethod(&gui, "requestShow", Qt::QueuedConnection,
+		Q_RETURN_ARG(bool, success)))
+	{
+		assert(false);
+		return false;
+	}
+
+	return success;
 }
 
 auto ClapGui::clapRequestHide(const clap_host* host) -> bool
 {
-	ClapLog::globalLog(CLAP_LOG_ERROR, "ClapGui::clapRequestHide() [NOT IMPLEMENTED YET]");
-	// TODO
+	ClapLog::globalLog(CLAP_LOG_ERROR, "ClapGui::clapRequestHide()");
 
-	return true;
+	auto h = fromHost(host);
+	if (!h) { return false; }
+	auto& gui = h->gui();
+
+	bool success = false;
+	if (!QMetaObject::invokeMethod(&gui, "requestHide", Qt::QueuedConnection,
+		Q_RETURN_ARG(bool, success)))
+	{
+		assert(false);
+		return false;
+	}
+
+	return success;
 }
 
 void ClapGui::clapRequestClosed(const clap_host* host, bool wasDestroyed)
@@ -223,6 +343,7 @@ void ClapGui::clapRequestClosed(const clap_host* host, bool wasDestroyed)
 	if (!h) { return; }
 	auto& gui = h->gui();
 
+	// TODO: Call this on main thread?
 	gui.pluginExt()->destroy(gui.plugin());
 	gui.m_created = false;
 	gui.m_visible = false;
