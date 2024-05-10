@@ -151,7 +151,11 @@ jobs:
       fail-fast: false
     name: mingw64
     runs-on: ubuntu-latest
-    container: ghcr.io/lmms/linux.mingw.mxe:24.04
+    container:
+      image: ghcr.io/lmms/linux.mingw.mxe:24.04
+      credentials:
+       username: ${{ github.actor }}
+       password: ${{ secrets.github_token }}
     env:
       CMAKE_OPTS: >-
         -DUSE_WERROR=ON
