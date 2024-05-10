@@ -149,11 +149,9 @@ jobs:
   mingw:
     strategy:
       fail-fast: false
-      matrix:
-        arch: ['32', '64']
-    name: mingw${{ matrix.arch }}
+    name: mingw64
     runs-on: ubuntu-latest
-    container: lmmsci/linux.mingw${{ matrix.arch }}:18.04
+    container: ghcr.io/lmms/linux.mingw.mxe:24.04
     env:
       CMAKE_OPTS: >-
         -DUSE_WERROR=ON
@@ -177,17 +175,17 @@ jobs:
       - name: Cache ccache data
         uses: actions/cache@v3
         with:
-          key: "ccache-${{ github.job }}-${{ matrix.arch }}-${{ github.ref }}\
+          key: "ccache-${{ github.job }}-mxe-x64-${{ github.ref }}\
             -${{ github.run_id }}"
           restore-keys: |
-            ccache-${{ github.job }}-${{ matrix.arch }}-${{ github.ref }}-
-            ccache-${{ github.job }}-${{ matrix.arch }}-
+            ccache-${{ github.job }}-mxe-x64-${{ github.ref }}-
+            ccache-${{ github.job }}-mxe-x64-
           path: ~/.ccache
       - name: Configure
         run: |
           ccache --zero-stats
           mkdir build && cd build
-          ../cmake/build_win${{ matrix.arch }}.sh
+          ../cmake/build_win64.sh
       - name: Build
         run: cmake --build build
       - name: Package
@@ -195,13 +193,13 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: mingw${{ matrix.arch }}
+          name: mingw64
           path: build/lmms-*.exe
       - name: Trim ccache and print statistics
         run: |
           ccache --cleanup
           echo "[ccache config]"
-          ccache --print-config
+          ccache --show-config
           echo "[ccache stats]"
           ccache --show-stats
         env:
