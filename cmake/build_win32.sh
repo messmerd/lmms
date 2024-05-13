@@ -28,7 +28,7 @@ else
 	TOOLCHAIN="$DIR/toolchains/MSYS-$ARCH.cmake"
 fi
 
-export PATH=$MINGW/bin:$PATH
+export PATH=/opt/mxe/usr/bin:$MINGW/bin:$PATH
 export CXXFLAGS="$CFLAGS"
 if [ "$ARCH" == "32" ]; then
 	export CFLAGS="-march=pentium3 -mtune=generic -mpreferred-stack-boundary=5 -mfpmath=sse"
