@@ -181,6 +181,8 @@ jobs:
             ccache-${{ github.job }}-mxe-x64-${{ github.ref }}-
             ccache-${{ github.job }}-mxe-x64-
           path: ~/.ccache
+      - name: Install pkg-config
+        run: sudo apt-get install pkg-config -y
       - name: Configure
         run: |
           ccache --zero-stats
