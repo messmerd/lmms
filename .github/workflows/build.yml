@@ -152,7 +152,7 @@ jobs:
       matrix:
         arch: ['32', '64']
     name: mingw${{ matrix.arch }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     env:
       CMAKE_OPTS: >-
         -DUSE_WERROR=ON
