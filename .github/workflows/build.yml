@@ -195,13 +195,15 @@ jobs:
           cmake -S . \
             -B build \
             --toolchain "../cmake/toolchains/Ubuntu-MinGW-W64-${{ matrix.arch }}.cmake" \
-            -DVCPKG_TARGET_TRIPLET="x${{ matrix.arch }}-mingw-static" \
-            -DVCPKG_HOST_TRIPLET="x${{ matrix.arch }}-linux" \
+            -DVCPKG_TARGET_TRIPLET="${{ env.vcpkg_arch }}-mingw-static" \
+            -DVCPKG_HOST_TRIPLET="${{ env.vcpkg_arch }}-linux" \
             -DVCPKG_MANIFEST_INSTALL="${{ env.should_install_manifest }}" \
             $CMAKE_OPTS
         env:
           should_install_manifest:
             ${{ steps.cache-deps.outputs.cache-hit == 'true' && 'NO' || 'YES' }}
+          vcpkg_arch:
+            ${{ ${{ matrix.arch }} == '32' && 'x86' || 'x64' }}
       - name: Build
         run: cmake --build build
       - name: Package
