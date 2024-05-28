@@ -203,7 +203,7 @@ jobs:
           should_install_manifest:
             ${{ steps.cache-deps.outputs.cache-hit == 'true' && 'NO' || 'YES' }}
           vcpkg_arch:
-            ${{ ${{ matrix.arch }} == '32' && 'x86' || 'x64' }}
+            ${{ matrix.arch == '32' && 'x86' || 'x64' }}
       - name: Build
         run: cmake --build build
       - name: Package
