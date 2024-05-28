@@ -2,3 +2,4 @@ SET(CMAKE_TOOLCHAIN_FILE_32			"${CMAKE_CURRENT_LIST_DIR}/Ubuntu-MinGW-W64-32.cma
 
 INCLUDE(${CMAKE_CURRENT_LIST_DIR}/common/Win64.cmake)
 INCLUDE(${CMAKE_CURRENT_LIST_DIR}/common/Ubuntu-MinGW-W64.cmake)
+INCLUDE(${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake)

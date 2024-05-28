@@ -152,8 +152,7 @@ jobs:
       matrix:
         arch: ['32', '64']
     name: mingw${{ matrix.arch }}
-    runs-on: ubuntu-latest
-    container: ghcr.io/lmms/linux.mingw:20.04
+    runs-on: ubuntu-24.04
     env:
       CMAKE_OPTS: >-
         -DUSE_WERROR=ON
@@ -170,6 +169,16 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Install APT dependencies
+        run: xargs -a .github/workflows/deps-mingw-w64.txt sudo apt-get install --yes
+      - name: Cache vcpkg dependencies
+        id: cache-deps
+        uses: actions/cache@v3
+        with:
+          key: vcpkg-mingw${{ matrix.arch }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-mingw${{ matrix.arch }}-
+          path: build/vcpkg_installed
       - name: Cache ccache data
         uses: actions/cache@v3
         with:
@@ -182,8 +191,17 @@ jobs:
       - name: Configure
         run: |
           ccache --zero-stats
-          mkdir build && cd build
-          ../cmake/build_win${{ matrix.arch }}.sh
+          mkdir build
+          cmake -S . \
+            -B build \
+            --toolchain "../cmake/toolchains/Ubuntu-MinGW-W64-${{ matrix.arch }}.cmake" \
+            -DVCPKG_TARGET_TRIPLET="x${{ matrix.arch }}-mingw-static" \
+            -DVCPKG_HOST_TRIPLET="x${{ matrix.arch }}-linux" \
+            -DVCPKG_MANIFEST_INSTALL="${{ env.should_install_manifest }}" \
+            $CMAKE_OPTS
+        env:
+          should_install_manifest:
+            ${{ steps.cache-deps.outputs.cache-hit == 'true' && 'NO' || 'YES' }}
       - name: Build
         run: cmake --build build
       - name: Package
