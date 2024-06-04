@@ -23,7 +23,6 @@ jobs:
       - name: Check out
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
           submodules: recursive
       - name: Cache ccache data
         uses: actions/cache@v3
