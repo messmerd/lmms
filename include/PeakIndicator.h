@@ -1,7 +1,8 @@
 /*
- * Copyright (c) 2014 Simon Symeonidis <lethaljellybean/at/gmail/com>
- * Copyright (c) 2004-2014 Tobias Doerffel <tobydox/at/users.sourceforge.net>
+ * PeakIndicator.h - Peak indicator widget
  *
+ * Copyright (c) 2024- Michael Gregorius
+ * 
  * This file is part of LMMS - https://lmms.io
  *
  * This program is free software; you can redistribute it and/or
@@ -21,29 +22,39 @@
  *
  */
 
-#ifndef LMMS_MEMORY_HELPER_H
-#define LMMS_MEMORY_HELPER_H
 
-#include <cstddef>
+#ifndef LMMS_GUI_PEAKINDICATOR_H
+#define LMMS_GUI_PEAKINDICATOR_H
 
-namespace lmms
+#include "lmms_export.h"
+
+#include <QLabel>
+
+
+namespace lmms::gui
 {
 
-
-/**
- * Helper class to alocate aligned memory and free it.
- */
-class MemoryHelper {
+class LMMS_EXPORT PeakIndicator : public QLabel
+{
+	Q_OBJECT
 public:
+	PeakIndicator(QWidget* parent);
 
-	static void* alignedMalloc( size_t );
+	void resetPeakToMinusInf();
 
-	static void alignedFree( void* );
+public slots:
+	void updatePeak(float peak);
+
+protected:
+	void mousePressEvent(QMouseEvent* e) override;
 
 private:
-};
+	void updatePeakDisplay();
 
+private:
+	float m_peak;
+} ;
 
-} // namespace lmms
+} // namespace lmms::gui
 
-#endif // LMMS_MEMORY_HELPER_H
+#endif // LMMS_GUI_PEAKINDICATOR_H
