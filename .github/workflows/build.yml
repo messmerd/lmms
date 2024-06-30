@@ -170,8 +170,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: ['32', '64']
-        #arch: ['64']
+        #arch: ['32', '64']
+        arch: ['64']
     name: mingw${{ matrix.arch }}
     runs-on: ubuntu-22.04
     env:
