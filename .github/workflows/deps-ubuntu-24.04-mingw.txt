@@ -4,6 +4,7 @@ ca-certificates
 ccache
 cmake
 dirmngr
+fftw-mingw-w64
 file
 git
 gnupg
@@ -11,8 +12,11 @@ gpg
 g++-mingw-w64-i686-posix
 g++-mingw-w64-x86-64-posix
 libc6-dev
+libfltk1.3-dev
+libglx-dev
 liblist-moreutils-perl
 libmpc3
+libopengl-dev
 libxml2-utils
 libxml-perl
 lsb-release
@@ -22,6 +26,7 @@ mingw-w64-tools
 nsis
 perl
 qt5-qmake
+qt5base-mingw-w64
 software-properties-common
 ssh-client
 sudo
