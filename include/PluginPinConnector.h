@@ -45,6 +45,8 @@ class PluginPinConnectorView;
 
 } // namespace gui
 
+inline constexpr int DynamicChannelCount = -1;
+
 //! Configuration for audio channel routing in/out of plugin
 class LMMS_EXPORT PluginPinConnector
 	: public Model

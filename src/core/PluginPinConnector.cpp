@@ -54,7 +54,11 @@ PluginPinConnector::PluginPinConnector(int pluginChannelCountIn, int pluginChann
 	: Model{parent}
 {
 	setTrackChannelCount(s_totalTrackChannels);
-	setPluginChannelCounts(pluginChannelCountIn, pluginChannelCountOut);
+
+	if (pluginChannelCountIn != DynamicChannelCount || pluginChannelCountOut != DynamicChannelCount)
+	{
+		setPluginChannelCounts(pluginChannelCountIn, pluginChannelCountOut);
+	}
 }
 
 void PluginPinConnector::setPluginChannelCounts(int inCount, int outCount)
