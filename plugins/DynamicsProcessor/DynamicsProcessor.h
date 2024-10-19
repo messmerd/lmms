@@ -43,7 +43,7 @@ public:
 			const Descriptor::SubPluginFeatures::Key * _key );
 	~DynProcEffect() override;
 
-	ProcessStatus processImpl(CoreAudioBufferViewMut inOut) override;
+	ProcessStatus processImpl(CoreAudioDataMut inOut) override;
 	void processBypassedImpl() override;
 
 	EffectControls * controls() override

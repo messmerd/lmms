@@ -64,7 +64,7 @@ StereoMatrixEffect::StereoMatrixEffect(
 
 
 
-ProcessStatus StereoMatrixEffect::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus StereoMatrixEffect::processImpl(CoreAudioDataMut inOut)
 {
 	for (fpp_t f = 0; f < inOut.size(); ++f)
 	{	

@@ -64,7 +64,7 @@ EqEffect::EqEffect( Model *parent, const Plugin::Descriptor::SubPluginFeatures::
 
 
 
-ProcessStatus EqEffect::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus EqEffect::processImpl(CoreAudioDataMut inOut)
 {
 	const int sampleRate = Engine::audioEngine()->outputSampleRate();
 

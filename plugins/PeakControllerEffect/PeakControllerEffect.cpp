@@ -93,7 +93,7 @@ PeakControllerEffect::~PeakControllerEffect()
 }
 
 
-ProcessStatus PeakControllerEffect::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus PeakControllerEffect::processImpl(CoreAudioDataMut inOut)
 {
 	PeakControllerEffectControls & c = m_peakControls;
 

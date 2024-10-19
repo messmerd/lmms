@@ -101,7 +101,7 @@ void LOMMEffect::changeSampleRate()
 }
 
 
-ProcessStatus LOMMEffect::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus LOMMEffect::processImpl(CoreAudioDataMut inOut)
 {
 	if (m_needsUpdate || m_lommControls.m_split1Model.isValueChanged())
 	{

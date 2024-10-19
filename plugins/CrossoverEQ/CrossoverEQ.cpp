@@ -89,7 +89,7 @@ void CrossoverEQEffect::sampleRateChanged()
 }
 
 
-ProcessStatus CrossoverEQEffect::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus CrossoverEQEffect::processImpl(CoreAudioDataMut inOut)
 {
 	// filters update
 	if( m_needsUpdate || m_controls.m_xover12.isValueChanged() )

@@ -58,7 +58,7 @@ DispersionEffect::DispersionEffect(Model* parent, const Descriptor::SubPluginFea
 }
 
 
-ProcessStatus DispersionEffect::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus DispersionEffect::processImpl(CoreAudioDataMut inOut)
 {
 	const float d = dryLevel();
 	const float w = wetLevel();

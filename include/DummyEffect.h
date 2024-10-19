@@ -108,7 +108,7 @@ public:
 		return &m_controls;
 	}
 
-	ProcessStatus processImpl(CoreAudioBufferViewMut inOut) override
+	ProcessStatus processImpl(CoreAudioDataMut inOut) override
 	{
 		return ProcessStatus::Sleep;
 	}

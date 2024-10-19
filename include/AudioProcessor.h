@@ -148,16 +148,16 @@ template<class ParentT, int numChannelsIn, int numChannelsOut,
 	AudioDataLayout layout, typename SampleT, ProcessFlags flags>
 class AudioProcessor
 	: public detail::AudioProcessorInterface<
-		AudioBufferView<layout, SampleT>,
-		AudioBufferView<layout, const SampleT>,
+		AudioData<layout, SampleT>,
+		AudioData<layout, const SampleT>,
 		flags>
 	, public detail::AudioProcessorTag
 {
 	static_assert(!std::is_const_v<SampleT>);
 
 public:
-	using buffer_type = AudioBufferView<layout, SampleT>;
-	using const_buffer_type = AudioBufferView<layout, const SampleT>;
+	using buffer_type = AudioData<layout, SampleT>;
+	using const_buffer_type = AudioData<layout, const SampleT>;
 
 	AudioProcessor(Model* parent = nullptr)
 		: m_pinConnector{numChannelsIn, numChannelsOut, parent}
@@ -183,7 +183,7 @@ public:
 
 		// TODO: Use Pin Connector here
 
-		status = this->processImpl(CoreAudioBufferViewMut{buf, frames});
+		status = this->processImpl(CoreAudioDataMut{buf, frames});
 		switch (status)
 		{
 			case ProcessStatus::Continue:

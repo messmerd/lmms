@@ -77,7 +77,7 @@ DualFilterEffect::~DualFilterEffect()
 
 
 
-ProcessStatus DualFilterEffect::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus DualFilterEffect::processImpl(CoreAudioDataMut inOut)
 {
 	const float d = dryLevel();
 	const float w = wetLevel();

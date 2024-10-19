@@ -47,7 +47,7 @@ public:
 			const Descriptor::SubPluginFeatures::Key * _key );
 	~LadspaEffect() override;
 
-	ProcessStatus processImpl(CoreAudioBufferViewMut inOut) override;
+	ProcessStatus processImpl(CoreAudioDataMut inOut) override;
 
 	void setControl( int _control, LADSPA_Data _data );
 

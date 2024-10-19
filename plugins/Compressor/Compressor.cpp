@@ -233,7 +233,7 @@ void CompressorEffect::calcMix()
 
 
 
-ProcessStatus CompressorEffect::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus CompressorEffect::processImpl(CoreAudioDataMut inOut)
 {
 	m_cleanedBuffers = false;
 

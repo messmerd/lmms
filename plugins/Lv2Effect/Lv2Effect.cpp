@@ -68,7 +68,7 @@ Lv2Effect::Lv2Effect(Model* parent, const Descriptor::SubPluginFeatures::Key *ke
 
 
 
-ProcessStatus Lv2Effect::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus Lv2Effect::processImpl(CoreAudioDataMut inOut)
 {
 	Q_ASSERT(inOut.size() <= static_cast<fpp_t>(m_tmpOutputSmps.size()));
 

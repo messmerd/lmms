@@ -46,7 +46,7 @@ public:
 	LOMMEffect(Model* parent, const Descriptor::SubPluginFeatures::Key* key);
 	~LOMMEffect() override = default;
 
-	ProcessStatus processImpl(CoreAudioBufferViewMut inOut) override;
+	ProcessStatus processImpl(CoreAudioDataMut inOut) override;
 
 	EffectControls* controls() override
 	{
