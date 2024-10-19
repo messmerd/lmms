@@ -129,7 +129,7 @@ void LadspaEffect::changeSampleRate()
 
 
 
-ProcessStatus LadspaEffect::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus LadspaEffect::processImpl(CoreAudioDataMut inOut)
 {
 	m_pluginMutex.lock();
 	if (!isOkay() || dontRun() || !isEnabled() || !isRunning())

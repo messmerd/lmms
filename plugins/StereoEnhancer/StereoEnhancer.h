@@ -41,7 +41,7 @@ public:
 	                      const Descriptor::SubPluginFeatures::Key * _key );
 	~StereoEnhancerEffect() override;
 
-	ProcessStatus processImpl(CoreAudioBufferViewMut inOut) override;
+	ProcessStatus processImpl(CoreAudioDataMut inOut) override;
 
 	EffectControls * controls() override
 	{

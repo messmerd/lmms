@@ -90,19 +90,20 @@ using InterleavedSampleType = SampleType<AudioDataLayout::Interleaved, T>;
 
 
 /**
- * A span for storing audio data of a particular layout.
+ * A non-owning span for passing audio data of a particular layout.
  *
  * All data is contiguous in memory.
  * The size should be equal to the frame count * the channel count.
+ * For T=SampleFrame, the size is simply the frame count.
  */
 template<AudioDataLayout layout, typename T>
-using AudioBufferView = Span<SampleType<layout, T>>;
+using AudioData = Span<SampleType<layout, T>>;
 
 template<typename T>
-using SplitAudioBufferView = AudioBufferView<AudioDataLayout::Split, T>;
+using SplitAudioData = AudioData<AudioDataLayout::Split, T>;
 
 template<typename T>
-using InterleavedAudioBufferView = AudioBufferView<AudioDataLayout::Interleaved, T>;
+using InterleavedAudioData = AudioData<AudioDataLayout::Interleaved, T>;
 
 
 } // namespace lmms

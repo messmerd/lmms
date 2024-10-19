@@ -81,7 +81,7 @@ DelayEffect::~DelayEffect()
 
 
 
-ProcessStatus DelayEffect::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus DelayEffect::processImpl(CoreAudioDataMut inOut)
 {
 	const float sr = Engine::audioEngine()->outputSampleRate();
 	const float d = dryLevel();

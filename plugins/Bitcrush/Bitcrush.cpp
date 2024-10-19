@@ -100,7 +100,7 @@ inline float BitcrushEffect::noise( float amt )
 	return fastRandf( amt * 2.0f ) - amt;
 }
 
-ProcessStatus BitcrushEffect::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus BitcrushEffect::processImpl(CoreAudioDataMut inOut)
 {
 	// update values
 	if( m_needsUpdate || m_controls.m_rateEnabled.isValueChanged() )

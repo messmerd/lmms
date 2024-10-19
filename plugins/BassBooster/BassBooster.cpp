@@ -69,7 +69,7 @@ BassBoosterEffect::BassBoosterEffect( Model* parent, const Descriptor::SubPlugin
 
 
 
-ProcessStatus BassBoosterEffect::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus BassBoosterEffect::processImpl(CoreAudioDataMut inOut)
 {
 	// check out changed controls
 	if( m_frequencyChangeNeeded || m_bbControls.m_freqModel.isValueChanged() )

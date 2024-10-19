@@ -85,7 +85,7 @@ FlangerEffect::~FlangerEffect()
 
 
 
-ProcessStatus FlangerEffect::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus FlangerEffect::processImpl(CoreAudioDataMut inOut)
 {
 	const float d = dryLevel();
 	const float w = wetLevel();

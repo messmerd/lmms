@@ -42,7 +42,7 @@ public:
 	BitcrushEffect( Model* parent, const Descriptor::SubPluginFeatures::Key* key );
 	~BitcrushEffect() override;
 
-	ProcessStatus processImpl(CoreAudioBufferViewMut inOut) override;
+	ProcessStatus processImpl(CoreAudioDataMut inOut) override;
 
 	EffectControls* controls() override
 	{

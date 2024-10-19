@@ -39,7 +39,7 @@ public:
 	BassBoosterEffect( Model* parent, const Descriptor::SubPluginFeatures::Key* key );
 	~BassBoosterEffect() override = default;
 
-	ProcessStatus processImpl(CoreAudioBufferViewMut inOut) override;
+	ProcessStatus processImpl(CoreAudioDataMut inOut) override;
 
 	EffectControls* controls() override
 	{

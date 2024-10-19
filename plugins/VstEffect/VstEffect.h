@@ -45,7 +45,7 @@ public:
 			const Descriptor::SubPluginFeatures::Key * _key );
 	~VstEffect() override = default;
 
-	ProcessStatus processImpl(CoreAudioBufferViewMut inOut) override;
+	ProcessStatus processImpl(CoreAudioDataMut inOut) override;
 
 	EffectControls * controls() override
 	{

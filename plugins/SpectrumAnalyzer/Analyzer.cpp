@@ -77,7 +77,7 @@ Analyzer::~Analyzer()
 }
 
 // Take audio data and pass them to the spectrum processor.
-ProcessStatus Analyzer::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus Analyzer::processImpl(CoreAudioDataMut inOut)
 {
 	// Measure time spent in audio thread; both average and peak should be well under 1 ms.
 	#ifdef SA_DEBUG

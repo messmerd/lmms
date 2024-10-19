@@ -82,7 +82,7 @@ StereoEnhancerEffect::~StereoEnhancerEffect()
 
 
 
-ProcessStatus StereoEnhancerEffect::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus StereoEnhancerEffect::processImpl(CoreAudioDataMut inOut)
 {
 	const float d = dryLevel();
 	const float w = wetLevel();

@@ -79,7 +79,7 @@ VstEffect::VstEffect( Model * _parent,
 
 
 
-ProcessStatus VstEffect::processImpl(CoreAudioBufferViewMut inOut)
+ProcessStatus VstEffect::processImpl(CoreAudioDataMut inOut)
 {
 	assert(m_plugin != nullptr);
 	static thread_local auto tempBuf = std::array<SampleFrame, MAXIMUM_BUFFER_SIZE>();
