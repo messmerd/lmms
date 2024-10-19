@@ -56,7 +56,7 @@ class LMMS_EXPORT PluginPinConnector
 
 public:
 	//! [track channel][plugin channel]
-	using PinMap = std::vector<std::vector<BoolModel*>>;
+	using PinMap = std::vector<std::vector<BoolModel*>>; // TODO: Experiment with different options to see which has the best performance
 
 	//! A plugin's input or output connections and other info
 	class Matrix
@@ -114,11 +114,11 @@ public:
 	 * Iterates through each output channel, mixing together all input audio routed to the output channel.
 	 * If no audio is routed to an output channel, the output channel's buffer is zeroed.
 	 *
-	 * `frames` : number of frames in each `in`/`out` audio buffer
 	 * `in`     : track channels from LMMS core (currently just the main track channel pair)
+	 *            `in.frames` provides the number of frames in each `in`/`out` audio buffer
 	 * `out`    : plugin input channels in Split form
 	 */
-	void routeToPlugin(f_cnt_t frames, CoreAudioData in, SplitAudioData<sample_t> out) const;
+	void routeToPlugin(CoreAudioBus in, SplitAudioData<sample_t> out) const;
 
 	/*
 	 * Routes audio from plugin outputs to LMMS track channels according to the plugin pin connector configuration.
@@ -126,11 +126,15 @@ public:
 	 * Iterates through each output channel, mixing together all input audio routed to the output channel.
 	 * If no audio is routed to an output channel, `inOut` remains unchanged for audio bypass.
 	 *
-	 * `frames`  : number of frames in each `in`/`out` audio buffer
 	 * `in`      : plugin output channels in Split form
 	 * `inOut`   : track channels from/to LMMS core (inplace processing)
+	 *            `inOut.frames` provides the number of frames in each `in`/`inOut` audio buffer
 	 */
-	void routeFromPlugin(f_cnt_t frames, SplitAudioData<const sample_t> in, CoreAudioDataMut inOut) const;
+	void routeFromPlugin(SplitAudioData<const sample_t> in, CoreAudioBusMut inOut) const;
+
+
+	void route();
+
 
 	/**
 	 * SerializingObject implementation
