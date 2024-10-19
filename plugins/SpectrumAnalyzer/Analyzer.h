@@ -45,7 +45,7 @@ public:
 	Analyzer(Model *parent, const Descriptor::SubPluginFeatures::Key *key);
 	~Analyzer() override;
 
-	ProcessStatus processImpl(SampleFrame* buf, const fpp_t frames) override;
+	ProcessStatus processImpl(CoreAudioBufferViewMut inOut) override;
 
 	EffectControls *controls() override {return &m_controls;}
 

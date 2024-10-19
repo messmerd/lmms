@@ -227,8 +227,8 @@ inline void copyFromSampleFrames(InterleavedSampleType<float>* target, const Sam
 	}
 }
 
-using CoreAudioBufferView = Span<const SampleFrame* const>;
-using CoreAudioBufferViewMut = Span<SampleFrame* const>;
+using CoreAudioBufferView = InterleavedAudioBufferView<const SampleFrame>;
+using CoreAudioBufferViewMut = InterleavedAudioBufferView<SampleFrame>;
 
 
 } // namespace lmms

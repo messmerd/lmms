@@ -26,10 +26,11 @@
 #ifndef LMMS_EFFECT_H
 #define LMMS_EFFECT_H
 
-#include "Plugin.h"
-#include "Engine.h"
 #include "AudioEngine.h"
+#include "AudioProcessor.h"
 #include "AutomatableModel.h"
+#include "Engine.h"
+#include "Plugin.h"
 #include "TempoSyncKnobModel.h"
 
 namespace lmms
@@ -46,10 +47,14 @@ class EffectView;
 } // namespace gui
 
 
-class LMMS_EXPORT Effect : public Plugin
+class LMMS_EXPORT Effect
+	: public Plugin
+	, public DefaultEffectProcessor<Effect>
 {
 	Q_OBJECT
 public:
+	friend class AudioProcessor;
+
 	Effect( const Plugin::Descriptor * _desc,
 			Model * _parent,
 			const Descriptor::SubPluginFeatures::Key * _key );
@@ -62,9 +67,6 @@ public:
 	{
 		return "effect";
 	}
-
-	//! Returns true if audio was processed and should continue being processed
-	bool processAudioBuffer(SampleFrame* buf, const fpp_t frames);
 
 	inline ch_cnt_t processorCount() const
 	{
@@ -154,6 +156,11 @@ public:
 	{
 		m_noRun = _state;
 	}
+
+	bool isSleeping() const
+	{
+		return !isOkay() || dontRun() || !isEnabled() || !isRunning();
+	}
 	
 	inline TempoSyncKnobModel* autoQuitModel()
 	{
@@ -200,7 +207,6 @@ protected:
 
 	virtual void onEnabledChanged() {}
 
-
 private:
 	/**
 		If the setting "Keep effects running even without input" is disabled,
@@ -208,7 +214,6 @@ private:
 		and won't be processed again until it receives new audio input
 	*/
 	void checkGate(double outSum);
-
 
 	EffectChain * m_parent;
 	void resample( int _i, const SampleFrame* _src_buf,

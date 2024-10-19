@@ -79,7 +79,7 @@ enum class AudioDataLayout
  * For example, `const InterleavedSampleType<sample_t>*` can be used as a replacement for `const sample_t*`
  * parameters in order to document that the data layout of the audio is interleaved.
  */
-template<AudioDataLayout layout, typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> = true>
+template<AudioDataLayout layout, typename T>
 using SampleType = T;
 
 template<typename T>

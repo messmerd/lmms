@@ -41,7 +41,7 @@ public:
 	CrossoverEQEffect( Model* parent, const Descriptor::SubPluginFeatures::Key* key );
 	~CrossoverEQEffect() override;
 
-	ProcessStatus processImpl(SampleFrame* buf, const fpp_t frames) override;
+	ProcessStatus processImpl(CoreAudioBufferViewMut inOut) override;
 
 	EffectControls* controls() override
 	{
