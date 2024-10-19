@@ -79,7 +79,7 @@ enum class AudioDataLayout
  * For example, `const InterleavedSampleType<sample_t>*` can be used as a replacement for `const sample_t*`
  * parameters in order to document that the data layout of the audio is interleaved.
  */
-template<AudioDataLayout layout, typename T>
+template<AudioDataLayout layout, typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> = true>
 using SampleType = T;
 
 template<typename T>
@@ -90,11 +90,14 @@ using InterleavedSampleType = SampleType<AudioDataLayout::Interleaved, T>;
 
 
 /**
- * A non-owning span for passing audio data of a particular layout.
+ * A non-owning span for passing an audio buffer of a particular layout.
+ * This is a simple replacement for pointer and size pairs.
  *
  * All data is contiguous in memory.
  * The size should be equal to the frame count * the channel count.
- * For T=SampleFrame, the size is simply the frame count.
+ *
+ * TODO C++23: Use std::mdspan to make accessing samples by channel or frame
+ *             easier, consistent regardless of layout, and less error prone.
  */
 template<AudioDataLayout layout, typename T>
 using AudioData = Span<SampleType<layout, T>>;

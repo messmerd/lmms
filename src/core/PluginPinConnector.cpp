@@ -121,25 +121,24 @@ void PluginPinConnector::setDefaultConnections()
 	m_out.setDefaultConnections();
 }
 
-void PluginPinConnector::routeToPlugin(f_cnt_t frames,
-	CoreAudioData in, SplitAudioData<sample_t> out) const
+void PluginPinConnector::routeToPlugin(CoreAudioBus in, SplitAudioData<sample_t> out) const
 {
 	// Ignore all unused track channels for better performance
 	const auto inSizeConstrained = m_trackChannelsUpperBound / 2;
-	assert(inSizeConstrained <= in.size());
+	assert(inSizeConstrained <= in.bus.size());
 
 	// Zero the output buffer
 	std::fill(out.begin(), out.end(), 0.f);
 
 	std::uint8_t outChannel = 0;
-	for (f_cnt_t outSampleIdx = 0; outSampleIdx < out.size(); outSampleIdx += frames, ++outChannel)
+	for (f_cnt_t outSampleIdx = 0; outSampleIdx < out.size(); outSampleIdx += in.frames, ++outChannel)
 	{
 		mix_ch_t numRouted = 0; // counter for # of in channels routed to the current out channel
 		SplitSampleType<sample_t>* outPtr = &out[outSampleIdx];
 
 		for (std::uint8_t inChannelPairIdx = 0; inChannelPairIdx < inSizeConstrained; ++inChannelPairIdx)
 		{
-			const SampleFrame* inPtr = &in[inChannelPairIdx]; // L/R track channel pair
+			const SampleFrame* inPtr = in.bus[inChannelPairIdx]; // L/R track channel pair
 
 			const std::uint8_t inChannel = inChannelPairIdx * 2;
 			const std::uint8_t enabledPins =
@@ -151,7 +150,7 @@ void PluginPinConnector::routeToPlugin(f_cnt_t frames,
 				case 0b00: break;
 				case 0b01: // R channel only
 				{
-					for (f_cnt_t frame = 0; frame < frames; ++frame)
+					for (f_cnt_t frame = 0; frame < in.frames; ++frame)
 					{
 						outPtr[frame] += inPtr[frame][1];
 					}
@@ -160,7 +159,7 @@ void PluginPinConnector::routeToPlugin(f_cnt_t frames,
 				}
 				case 0b10: // L channel only
 				{
-					for (f_cnt_t frame = 0; frame < frames; ++frame)
+					for (f_cnt_t frame = 0; frame < in.frames; ++frame)
 					{
 						outPtr[frame] += inPtr[frame][0];
 					}
@@ -169,7 +168,7 @@ void PluginPinConnector::routeToPlugin(f_cnt_t frames,
 				}
 				case 0b11: // Both channels
 				{
-					for (f_cnt_t frame = 0; frame < frames; ++frame)
+					for (f_cnt_t frame = 0; frame < in.frames; ++frame)
 					{
 						outPtr[frame] += inPtr[frame][0] + inPtr[frame][1];
 					}
@@ -187,25 +186,24 @@ void PluginPinConnector::routeToPlugin(f_cnt_t frames,
 		if (numRouted <= 1) { continue; }
 
 		// Normalize output
-		for (f_cnt_t frame = 0; frame < frames; ++frame)
+		for (f_cnt_t frame = 0; frame < in.frames; ++frame)
 		{
 			outPtr[frame] /= numRouted;
 		}
 	}
 }
 
-void PluginPinConnector::routeFromPlugin(f_cnt_t frames,
-	SplitAudioData<const sample_t> in, CoreAudioDataMut inOut) const
+void PluginPinConnector::routeFromPlugin(SplitAudioData<const sample_t> in, CoreAudioBusMut inOut) const
 {
-	assert(frames <= MAXIMUM_BUFFER_SIZE);
+	assert(inOut.frames <= MAXIMUM_BUFFER_SIZE);
 
 	// Ignore all unused track channels for better performance
 	const auto inOutSizeConstrained = m_trackChannelsUpperBound / 2;
-	assert(inOutSizeConstrained <= inOut.size());
+	assert(inOutSizeConstrained <= inOut.bus.size());
 
 	for (std::uint8_t outChannelPairIdx = 0; outChannelPairIdx < inOutSizeConstrained; ++outChannelPairIdx)
 	{
-		SampleFrame* outPtr = &inOut[outChannelPairIdx]; // L/R track channel pair
+		SampleFrame* outPtr = inOut.bus[outChannelPairIdx]; // L/R track channel pair
 		const auto outChannel = static_cast<std::uint8_t>(outChannelPairIdx * 2);
 
 		// TODO C++20: Use explicit non-type template parameter instead of `outChannelOffset` auto parameter
@@ -217,12 +215,12 @@ void PluginPinConnector::routeFromPlugin(f_cnt_t frames,
 			mix_ch_t numRouted = 0;
 
 			std::uint8_t inChannel = 0;
-			for (f_cnt_t inSampleIdx = 0; inSampleIdx < in.size(); inSampleIdx += frames, ++inChannel)
+			for (f_cnt_t inSampleIdx = 0; inSampleIdx < in.size(); inSampleIdx += inOut.frames, ++inChannel)
 			{
 				if (!m_out.enabled(outChannel + outChannelOffsetConst, inChannel)) { continue; }
 
 				const SplitSampleType<sample_t>* inPtr = &in[inSampleIdx];
-				for (f_cnt_t frame = 0; frame < frames; ++frame)
+				for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 				{
 					WorkingBuffer[frame] += inPtr[frame];
 				}
@@ -238,7 +236,7 @@ void PluginPinConnector::routeFromPlugin(f_cnt_t frames,
 				case 1:
 				{
 					// Normalization not needed, but copying is
-					for (f_cnt_t frame = 0; frame < frames; ++frame)
+					for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 					{
 						outPtr[frame][outChannelOffsetConst] = WorkingBuffer[frame];
 					}
@@ -247,7 +245,7 @@ void PluginPinConnector::routeFromPlugin(f_cnt_t frames,
 				default: // >= 2
 				{
 					// Normalize output
-					for (f_cnt_t frame = 0; frame < frames; ++frame)
+					for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 					{
 						outPtr[frame][outChannelOffsetConst] = WorkingBuffer[frame] / numRouted;
 					}

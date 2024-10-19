@@ -227,8 +227,38 @@ inline void copyFromSampleFrames(InterleavedSampleType<float>* target, const Sam
 	}
 }
 
-using CoreAudioData = InterleavedAudioData<const SampleFrame>;
-using CoreAudioDataMut = InterleavedAudioData<SampleFrame>;
+
+/**
+ * A non-owning 2-channel buffer
+ */
+
+using CoreAudioData = Span<const SampleFrame>;
+using CoreAudioDataMut = Span<SampleFrame>;
+
+
+/**
+ * A non-owning span of CoreAudioData.
+ *
+ * Access like this:
+ *   bus[channel pair index][frame index]
+ *
+ * where
+ *   0 <= channel pair index < bus.size()
+ *   0 <= frame index < frames
+ *
+ * TODO C++23: Use std::mdspan
+ */
+template<class T>
+struct AudioBus
+{
+	static_assert(std::is_same_v<std::remove_const_t<T>, SampleFrame>);
+
+	Span<T* const> bus;
+	f_cnt_t frames = 0;
+};
+
+using CoreAudioBus = AudioBus<const SampleFrame>;
+using CoreAudioBusMut = AudioBus<SampleFrame>;
 
 
 } // namespace lmms

@@ -70,8 +70,6 @@ class NotePlayHandle;
 namespace detail
 {
 
-struct AudioProcessorTag {};
-
 // Primary template
 template<typename BufferT, typename ConstBufferT, ProcessFlags flags>
 class AudioProcessorInterface;
@@ -141,6 +139,25 @@ protected:
 	virtual auto processImpl(BufferT inOut) -> ProcessStatus = 0;
 };
 
+
+template<AudioDataLayout layout, typename SampleT>
+struct GetAudioDataType
+{
+	using type = AudioData<layout, SampleT>;
+};
+
+template<>
+struct GetAudioDataType<AudioDataLayout::Interleaved, SampleFrame>
+{
+	using type = CoreAudioDataMut;
+};
+
+template<>
+struct GetAudioDataType<AudioDataLayout::Interleaved, const SampleFrame>
+{
+	using type = CoreAudioData;
+};
+
 } // namespace detail
 
 
@@ -148,17 +165,16 @@ template<class ParentT, int numChannelsIn, int numChannelsOut,
 	AudioDataLayout layout, typename SampleT, ProcessFlags flags>
 class AudioProcessor
 	: public detail::AudioProcessorInterface<
-		AudioData<layout, SampleT>,
-		AudioData<layout, const SampleT>,
+		typename detail::GetAudioDataType<layout, SampleT>::type,
+		typename detail::GetAudioDataType<layout, const SampleT>::type,
 		flags>
-	, public detail::AudioProcessorTag
 {
 	static_assert(!std::is_const_v<SampleT>);
+	static_assert(!std::is_same_v<SampleT, SampleFrame>
+		|| ((numChannelsIn == 0 || numChannelsIn == 2) && (numChannelsOut == 0 || numChannelsOut == 2)),
+		"Don't use SampleFrame if more than 2 processor channels are needed");
 
 public:
-	using buffer_type = AudioData<layout, SampleT>;
-	using const_buffer_type = AudioData<layout, const SampleT>;
-
 	AudioProcessor(Model* parent = nullptr)
 		: m_pinConnector{numChannelsIn, numChannelsOut, parent}
 	{
@@ -169,7 +185,6 @@ public:
 	 *
 	 * The parent class must define `isSleeping`, `checkGate`, and `isRunning`.
 	 */
-	template<class T = ParentT>
 	auto processAudioBuffer(SampleFrame* buf, const fpp_t frames)
 		-> std::enable_if_t<(flags & ProcessFlags::Effect) != ProcessFlags::None, bool>
 	{

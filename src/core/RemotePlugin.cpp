@@ -365,13 +365,13 @@ bool RemotePlugin::process( const SampleFrame * _in_buf, SampleFrame * _out_buf 
 		if (m_splitChannels)
 		{
 			// NOTE: VST plugins always use split channels
-			const auto trackChannels = CoreAudioData{_in_buf, 1};
+			const auto bus = CoreAudioBus{{&_in_buf, 1}, frames};
 			const auto pluginInput = SplitAudioData<sample_t> {
 				m_audioBuffer.get(),
 				static_cast<std::size_t>(frames * m_pinConnector.in().channelCount())
 			};
 
-			m_pinConnector.routeToPlugin(frames, trackChannels, pluginInput);
+			m_pinConnector.routeToPlugin(bus, pluginInput);
 		}
 		else if (inputsClamped == DEFAULT_CHANNELS)
 		{
@@ -407,13 +407,13 @@ bool RemotePlugin::process( const SampleFrame * _in_buf, SampleFrame * _out_buf 
 	if (m_splitChannels)
 	{
 		// NOTE: VST plugins always use split channels
-		const auto trackChannels = CoreAudioDataMut{_out_buf, 1};
+		const auto bus = CoreAudioBusMut{{&_out_buf, 1}, frames};
 		const auto pluginOutput = SplitAudioData<const sample_t> {
 			m_audioBuffer.get() + (frames * m_pinConnector.in().channelCount()),
 			static_cast<std::size_t>(frames * m_pinConnector.out().channelCount())
 		};
 
-		m_pinConnector.routeFromPlugin(frames, pluginOutput, trackChannels);
+		m_pinConnector.routeFromPlugin(pluginOutput, bus);
 	}
 	else if (outputsClamped == DEFAULT_CHANNELS)
 	{
