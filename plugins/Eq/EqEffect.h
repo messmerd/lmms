@@ -41,7 +41,7 @@ public:
 	EqEffect( Model * parent , const Descriptor::SubPluginFeatures::Key * key );
 	~EqEffect() override = default;
 
-	ProcessStatus processImpl(SampleFrame* buf, const fpp_t frames) override;
+	ProcessStatus processImpl(CoreAudioBufferViewMut inOut) override;
 
 	EffectControls * controls() override
 	{

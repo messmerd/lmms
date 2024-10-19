@@ -79,12 +79,12 @@ VstEffect::VstEffect( Model * _parent,
 
 
 
-Effect::ProcessStatus VstEffect::processImpl(SampleFrame* buf, const fpp_t frames)
+ProcessStatus VstEffect::processImpl(CoreAudioBufferViewMut inOut)
 {
 	assert(m_plugin != nullptr);
 	static thread_local auto tempBuf = std::array<SampleFrame, MAXIMUM_BUFFER_SIZE>();
 
-	std::memcpy(tempBuf.data(), buf, sizeof(SampleFrame) * frames);
+	std::memcpy(tempBuf.data(), inOut.data(), inOut.size_bytes());
 	if (m_pluginMutex.tryLock(Engine::getSong()->isExporting() ? -1 : 0))
 	{
 		m_plugin->process(tempBuf.data(), tempBuf.data());
@@ -93,10 +93,10 @@ Effect::ProcessStatus VstEffect::processImpl(SampleFrame* buf, const fpp_t frame
 
 	const float w = wetLevel();
 	const float d = dryLevel();
-	for (fpp_t f = 0; f < frames; ++f)
+	for (fpp_t f = 0; f < inOut.size(); ++f)
 	{
-		buf[f][0] = w * tempBuf[f][0] + d * buf[f][0];
-		buf[f][1] = w * tempBuf[f][1] + d * buf[f][1];
+		inOut[f][0] = w * tempBuf[f][0] + d * inOut[f][0];
+		inOut[f][1] = w * tempBuf[f][1] + d * inOut[f][1];
 	}
 
 	return ProcessStatus::ContinueIfNotQuiet;

@@ -139,7 +139,7 @@ void PluginPinConnector::routeToPlugin(f_cnt_t frames,
 
 		for (std::uint8_t inChannelPairIdx = 0; inChannelPairIdx < inSizeConstrained; ++inChannelPairIdx)
 		{
-			const SampleFrame* inPtr = in[inChannelPairIdx]; // L/R track channel pair
+			const SampleFrame* inPtr = &in[inChannelPairIdx]; // L/R track channel pair
 
 			const std::uint8_t inChannel = inChannelPairIdx * 2;
 			const std::uint8_t enabledPins =
@@ -205,7 +205,7 @@ void PluginPinConnector::routeFromPlugin(f_cnt_t frames,
 
 	for (std::uint8_t outChannelPairIdx = 0; outChannelPairIdx < inOutSizeConstrained; ++outChannelPairIdx)
 	{
-		SampleFrame* outPtr = inOut[outChannelPairIdx]; // L/R track channel pair
+		SampleFrame* outPtr = &inOut[outChannelPairIdx]; // L/R track channel pair
 		const auto outChannel = static_cast<std::uint8_t>(outChannelPairIdx * 2);
 
 		// TODO C++20: Use explicit non-type template parameter instead of `outChannelOffset` auto parameter

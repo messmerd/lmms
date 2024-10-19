@@ -59,101 +59,131 @@ constexpr auto operator|(ProcessFlags lhs, ProcessFlags rhs) -> ProcessFlags
 	return static_cast<ProcessFlags>(static_cast<int>(lhs) | static_cast<int>(rhs));
 }
 
+// NOTE: Not using lmms::Flags because classes are not allowed as NTTP until C++20
+constexpr auto operator&(ProcessFlags lhs, ProcessFlags rhs) -> ProcessFlags
+{
+	return static_cast<ProcessFlags>(static_cast<int>(lhs) & static_cast<int>(rhs));
+}
+
+class NotePlayHandle;
+
 namespace detail
 {
 
 struct AudioProcessorTag {};
 
-/**
- * This helper class uses SFINAE to declare a single `processImpl` method based on the template parameters.
- * All other possible `processImpl` signatures are disabled.
- *
- * The `processImpl` method is the main audio processing method that runs when plugin is not asleep.
- */
-template<AudioDataLayout layout, typename SampleT, ProcessFlags flags>
-class AudioProcessorBase : public AudioProcessorTag
+// Primary template
+template<typename BufferT, typename ConstBufferT, ProcessFlags flags>
+class AudioProcessorInterface;
+
+template<bool midiBased>
+class InstrumentProcessorInterface
 {
-	static_assert(!std::is_const_v<SampleT>);
-	using F = ProcessFlags;
-
-	static constexpr bool s_sampleFrame = std::is_same_v<SampleT, SampleFrame>;
-
 public:
-	using buffer_type = std::conditional_t<s_sampleFrame,
-		CoreAudioBufferViewMut,
-		AudioBufferView<layout, SampleT>>;
+	//! Returns whether the instrument is MIDI-based or NotePlayHandle-based
+	constexpr auto isMidiBased() const -> bool { return midiBased; }
+};
 
-	using const_buffer_type = std::conditional_t<s_sampleFrame,
-		CoreAudioBufferView,
-		AudioBufferView<layout, const SampleT>>;
-
+// NotePlayHandle-based Instruments
+template<typename BufferT, typename ConstBufferT>
+class AudioProcessorInterface<BufferT, ConstBufferT, ProcessFlags::Instrument>
+	: public InstrumentProcessorInterface<false>
+{
+protected:
 	//! The main audio processing method for NotePlayHandle-based Instruments
-	virtual auto processImpl(NotePlayHandle* noteToPlay, buffer_type out)
-		-> std::enable_if_t<flags == F::Instrument, void> = 0;
+	virtual void processImpl(NotePlayHandle* noteToPlay, BufferT out) = 0;
+};
 
+// MIDI-based Instruments
+template<typename BufferT, typename ConstBufferT>
+struct AudioProcessorInterface<BufferT, ConstBufferT, ProcessFlags::Instrument | ProcessFlags::MidiBased>
+	: public InstrumentProcessorInterface<true>
+{
+protected:
 	//! The main audio processing method for MIDI-based Instruments
-	virtual auto processImpl(buffer_type out)
-		-> std::enable_if_t<flags == (F::Instrument | F::MidiBased), void> = 0;
+	virtual void processImpl(BufferT out) = 0;
+};
 
-	//! Returns whether `processImpl` uses MIDI or uses NotePlayHandle [For Instruments only]
-	constexpr auto isMidiBased() const -> std::enable_if_t<(flags & F::Instrument) != F::None, bool>
-	{
-		return (flags & F::MidiBased) != F::None;
-	}
+template<bool inplace>
+class EffectProcessorInterface
+{
+public:
+	//! Returns whether the effect uses inplace processing
+	constexpr auto isInplace() const -> bool { return inplace; }
 
-	//! The main audio processing method for non-inplace Effects. Runs when plugin is not asleep.
-	virtual auto processImpl(const_buffer_type in, buffer_type out)
-		-> std::enable_if_t<flags == F::Effect, ProcessStatus> = 0;
-
-	//! The main audio processing method for inplace Effects. Runs when plugin is not asleep.
-	virtual auto processImpl(buffer_type inOut)
-		-> std::enable_if_t<flags == (F::Effect | F::Inplace), ProcessStatus> = 0;
-
+protected:
 	/**
-	 * Optional method that runs when an Effect is sleeping (not enabled,
+	 * Optional method that runs when an effect is asleep (not enabled,
 	 * not running, not in the Okay state, or in the Don't Run state)
 	 */
-	virtual auto processBypassedImpl() -> std::enable_if_t<(flags & F::Effect) != F::None, void>
+	virtual void processBypassedImpl()
 	{
 	}
+};
 
-	//! Returns whether `processImpl` uses inplace processing [For Effects only]
-	constexpr auto isInplace() const -> std::enable_if_t<(flags & F::Effect) != F::None, bool>
-	{
-		return (flags & F::Inplace) != F::None;
-	}
+// Non-inplace Effects
+template<typename BufferT, typename ConstBufferT>
+class AudioProcessorInterface<BufferT, ConstBufferT, ProcessFlags::Effect>
+	: public EffectProcessorInterface<false>
+{
+protected:
+	//! The main audio processing method for non-inplace Effects. Runs when plugin is not bypassed.
+	virtual auto processImpl(ConstBufferT in, BufferT out) -> ProcessStatus = 0;
+};
+
+// Inplace Effects
+template<typename BufferT, typename ConstBufferT>
+class AudioProcessorInterface<BufferT, ConstBufferT, ProcessFlags::Effect | ProcessFlags::Inplace>
+	: public EffectProcessorInterface<true>
+{
+protected:
+	//! The main audio processing method for inplace Effects. Runs when plugin is not asleep.
+	virtual auto processImpl(BufferT inOut) -> ProcessStatus = 0;
 };
 
 } // namespace detail
 
 
-
 template<class ParentT, int numChannelsIn, int numChannelsOut,
 	AudioDataLayout layout, typename SampleT, ProcessFlags flags>
 class AudioProcessor
-	: public detail::AudioProcessorBase<layout, SampleT, flags>
+	: public detail::AudioProcessorInterface<
+		AudioBufferView<layout, SampleT>,
+		AudioBufferView<layout, const SampleT>,
+		flags>
+	, public detail::AudioProcessorTag
 {
+	static_assert(!std::is_const_v<SampleT>);
+
 public:
+	using buffer_type = AudioBufferView<layout, SampleT>;
+	using const_buffer_type = AudioBufferView<layout, const SampleT>;
+
 	AudioProcessor(Model* parent = nullptr)
 		: m_pinConnector{numChannelsIn, numChannelsOut, parent}
 	{
 	}
 
-	//! Returns true if audio was processed and should continue being processed [For Effects only]
+	/**
+	 * Returns true if audio was processed and should continue being processed [For Effects only]
+	 *
+	 * The parent class must define `isSleeping`, `checkGate`, and `isRunning`.
+	 */
+	template<class T = ParentT>
 	auto processAudioBuffer(SampleFrame* buf, const fpp_t frames)
-		-> std::enable_if_t<(flags & F::Effect) != F::None, bool>
+		-> std::enable_if_t<(flags & ProcessFlags::Effect) != ProcessFlags::None, bool>
 	{
-		if (static_cast<const ParentT*>(this)->isBypassed())
+		if (static_cast<const ParentT*>(this)->isSleeping())
 		{
 			this->processBypassedImpl();
 			return false;
 		}
 
-		ProcessFlags status;
+		ProcessStatus status;
 
 		// TODO: Use Pin Connector here
 
-		status = this->processImpl(buf, frames);
+		status = this->processImpl(CoreAudioBufferViewMut{buf, frames});
 		switch (status)
 		{
 			case ProcessStatus::Continue:
@@ -166,7 +196,7 @@ public:
 					outSum += buf[idx].sumOfSquaredAmplitudes();
 				}
 
-				static_cast<const ParentT*>(this)->checkGate(outSum / frames);
+				static_cast<ParentT*>(this)->checkGate(outSum / frames);
 				break;
 			}
 			case ProcessStatus::Sleep:

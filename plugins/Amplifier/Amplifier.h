@@ -38,7 +38,7 @@ public:
 	AmplifierEffect(Model* parent, const Descriptor::SubPluginFeatures::Key* key);
 	~AmplifierEffect() override = default;
 
-	ProcessStatus processImpl(SampleFrame* buf, const fpp_t frames) override;
+	ProcessStatus processImpl(CoreAudioBufferViewMut inOut) override;
 
 	EffectControls* controls() override
 	{

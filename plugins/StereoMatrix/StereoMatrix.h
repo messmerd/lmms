@@ -40,7 +40,7 @@ public:
 	                      const Descriptor::SubPluginFeatures::Key * _key );
 	~StereoMatrixEffect() override = default;
 
-	ProcessStatus processImpl(SampleFrame* buf, const fpp_t frames) override;
+	ProcessStatus processImpl(CoreAudioBufferViewMut inOut) override;
 
 	EffectControls* controls() override
 	{

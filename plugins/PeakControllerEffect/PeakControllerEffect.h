@@ -42,7 +42,7 @@ public:
 						const Descriptor::SubPluginFeatures::Key * _key );
 	~PeakControllerEffect() override;
 
-	ProcessStatus processImpl(SampleFrame* buf, const fpp_t frames) override;
+	ProcessStatus processImpl(CoreAudioBufferViewMut inOut) override;
 
 	EffectControls * controls() override
 	{

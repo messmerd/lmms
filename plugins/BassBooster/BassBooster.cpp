@@ -69,7 +69,7 @@ BassBoosterEffect::BassBoosterEffect( Model* parent, const Descriptor::SubPlugin
 
 
 
-Effect::ProcessStatus BassBoosterEffect::processImpl(SampleFrame* buf, const fpp_t frames)
+ProcessStatus BassBoosterEffect::processImpl(CoreAudioBufferViewMut inOut)
 {
 	// check out changed controls
 	if( m_frequencyChangeNeeded || m_bbControls.m_freqModel.isValueChanged() )
@@ -86,9 +86,9 @@ Effect::ProcessStatus BassBoosterEffect::processImpl(SampleFrame* buf, const fpp
 	const float d = dryLevel();
 	const float w = wetLevel();
 
-	for (fpp_t f = 0; f < frames; ++f)
+	for (fpp_t f = 0; f < inOut.size(); ++f)
 	{
-		auto& currentFrame = buf[f];
+		auto& currentFrame = inOut[f];
 
 		// Process copy of current sample frame
 		m_bbFX.setGain(gainBuffer ? gainBuffer->value(f) : const_gain);

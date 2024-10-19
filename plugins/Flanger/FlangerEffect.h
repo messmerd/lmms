@@ -42,7 +42,7 @@ public:
 	FlangerEffect( Model* parent , const Descriptor::SubPluginFeatures::Key* key );
 	~FlangerEffect() override;
 
-	ProcessStatus processImpl(SampleFrame* buf, const fpp_t frames) override;
+	ProcessStatus processImpl(CoreAudioBufferViewMut inOut) override;
 
 	EffectControls* controls() override
 	{
