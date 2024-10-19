@@ -173,30 +173,6 @@ public:
 
 
 protected:
-	enum class ProcessStatus
-	{
-		//! Unconditionally continue processing
-		Continue,
-
-		//! Calculate the RMS out sum and call `checkGate` to determine whether to stop processing
-		ContinueIfNotQuiet,
-
-		//! Do not continue processing
-		Sleep
-	};
-
-	/**
-	 * The main audio processing method that runs when plugin is not asleep
-	 */
-	virtual ProcessStatus processImpl(SampleFrame* buf, const fpp_t frames) = 0;
-
-	/**
-	 * Optional method that runs when plugin is sleeping (not enabled,
-	 * not running, not in the Okay state, or in the Don't Run state)
-	 */
-	virtual void processBypassedImpl() {}
-
-
 	gui::PluginView* instantiateView( QWidget * ) override;
 
 	// some effects might not be capable of higher sample-rates so they can

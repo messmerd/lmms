@@ -83,8 +83,8 @@ template<typename T>
 class Span
 {
 public:
-	Span() = default;
-	Span(T* data, std::size_t size)
+	constexpr Span() = default;
+	constexpr Span(T* data, std::size_t size)
 		: m_data{data}
 		, m_size{size}
 	{
