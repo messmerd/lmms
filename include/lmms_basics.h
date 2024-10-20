@@ -83,6 +83,9 @@ template<typename T>
 class Span
 {
 public:
+	using element_type = T;
+	using pointer = T*;
+
 	constexpr Span() = default;
 	constexpr Span(T* data, std::size_t size)
 		: m_data{data}
@@ -122,6 +125,16 @@ private:
 	__builtin_unreachable();
 #endif
 }
+
+
+/**
+ * Can be used with static_assert() in an uninstantiated template
+ * as a workaround for static_assert(false)
+ *
+ * TODO C++23: No longer needed with resolution of CWG2518
+ */
+template<class>
+inline constexpr bool always_false_v = false;
 
 
 } // namespace lmms
