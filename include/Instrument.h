@@ -67,34 +67,24 @@ public:
 			Flags flags = Flag::NoFlags);
 	~Instrument() override = default;
 
+	// if the plugin doesn't play each note, it can create an instrument-
+	// play-handle and re-implement this method, so that it mixes its
+	// output buffer only once per audio engine period
+	void play(SampleFrame* workingBuffer)
+	{
+		playImpl(workingBuffer, nullptr);
+	}
+
+	void playNote(NotePlayHandle* notesToPlay, SampleFrame* workingBuffer)
+	{
+		playImpl(workingBuffer, notesToPlay);
+	}
+
 	// --------------------------------------------------------------------
 	// functions that can/should be re-implemented:
 	// --------------------------------------------------------------------
 
 	virtual bool hasNoteInput() const { return true; }
-
-	// if the plugin doesn't play each note, it can create an instrument-
-	// play-handle and re-implement this method, so that it mixes its
-	// output buffer only once per audio engine period
-	virtual void play( SampleFrame* _working_buffer );
-
-	// to be implemented by actual plugin
-	virtual void playNote( NotePlayHandle * /* _note_to_play */,
-					SampleFrame* /* _working_buf */ )
-	{
-	}
-
-	// needed for deleting plugin-specific-data of a note - plugin has to
-	// cast void-ptr so that the plugin-data is deleted properly
-	// (call of dtor if it's a class etc.)
-	virtual void deleteNotePluginData( NotePlayHandle * _note_to_play );
-
-	// Get number of sample-frames that should be used when playing beat
-	// (note with unspecified length)
-	// Per default this function returns 0. In this case, channel is using
-	// the length of the longest envelope (if one active).
-	virtual f_cnt_t beatLen( NotePlayHandle * _n ) const;
-
 
 	// This method can be overridden by instruments that need a certain
 	// release time even if no envelope is active. It returns the time
@@ -121,21 +111,18 @@ public:
 		return m_flags.testFlag(Instrument::Flag::IsSingleStreamed);
 	}
 
-	bool isMidiBased() const
-	{
-		return m_flags.testFlag(Instrument::Flag::IsMidiBased);
-	}
+	//! Returns whether the instrument is MIDI-based or NotePlayHandle-based
+	virtual bool isMidiBased() const = 0;
 
 	bool isBendable() const
 	{
 		return !m_flags.testFlag(Instrument::Flag::IsNotBendable);
 	}
 
-	// sub-classes can re-implement this for receiving all incoming
-	// MIDI-events
-	inline virtual bool handleMidiEvent( const MidiEvent&, const TimePos& = TimePos(), f_cnt_t offset = 0 )
+	//! Returns nullptr if the effect does not have a pin connector
+	virtual auto pinConnector() const -> const PluginPinConnector*
 	{
-		return true;
+		return nullptr;
 	}
 
 	QString fullDisplayName() const override;
@@ -160,6 +147,9 @@ public:
 
 
 protected:
+	//! To be implemented by AudioProcessor
+	virtual void playImpl(SampleFrame* workingBuffer, NotePlayHandle* notesToPlay) = 0;
+
 	// fade in to prevent clicks
 	void applyFadeIn(SampleFrame* buf, NotePlayHandle * n);
 

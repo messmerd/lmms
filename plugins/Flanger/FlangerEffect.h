@@ -26,7 +26,7 @@
 #ifndef FLANGEREFFECT_H
 #define FLANGEREFFECT_H
 
-#include "Effect.h"
+#include "AudioPluginInterface.h"
 #include "FlangerControls.h"
 
 namespace lmms
@@ -36,7 +36,7 @@ class MonoDelay;
 class QuadratureLfo;
 
 
-class FlangerEffect : public Effect
+class FlangerEffect : public DefaultEffectPluginInterface
 {
 public:
 	FlangerEffect( Model* parent , const Descriptor::SubPluginFeatures::Key* key );

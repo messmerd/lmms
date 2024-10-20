@@ -30,7 +30,7 @@
 #include <QMdiSubWindow>
 #include <QMutex>
 
-#include "Instrument.h"
+#include "AudioPluginInterface.h"
 #include "InstrumentView.h"
 
 
@@ -56,14 +56,15 @@ class VestigeInstrumentView;
 } // namespace gui
 
 
-class VestigeInstrument : public Instrument
+// TODO: Dynamic channel count
+class VestigeInstrument : public MidiInstrumentPluginInterface
 {
 	Q_OBJECT
 public:
 	VestigeInstrument( InstrumentTrack * _instrument_track );
 	virtual ~VestigeInstrument();
 
-	virtual void play( SampleFrame* _working_buffer );
+	void processImpl(SampleFrame* _working_buffer) override;
 
 	virtual void saveSettings( QDomDocument & _doc, QDomElement & _parent );
 	virtual void loadSettings( const QDomElement & _this );

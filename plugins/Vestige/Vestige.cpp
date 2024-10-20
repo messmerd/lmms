@@ -397,7 +397,7 @@ void VestigeInstrument::loadFile( const QString & _file )
 
 
 
-void VestigeInstrument::play( SampleFrame* _buf )
+void VestigeInstrument::processImpl(SampleFrame* _buf)
 {
 	if (!m_pluginMutex.tryLock(Engine::getSong()->isExporting() ? -1 : 0)) {return;}
 

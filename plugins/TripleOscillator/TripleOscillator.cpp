@@ -306,8 +306,7 @@ QString TripleOscillator::nodeName() const
 
 
 
-void TripleOscillator::playNote( NotePlayHandle * _n,
-						SampleFrame* _working_buffer )
+void TripleOscillator::processImpl(NotePlayHandle* _n, SampleFrame* _working_buffer)
 {
 	if (!_n->m_pluginData)
 	{

@@ -30,8 +30,8 @@
 
 #include <globals.h>
 
+#include "AudioPluginInterface.h"
 #include "AutomatableModel.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "RemotePlugin.h"
 
@@ -66,15 +66,15 @@ signals:
 } ;
 
 
-
-class ZynAddSubFxInstrument : public Instrument
+// TODO: Is it always 0 inputs, 2 outputs?
+class ZynAddSubFxInstrument : public MidiInstrumentPluginInterface
 {
 	Q_OBJECT
 public:
 	ZynAddSubFxInstrument( InstrumentTrack * _instrument_track );
 	~ZynAddSubFxInstrument() override;
 
-	void play( SampleFrame* _working_buffer ) override;
+	void processImpl(SampleFrame* _working_buffer) override;
 
 	bool handleMidiEvent( const MidiEvent& event, const TimePos& time = TimePos(), f_cnt_t offset = 0 ) override;
 

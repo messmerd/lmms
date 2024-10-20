@@ -29,8 +29,8 @@
 
 #include <QTextEdit>
 
+#include "AudioPluginInterface.h"
 #include "Graph.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 
 #include "ExprSynth.h"
@@ -61,14 +61,13 @@ class XpressiveView;
 
 
 
-class Xpressive : public Instrument
+class Xpressive : public DefaultInstrumentPluginInterface
 {
 	Q_OBJECT
 public:
 	Xpressive(InstrumentTrack* instrument_track );
 
-	void playNote(NotePlayHandle* nph,
-						SampleFrame* working_buffer ) override;
+	void processImpl(NotePlayHandle* nph, SampleFrame* working_buffer) override;
 	void deleteNotePluginData( NotePlayHandle* nph ) override;
 
 

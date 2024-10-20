@@ -26,7 +26,7 @@
 #ifndef PATMAN_H
 #define PATMAN_H
 
-#include "Instrument.h"
+#include "AudioPluginInterface.h"
 #include "InstrumentView.h"
 #include "Sample.h"
 #include "SampleBuffer.h"
@@ -52,15 +52,14 @@ class PatmanView;
 #define MODES_CLAMPED	( 1 << 7 )
 
 
-class PatmanInstrument : public Instrument
+class PatmanInstrument : public DefaultInstrumentPluginInterface
 {
 	Q_OBJECT
 public:
 	PatmanInstrument( InstrumentTrack * _track );
 	~PatmanInstrument() override;
 
-	void playNote( NotePlayHandle * _n,
-						SampleFrame* _working_buffer ) override;
+	void processImpl(NotePlayHandle* nph, SampleFrame* workingBuffer) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

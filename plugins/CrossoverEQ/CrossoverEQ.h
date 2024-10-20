@@ -27,7 +27,7 @@
 #ifndef CROSSOVEREQ_H
 #define CROSSOVEREQ_H
 
-#include "Effect.h"
+#include "AudioPluginInterface.h"
 #include "CrossoverEQControls.h"
 #include "BasicFilters.h"
 
@@ -35,7 +35,7 @@ namespace lmms
 {
 
 
-class CrossoverEQEffect : public Effect
+class CrossoverEQEffect : public DefaultEffectPluginInterface
 {
 public:
 	CrossoverEQEffect( Model* parent, const Descriptor::SubPluginFeatures::Key* key );

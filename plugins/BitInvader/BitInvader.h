@@ -27,8 +27,8 @@
 #ifndef BIT_INVADER_H
 #define BIT_INVADER_H
 
+#include "AudioPluginInterface.h"
 #include "AutomatableModel.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "Graph.h"
 
@@ -67,15 +67,14 @@ private:
 	
 } ;
 
-class BitInvader : public Instrument
+class BitInvader : public DefaultInstrumentPluginInterface
 {
 	Q_OBJECT
 public:
 	BitInvader(InstrumentTrack * _instrument_track );
 	~BitInvader() override = default;
 
-	void playNote( NotePlayHandle * _n,
-						SampleFrame* _working_buffer ) override;
+	void processImpl(NotePlayHandle* nph, SampleFrame* out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

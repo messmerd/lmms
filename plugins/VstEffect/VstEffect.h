@@ -28,7 +28,7 @@
 #include <QMutex>
 #include <QSharedPointer>
 
-#include "Effect.h"
+#include "AudioPluginInterface.h"
 #include "VstEffectControls.h"
 
 namespace lmms
@@ -38,7 +38,7 @@ namespace lmms
 class VstPlugin;
 
 
-class VstEffect : public Effect
+class VstEffect : public DefaultEffectPluginInterface
 {
 public:
 	VstEffect( Model * _parent,

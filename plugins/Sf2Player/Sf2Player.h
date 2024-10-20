@@ -32,7 +32,7 @@
 #include <QMutex>
 #include <samplerate.h>
 
-#include "Instrument.h"
+#include "AudioPluginInterface.h"
 #include "InstrumentView.h"
 #include "LcdSpinBox.h"
 

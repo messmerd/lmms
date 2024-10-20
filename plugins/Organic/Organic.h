@@ -27,7 +27,7 @@
 
 #include <QString>
 
-#include "Instrument.h"
+#include "AudioPluginInterface.h"
 #include "InstrumentView.h"
 #include "AutomatableModel.h"
 
@@ -117,15 +117,14 @@ private slots:
 } ;
 
 
-class OrganicInstrument : public Instrument
+class OrganicInstrument : public DefaultInstrumentPluginInterface
 {
 	Q_OBJECT
 public:
 	OrganicInstrument( InstrumentTrack * _instrument_track );
 	~OrganicInstrument() override;
 
-	void playNote( NotePlayHandle * _n,
-						SampleFrame* _working_buffer ) override;
+	void processImpl(NotePlayHandle* nph, SampleFrame* workingBuffer) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 
