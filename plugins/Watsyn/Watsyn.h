@@ -26,7 +26,7 @@
 #ifndef WATSYN_H
 #define WATSYN_H
 
-#include "Instrument.h"
+#include "AudioPluginInterface.h"
 #include "InstrumentView.h"
 #include "Graph.h"
 #include "AutomatableModel.h"
@@ -132,15 +132,14 @@ private:
 	float m_B2wave [WAVELEN];
 };
 
-class WatsynInstrument : public Instrument
+class WatsynInstrument : public DefaultInstrumentPluginInterface
 {
 	Q_OBJECT
 public:
 	WatsynInstrument( InstrumentTrack * _instrument_track );
 	~WatsynInstrument() override = default;
 
-	void playNote( NotePlayHandle * _n,
-						SampleFrame* _working_buffer ) override;
+	void processImpl(NotePlayHandle* _n, SampleFrame* _working_buffer) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

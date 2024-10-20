@@ -29,8 +29,8 @@
 #include <fftw3.h>
 #include <stdexcept>
 
+#include "AudioPluginInterface.h"
 #include "AutomatableModel.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "Note.h"
 #include "Sample.h"
@@ -61,7 +61,7 @@ private:
 	SRC_STATE* m_resamplingState;
 };
 
-class SlicerT : public Instrument
+class SlicerT : public DefaultInstrumentPluginInterface
 {
 	Q_OBJECT
 
@@ -75,7 +75,7 @@ signals:
 public:
 	SlicerT(InstrumentTrack* instrumentTrack);
 
-	void playNote(NotePlayHandle* handle, SampleFrame* workingBuffer) override;
+	void processImpl(NotePlayHandle* handle, SampleFrame* workingBuffer) override;
 	void deleteNotePluginData(NotePlayHandle* handle) override;
 
 	void saveSettings(QDomDocument& document, QDomElement& element) override;

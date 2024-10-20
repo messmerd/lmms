@@ -442,7 +442,7 @@ QString SfxrInstrument::nodeName() const
 
 
 
-void SfxrInstrument::playNote( NotePlayHandle * _n, SampleFrame* _working_buffer )
+void SfxrInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_buffer)
 {
 	float currentSampleRate = Engine::audioEngine()->outputSampleRate();
 

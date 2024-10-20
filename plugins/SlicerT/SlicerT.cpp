@@ -75,7 +75,7 @@ SlicerT::SlicerT(InstrumentTrack* instrumentTrack)
 	m_sliceSnap.setValue(0);
 }
 
-void SlicerT::playNote(NotePlayHandle* handle, SampleFrame* workingBuffer)
+void SlicerT::processImpl(NotePlayHandle* handle, SampleFrame* workingBuffer)
 {
 	if (m_originalSample.sampleSize() <= 1) { return; }
 

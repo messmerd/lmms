@@ -26,8 +26,8 @@
 #ifndef LMMS_DISPERSION_H
 #define LMMS_DISPERSION_H
 
+#include "AudioPluginInterface.h"
 #include "DispersionControls.h"
-#include "Effect.h"
 
 #include "lmms_math.h"
 
@@ -36,7 +36,7 @@ namespace lmms
 
 constexpr inline int MAX_DISPERSION_FILTERS = 999;
 
-class DispersionEffect : public Effect
+class DispersionEffect : public DefaultEffectPluginInterface
 {
 public:
 	DispersionEffect(Model* parent, const Descriptor::SubPluginFeatures::Key* key);

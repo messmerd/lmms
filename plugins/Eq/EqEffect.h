@@ -24,7 +24,7 @@
 #ifndef EQEFFECT_H
 #define EQEFFECT_H
 
-#include "Effect.h"
+#include "AudioPluginInterface.h"
 #include "EqControls.h"
 #include "EqFilter.h"
 
@@ -35,7 +35,7 @@ namespace lmms
 {
 
 
-class EqEffect : public Effect
+class EqEffect : public DefaultEffectPluginInterface
 {
 public:
 	EqEffect( Model * parent , const Descriptor::SubPluginFeatures::Key * key );

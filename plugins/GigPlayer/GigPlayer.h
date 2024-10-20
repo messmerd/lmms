@@ -32,7 +32,7 @@
 #include <QMutexLocker>
 #include <samplerate.h>
 
-#include "Instrument.h"
+#include "AudioPluginInterface.h"
 #include "PixmapButton.h"
 #include "InstrumentView.h"
 #include "Knob.h"

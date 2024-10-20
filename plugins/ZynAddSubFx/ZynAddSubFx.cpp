@@ -333,7 +333,7 @@ QString ZynAddSubFxInstrument::nodeName() const
 
 
 
-void ZynAddSubFxInstrument::play( SampleFrame* _buf )
+void ZynAddSubFxInstrument::processImpl(SampleFrame* _buf)
 {
 	if (!m_pluginMutex.tryLock(Engine::getSong()->isExporting() ? -1 : 0)) {return;}
 	if( m_remotePlugin )

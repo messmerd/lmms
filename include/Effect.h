@@ -47,9 +47,7 @@ class EffectView;
 } // namespace gui
 
 
-class LMMS_EXPORT Effect
-	: public Plugin
-	, public DefaultEffectProcessor<Effect>
+class LMMS_EXPORT Effect : public Plugin
 {
 	Q_OBJECT
 public:
@@ -59,6 +57,12 @@ public:
 			Model * _parent,
 			const Descriptor::SubPluginFeatures::Key * _key );
 	~Effect() override;
+
+	//! Returns true if audio was processed and should continue being processed
+	bool processAudioBuffer(SampleFrame* buf, const fpp_t frames)
+	{
+		return processAudioBufferImpl({buf, frames});
+	}
 
 	void saveSettings( QDomDocument & _doc, QDomElement & _parent ) override;
 	void loadSettings( const QDomElement & _this ) override;
@@ -161,7 +165,15 @@ public:
 	{
 		return !isOkay() || dontRun() || !isEnabled() || !isRunning();
 	}
-	
+
+	virtual bool isInplace() const = 0;
+
+	//! Returns nullptr if the effect does not have a pin connector
+	virtual auto pinConnector() const -> const PluginPinConnector*
+	{
+		return nullptr;
+	}
+
 	inline TempoSyncKnobModel* autoQuitModel()
 	{
 		return &m_autoQuitModel;
@@ -180,6 +192,8 @@ public:
 
 
 protected:
+	virtual bool processAudioBufferImpl(CoreAudioDataMut inOut) = 0;
+
 	gui::PluginView* instantiateView( QWidget * ) override;
 
 	// some effects might not be capable of higher sample-rates so they can

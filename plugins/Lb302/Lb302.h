@@ -32,8 +32,8 @@
 #ifndef LB302_H
 #define LB302_H
 
+#include "AudioPluginInterface.h"
 #include "DspEffectLibrary.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "NotePlayHandle.h"
 #include <QMutex>

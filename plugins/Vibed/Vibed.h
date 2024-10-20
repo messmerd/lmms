@@ -25,7 +25,7 @@
 #ifndef LMMS_VIBED_H
 #define LMMS_VIBED_H
 
-#include "Instrument.h"
+#include "AudioPluginInterface.h"
 #include "InstrumentView.h"
 #include "NineButtonSelector.h"
 #include "Knob.h"
@@ -50,14 +50,14 @@ class LedCheckBox;
 class VibedView;
 }
 
-class Vibed : public Instrument
+class Vibed : public DefaultInstrumentPluginInterface
 {
 	Q_OBJECT
 public:
 	Vibed(InstrumentTrack* instrumentTrack);
 	~Vibed() override = default;
 
-	void playNote(NotePlayHandle* n, SampleFrame* workingBuffer) override;
+	void processImpl(NotePlayHandle* n, SampleFrame* workingBuffer) override;
 	void deleteNotePluginData(NotePlayHandle* n) override;
 
 	void saveSettings(QDomDocument& doc, QDomElement& elem) override;

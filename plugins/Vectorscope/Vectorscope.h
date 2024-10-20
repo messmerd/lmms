@@ -24,7 +24,7 @@
 #ifndef VECTORSCOPE_H
 #define VECTORSCOPE_H
 
-#include "Effect.h"
+#include "AudioPluginInterface.h"
 #include "LocklessRingBuffer.h"
 #include "VecControls.h"
 
@@ -33,7 +33,7 @@ namespace lmms
 
 
 //! Top level class; handles LMMS interface and accumulates data for processing.
-class Vectorscope : public Effect
+class Vectorscope : public DefaultEffectPluginInterface
 {
 public:
 	Vectorscope(Model *parent, const Descriptor::SubPluginFeatures::Key *key);

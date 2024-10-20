@@ -137,6 +137,7 @@ NotePlayHandle::~NotePlayHandle()
 
 	if( m_pluginData != nullptr )
 	{
+		// TODO:
 		m_instrumentTrack->deleteNotePluginData( this );
 	}
 

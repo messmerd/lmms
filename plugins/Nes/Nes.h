@@ -27,7 +27,7 @@
 
 #include <cmath>
 
-#include "Instrument.h"
+#include "AudioPluginInterface.h"
 #include "InstrumentView.h"
 #include "AutomatableModel.h"
 #include "PixmapButton.h"
@@ -197,15 +197,14 @@ private:
 };
 
 
-class NesInstrument : public Instrument
+class NesInstrument : public DefaultInstrumentPluginInterface
 {
 	Q_OBJECT
 public:
 	NesInstrument( InstrumentTrack * instrumentTrack );
 	~NesInstrument() override = default;
-	
-	void playNote( NotePlayHandle * n,
-						SampleFrame* workingBuffer ) override;
+
+	void processImpl(NotePlayHandle* nph, SampleFrame* workingBuffer) override;
 	void deleteNotePluginData( NotePlayHandle * n ) override;
 
 

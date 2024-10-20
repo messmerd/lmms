@@ -30,8 +30,8 @@
 
 #include <array>
 
+#include "AudioPluginInterface.h"
 #include "AutomatableModel.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 
 namespace lmms
@@ -172,14 +172,14 @@ public:
 	}
 };
 
-class SfxrInstrument : public Instrument
+class SfxrInstrument : public DefaultInstrumentPluginInterface
 {
 	Q_OBJECT
 public:
 	SfxrInstrument(InstrumentTrack * _instrument_track );
 	~SfxrInstrument() override = default;
 
-	void playNote( NotePlayHandle * _n, SampleFrame* _working_buffer ) override;
+	void processImpl(NotePlayHandle* nph, SampleFrame* workingBuffer) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 	void saveSettings( QDomDocument & _doc,

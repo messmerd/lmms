@@ -28,7 +28,7 @@
 
 #include <memory>
 
-#include "Instrument.h"
+#include "AudioPluginInterface.h"
 #include "InstrumentView.h"
 #include "AutomatableModel.h"
 #include "OscillatorConstants.h"
@@ -104,15 +104,14 @@ private slots:
 
 
 
-class TripleOscillator : public Instrument
+class TripleOscillator : public DefaultInstrumentPluginInterface
 {
 	Q_OBJECT
 public:
 	TripleOscillator( InstrumentTrack * _track );
 	~TripleOscillator() override = default;
 
-	void playNote( NotePlayHandle * _n,
-						SampleFrame* _working_buffer ) override;
+	void processImpl(NotePlayHandle* _n, SampleFrame* _working_buffer) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

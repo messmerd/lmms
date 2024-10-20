@@ -29,8 +29,8 @@
 
 #include <stk/Instrmnt.h>
 
+#include "AudioPluginInterface.h"
 #include "ComboBox.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "Knob.h"
 #include "NotePlayHandle.h"
@@ -181,15 +181,14 @@ protected:
 
 
 
-class MalletsInstrument : public Instrument
+class MalletsInstrument : public DefaultInstrumentPluginInterface
 {
 	Q_OBJECT
 public:
 	MalletsInstrument( InstrumentTrack * _instrument_track );
 	~MalletsInstrument() override = default;
 
-	void playNote( NotePlayHandle * _n,
-						SampleFrame* _working_buffer ) override;
+	void processImpl(NotePlayHandle* nph, SampleFrame* workingBuffer) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

@@ -26,14 +26,14 @@
 #ifndef BASS_BOOSTER_H
 #define BASS_BOOSTER_H
 
-#include "Effect.h"
+#include "AudioPluginInterface.h"
 #include "DspEffectLibrary.h"
 #include "BassBoosterControls.h"
 
 namespace lmms
 {
 
-class BassBoosterEffect : public Effect
+class BassBoosterEffect : public DefaultEffectPluginInterface
 {
 public:
 	BassBoosterEffect( Model* parent, const Descriptor::SubPluginFeatures::Key* key );

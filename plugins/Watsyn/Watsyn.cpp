@@ -326,8 +326,7 @@ WatsynInstrument::WatsynInstrument( InstrumentTrack * _instrument_track ) :
 }
 
 
-void WatsynInstrument::playNote( NotePlayHandle * _n,
-						SampleFrame* _working_buffer )
+void WatsynInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_buffer)
 {
 	if (!_n->m_pluginData)
 	{

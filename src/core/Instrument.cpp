@@ -46,17 +46,6 @@ Instrument::Instrument(InstrumentTrack * _instrument_track,
 {
 }
 
-void Instrument::play( SampleFrame* )
-{
-}
-
-
-
-
-void Instrument::deleteNotePluginData( NotePlayHandle * )
-{
-}
-
 
 
 

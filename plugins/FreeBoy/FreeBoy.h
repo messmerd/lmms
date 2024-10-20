@@ -28,8 +28,8 @@
 
 #include <Blip_Buffer.h>
 
+#include "AudioPluginInterface.h"
 #include "AutomatableModel.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "Graph.h"
 
@@ -47,7 +47,7 @@ class Knob;
 }
 
 
-class FreeBoyInstrument : public Instrument
+class FreeBoyInstrument : public DefaultInstrumentPluginInterface
 {
 	Q_OBJECT
 public:
@@ -55,7 +55,7 @@ public:
 	FreeBoyInstrument( InstrumentTrack * _instrument_track );
 	~FreeBoyInstrument() override = default;
 
-	void playNote(NotePlayHandle* nph, SampleFrame* workingBuffer) override;
+	void processImpl(NotePlayHandle* nph, SampleFrame* out) override;
 	void deleteNotePluginData(NotePlayHandle* nph) override;
 
 	void saveSettings( QDomDocument & _doc, QDomElement & _parent ) override;

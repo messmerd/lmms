@@ -23,6 +23,7 @@
  */
 #include "InstrumentTrack.h"
 
+#include "AudioPluginInterface.h"
 #include "AudioEngine.h"
 #include "AutomationClip.h"
 #include "ConfigManager.h"
@@ -454,9 +455,13 @@ void InstrumentTrack::processInEvent( const MidiEvent& event, const TimePos& tim
 
 	// If the event wasn't handled, check if there's a loaded instrument and if so send the
 	// event to it. If it returns false means the instrument didn't handle the event, so we trigger a warning.
-	if (eventHandled == false && !(instrument() && instrument()->handleMidiEvent(event, time, offset)))
+	if (eventHandled == false)
 	{
-		qWarning("InstrumentTrack: unhandled MIDI event %d", event.type());
+		const auto midiInstrument = dynamic_cast<MidiInstrumentInterface*>(instrument());
+		if (!midiInstrument || midiInstrument->handleMidiEvent(event, time, offset))
+		{
+			qWarning("InstrumentTrack: unhandled MIDI event %d", event.type());
+		}
 	}
 
 }
@@ -481,6 +486,8 @@ void InstrumentTrack::processOutEvent( const MidiEvent& event, const TimePos& ti
 		? event.channel()
 		: midiPort()->realOutputChannel();
 
+	const auto midiInstrument = dynamic_cast<MidiInstrumentInterface*>(m_instrument);
+	assert(midiInstrument != nullptr);
 	switch( event.type() )
 	{
 		case MidiNoteOn:
@@ -491,10 +498,10 @@ void InstrumentTrack::processOutEvent( const MidiEvent& event, const TimePos& ti
 			{
 				if( m_runningMidiNotes[key] > 0 )
 				{
-					m_instrument->handleMidiEvent( MidiEvent( MidiNoteOff, handleEventOutputChannel, key, 0 ), time, offset );
+					midiInstrument->handleMidiEvent( MidiEvent( MidiNoteOff, handleEventOutputChannel, key, 0 ), time, offset );
 				}
 				++m_runningMidiNotes[key];
-				m_instrument->handleMidiEvent( MidiEvent( MidiNoteOn, handleEventOutputChannel, key, event.velocity() ), time, offset );
+				midiInstrument->handleMidiEvent( MidiEvent( MidiNoteOn, handleEventOutputChannel, key, event.velocity() ), time, offset );
 
 			}
 			m_midiNotesMutex.unlock();
@@ -507,14 +514,14 @@ void InstrumentTrack::processOutEvent( const MidiEvent& event, const TimePos& ti
 
 			if( key >= 0 && key < NumKeys && --m_runningMidiNotes[key] <= 0 )
 			{
-				m_instrument->handleMidiEvent( MidiEvent( MidiNoteOff, handleEventOutputChannel, key, 0 ), time, offset );
+				midiInstrument->handleMidiEvent( MidiEvent( MidiNoteOff, handleEventOutputChannel, key, 0 ), time, offset );
 			}
 			m_midiNotesMutex.unlock();
 			emit endNote();
 			break;
 
 		default:
-			m_instrument->handleMidiEvent( transposedEvent, time, offset );
+			midiInstrument->handleMidiEvent( transposedEvent, time, offset );
 			break;
 	}
 
@@ -553,9 +560,9 @@ void InstrumentTrack::silenceAllNotes( bool removeIPH )
 
 f_cnt_t InstrumentTrack::beatLen( NotePlayHandle * _n ) const
 {
-	if( m_instrument != nullptr )
+	if (auto nphInstrument = dynamic_cast<NotePlayHandleInstrumentInterface*>(m_instrument))
 	{
-		const f_cnt_t len = m_instrument->beatLen( _n );
+		const f_cnt_t len = nphInstrument->beatLen(_n);
 		if( len > 0 )
 		{
 			return len;
@@ -611,9 +618,9 @@ QString InstrumentTrack::instrumentName() const
 
 void InstrumentTrack::deleteNotePluginData( NotePlayHandle* n )
 {
-	if( m_instrument != nullptr )
+	if (auto nphInstrument = dynamic_cast<NotePlayHandleInstrumentInterface*>(m_instrument))
 	{
-		m_instrument->deleteNotePluginData( n );
+		nphInstrument->deleteNotePluginData(n);
 	}
 }
 
