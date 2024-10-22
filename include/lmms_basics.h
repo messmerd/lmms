@@ -30,6 +30,7 @@
 #include <cstdint>
 
 #include "lmmsconfig.h"
+#include "Span.h"
 
 namespace lmms
 {
@@ -73,42 +74,6 @@ constexpr const char* UI_CTRL_KEY =
 #else
 "Ctrl";
 #endif
-
-/**
- * Simple minimally functional stand-in for C++20's std::span
- *
- * TODO C++20: Use std::span instead
- */
-template<typename T>
-class Span
-{
-public:
-	using element_type = T;
-	using pointer = T*;
-
-	constexpr Span() = default;
-	constexpr Span(T* data, std::size_t size)
-		: m_data{data}
-		, m_size{size}
-	{
-	}
-
-	constexpr auto data() const -> T* { return m_data; }
-	constexpr auto size() const -> std::size_t { return m_size; }
-	constexpr auto size_bytes() const -> std::size_t { return m_size * sizeof(T); }
-
-	constexpr auto operator[](std::size_t idx) const -> const T& { return m_data[idx]; }
-	constexpr auto operator[](std::size_t idx) -> T& { return m_data[idx]; }
-
-	constexpr auto begin() const -> const T* { return m_data; }
-	constexpr auto begin() -> T* { return m_data; }
-	constexpr auto end() const -> const T* { return m_data + m_size; }
-	constexpr auto end() -> T* { return m_data + m_size; }
-
-private:
-	T* m_data = nullptr;
-	std::size_t m_size = 0;
-};
 
 
 /**
