@@ -98,7 +98,7 @@ constexpr const char* UI_CTRL_KEY =
  *
  * TODO C++23: No longer needed with resolution of CWG2518
  */
-template<class>
+template<class... T>
 inline constexpr bool always_false_v = false;
 
 
