@@ -26,6 +26,7 @@
 #ifndef LMMS_PLUGIN_PIN_CONNECTOR_H
 #define LMMS_PLUGIN_PIN_CONNECTOR_H
 
+#include <cassert>
 #include <vector>
 
 #include "AutomatableModel.h"
@@ -118,7 +119,78 @@ public:
 	 *            `in.frames` provides the number of frames in each `in`/`out` audio buffer
 	 * `out`    : plugin input channels in Split form
 	 */
-	void routeToPlugin(CoreAudioBus in, SplitAudioData<sample_t> out) const;
+	template<AudioDataLayout layout, typename SampleT>
+	void routeToPlugin(CoreAudioBus in, AudioData<layout, SampleT> out) const
+	{
+		// Ignore all unused track channels for better performance
+		const auto inSizeConstrained = m_trackChannelsUpperBound / 2;
+		assert(inSizeConstrained <= in.bus.size());
+
+		// Zero the output buffer
+		std::fill(out.begin(), out.end(), {});
+
+		std::uint8_t outChannel = 0;
+		for (f_cnt_t outSampleIdx = 0; outSampleIdx < out.size(); outSampleIdx += in.frames, ++outChannel)
+		{
+			mix_ch_t numRouted = 0; // counter for # of in channels routed to the current out channel
+			SampleType<layout, SampleT>* outPtr = &out[outSampleIdx];
+
+			for (std::uint8_t inChannelPairIdx = 0; inChannelPairIdx < inSizeConstrained; ++inChannelPairIdx)
+			{
+				const SampleFrame* inPtr = in.bus[inChannelPairIdx]; // L/R track channel pair
+
+				const std::uint8_t inChannel = inChannelPairIdx * 2;
+				const std::uint8_t enabledPins =
+					(static_cast<std::uint8_t>(m_in.enabled(inChannel, outChannel)) << 1u)
+					| static_cast<std::uint8_t>(m_in.enabled(inChannel + 1, outChannel));
+
+				switch (enabledPins)
+				{
+					case 0b00: break;
+					case 0b01: // R channel only
+					{
+						for (f_cnt_t frame = 0; frame < in.frames; ++frame)
+						{
+							outPtr[frame] += convertSample<SampleT>(inPtr[frame].right());
+						}
+						++numRouted;
+						break;
+					}
+					case 0b10: // L channel only
+					{
+						for (f_cnt_t frame = 0; frame < in.frames; ++frame)
+						{
+							outPtr[frame] += convertSample<SampleT>(inPtr[frame].left());
+						}
+						++numRouted;
+						break;
+					}
+					case 0b11: // Both channels
+					{
+						for (f_cnt_t frame = 0; frame < in.frames; ++frame)
+						{
+							outPtr[frame] += convertSample<SampleT>(inPtr[frame].left() + inPtr[frame].right());
+						}
+						numRouted += 2;
+						break;
+					}
+					default:
+						unreachable();
+						break;
+				}
+			}
+
+			// Either no input channels were routed to this output and output stays zeroed,
+			// or only one channel was routed and normalization is not needed
+			if (numRouted <= 1) { continue; }
+
+			// Normalize output
+			for (f_cnt_t frame = 0; frame < in.frames; ++frame)
+			{
+				outPtr[frame] /= numRouted;
+			}
+		}
+	}
 
 	/*
 	 * Routes audio from plugin outputs to LMMS track channels according to the plugin pin connector configuration.
@@ -130,10 +202,78 @@ public:
 	 * `inOut`   : track channels from/to LMMS core (inplace processing)
 	 *            `inOut.frames` provides the number of frames in each `in`/`inOut` audio buffer
 	 */
-	void routeFromPlugin(SplitAudioData<const sample_t> in, CoreAudioBusMut inOut) const;
+	template<AudioDataLayout layout, typename SampleT>
+	void routeFromPlugin(AudioData<layout, const SampleT> in, CoreAudioBusMut inOut) const
+	{
+		assert(inOut.frames <= MAXIMUM_BUFFER_SIZE);
+
+		// Ignore all unused track channels for better performance
+		const auto inOutSizeConstrained = m_trackChannelsUpperBound / 2;
+		assert(inOutSizeConstrained <= inOut.bus.size());
+
+		for (std::uint8_t outChannelPairIdx = 0; outChannelPairIdx < inOutSizeConstrained; ++outChannelPairIdx)
+		{
+			SampleFrame* outPtr = inOut.bus[outChannelPairIdx]; // L/R track channel pair
+			const auto outChannel = static_cast<std::uint8_t>(outChannelPairIdx * 2);
+
+			// TODO C++20: Use explicit non-type template parameter instead of `outChannelOffset` auto parameter
+			const auto mixInputs = [&](std::uint8_t outChannel, auto outChannelOffset) {
+				constexpr auto outChannelOffsetConst = outChannelOffset();
+				WorkingBuffer.fill(0); // used as buffer out
+
+				// Counter for # of in channels routed to the current out channel
+				mix_ch_t numRouted = 0;
+
+				std::uint8_t inChannel = 0;
+				for (f_cnt_t inSampleIdx = 0; inSampleIdx < in.size(); inSampleIdx += inOut.frames, ++inChannel)
+				{
+					if (!m_out.enabled(outChannel + outChannelOffsetConst, inChannel)) { continue; }
+
+					const SampleType<layout, const SampleT>* inPtr = &in[inSampleIdx];
+					for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+					{
+						WorkingBuffer[frame] += inPtr[frame];
+					}
+					++numRouted;
+				}
+
+				switch (numRouted)
+				{
+					case 0:
+						// Nothing needs to be written to `inOut` for audio bypass,
+						// since it already contains the LMMS core input audio.
+						break;
+					case 1:
+					{
+						// Normalization not needed, but copying is
+						for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+						{
+							outPtr[frame][outChannelOffsetConst] = WorkingBuffer[frame];
+						}
+						break;
+					}
+					default: // >= 2
+					{
+						// Normalize output
+						for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+						{
+							outPtr[frame][outChannelOffsetConst] = WorkingBuffer[frame] / numRouted;
+						}
+						break;
+					}
+				}
+			};
+
+			// Left SampleFrame channel first
+			mixInputs(outChannel, std::integral_constant<int, 0>{});
+
+			// Right SampleFrame channel second
+			mixInputs(outChannel, std::integral_constant<int, 1>{});
+		}
+	}
 
 
-	void route();
+	// TODO: `SampleFrame` routing
 
 
 	/**
