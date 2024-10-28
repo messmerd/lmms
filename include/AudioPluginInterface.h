@@ -25,6 +25,8 @@
 #ifndef LMMS_AUDIO_PLUGIN_INTERFACE_H
 #define LMMS_AUDIO_PLUGIN_INTERFACE_H
 
+#include <vector>
+
 #include "Effect.h"
 #include "Instrument.h"
 #include "PluginPinConnector.h"
@@ -44,101 +46,114 @@ enum class ProcessStatus
 	Sleep
 };
 
-//! Compile-time customizations affecting the `processImpl` method
-enum class ProcessFlags
+
+//! Whether inplace processing is available - may only be known at runtime
+enum class InplaceOption
 {
-	None       = 0,
-	MidiBased  = 1 << 0, // only applies to instruments
-	Inplace    = 1 << 1, // only applies to effects
+	Dynamic = -1,
+	False   =  0,
+	True    =  1
 };
 
-// NOTE: Not using lmms::Flags because classes are not allowed as NTTP until C++20
-constexpr auto operator|(ProcessFlags lhs, ProcessFlags rhs) -> ProcessFlags
-{
-	return static_cast<ProcessFlags>(static_cast<int>(lhs) | static_cast<int>(rhs));
-}
-
-// NOTE: Not using lmms::Flags because classes are not allowed as NTTP until C++20
-constexpr auto operator&(ProcessFlags lhs, ProcessFlags rhs) -> ProcessFlags
-{
-	return static_cast<ProcessFlags>(static_cast<int>(lhs) & static_cast<int>(rhs));
-}
 
 class NotePlayHandle;
-
-
-//! Can dynamic cast a NPH-based `Instrument*` to this for NPH-specific methods
-class NotePlayHandleInstrumentInterface
-{
-public:
-	/**
-	 * Needed for deleting plugin-specific-data of a note - plugin has to
-	 * cast void-ptr so that the plugin-data is deleted properly
-	 * (call of dtor if it's a class etc.)
-	 */
-	virtual void deleteNotePluginData(NotePlayHandle* noteToPlay) = 0;
-
-	/**
-	 * Get number of sample-frames that should be used when playing beat
-	 * (note with unspecified length)
-	 * Per default this function returns 0. In this case, channel is using
-	 * the length of the longest envelope (if one active).
-	 */
-	virtual auto beatLen(NotePlayHandle* nph) const -> f_cnt_t { return 0; }
-};
-
-//! Can dynamic cast a MIDI-based `Instrument*` to this for MIDI-specific methods
-class MidiInstrumentInterface
-{
-public:
-	// Receives all incoming MIDI events; Return true if event was handled.
-	virtual bool handleMidiEvent(const MidiEvent&, const TimePos& = TimePos(), f_cnt_t offset = 0) = 0;
-};
-
 
 namespace detail
 {
 
+template<AudioDataLayout layout, typename SampleT>
+struct GetAudioDataType { using type = AudioData<layout, SampleT>; };
+
+template<>
+struct GetAudioDataType<AudioDataLayout::Interleaved, SampleFrame> { using type = CoreAudioDataMut; };
+
+template<>
+struct GetAudioDataType<AudioDataLayout::Interleaved, const SampleFrame> { using type = CoreAudioData; };
+
+
+template<AudioDataLayout layout, typename SampleT, InplaceOption inplace>
+struct WorkingBuffer
+{
+	void resize(PluginPinConnector& pinConnector)
+	{
+		const auto frames = Engine::audioEngine()->framesPerPeriod();
+		dataIn.resize(frames * pinConnector.in().channelCount());
+		dataOut.resize(frames * pinConnector.out().channelCount());
+	}
+
+	std::vector<SampleType<layout, SampleT>> dataIn;
+	std::vector<SampleType<layout, SampleT>> dataOut;
+};
+
+template<AudioDataLayout layout, typename SampleT>
+struct WorkingBuffer<layout, SampleT, InplaceOption::True>
+{
+	void resize(PluginPinConnector& pinConnector)
+	{
+		const auto channels = std::max(pinConnector.in().channelCount(), pinConnector.out().channelCount());
+		dataInOut.resize(Engine::audioEngine()->framesPerPeriod() * channels);
+	}
+
+	std::vector<SampleType<layout, SampleT>> dataInOut;
+};
+
+template<InplaceOption inplace>
+struct WorkingBuffer<AudioDataLayout::Interleaved, SampleFrame, inplace>
+{
+	static_assert(inplace == InplaceOption::True);
+
+	void resize(PluginPinConnector&)
+	{
+		dataInOut.resize(Engine::audioEngine()->framesPerPeriod());
+	}
+
+	std::vector<SampleFrame> dataInOut;
+};
+
+
 //! Provides the correct `processImpl` interface for instruments or effects to implement
-template<class ChildT, typename BufferT, typename ConstBufferT, ProcessFlags flags>
+template<class ChildT, typename BufferT, typename ConstBufferT, InplaceOption inplace>
 class AudioProcessingMethod;
 
-//! NotePlayHandle-based Instrument specialization
-template<typename BufferT, typename ConstBufferT>
-class AudioProcessingMethod<Instrument, BufferT, ConstBufferT, ProcessFlags::None>
-	: public NotePlayHandleInstrumentInterface
+//! Instrument specialization
+template<typename BufferT, typename ConstBufferT, InplaceOption inplace>
+class AudioProcessingMethod<Instrument, BufferT, ConstBufferT, inplace>
 {
 protected:
-	// TODO: Use BufferT parameter instead? (Any need for the frame count?)
-
 	//! The main audio processing method for NotePlayHandle-based Instruments
-	virtual void processImpl(NotePlayHandle* nph, typename BufferT::pointer workingBuffer) = 0;
-};
-
-//! MIDI-based Instrument specialization
-template<typename BufferT, typename ConstBufferT>
-class AudioProcessingMethod<Instrument, BufferT, ConstBufferT, ProcessFlags::MidiBased>
-	: public MidiInstrumentInterface
-{
-protected:
-	// TODO: Use BufferT parameter instead? (Any need for the frame count?)
+	virtual void processImpl(NotePlayHandle* nph, ConstBufferT in, BufferT out) {}
 
 	//! The main audio processing method for MIDI-based Instruments
-	virtual void processImpl(typename BufferT::pointer out) = 0;
+	virtual void processImpl(ConstBufferT in, BufferT out) {}
 };
 
-//! Non-inplace Effect specialization
+//! Instrument specialization (inplace)
 template<typename BufferT, typename ConstBufferT>
-class AudioProcessingMethod<Effect, BufferT, ConstBufferT, ProcessFlags::None>
+class AudioProcessingMethod<Instrument, BufferT, ConstBufferT, InplaceOption::True>
 {
 protected:
-	//! The main audio processing method for non-inplace Effects. Runs when plugin is not bypassed.
+	//! The main audio processing method for NotePlayHandle-based Instruments
+	virtual void processImpl(NotePlayHandle* nph, BufferT inOut) {}
+
+	//! The main audio processing method for MIDI-based Instruments
+	virtual void processImpl(BufferT inOut) {}
+};
+
+//! Effect specialization
+template<typename BufferT, typename ConstBufferT, InplaceOption inplace>
+class AudioProcessingMethod<Effect, BufferT, ConstBufferT, inplace>
+{
+protected:
+	/**
+	 * The main audio processing method for Effects. Runs when plugin is not bypassed.
+	 * If `isInplace() == true`, `in` and `out` are the same buffer.
+	 */
 	virtual auto processImpl(ConstBufferT in, BufferT out) -> ProcessStatus = 0;
 };
 
-//! Inplace Effect specialization
+//! Effect specialization (inplace)
 template<typename BufferT, typename ConstBufferT>
-class AudioProcessingMethod<Effect, BufferT, ConstBufferT, ProcessFlags::Inplace>
+class AudioProcessingMethod<Effect, BufferT, ConstBufferT, InplaceOption::True>
 {
 protected:
 	//! The main audio processing method for inplace Effects. Runs when plugin is not asleep.
@@ -147,67 +162,139 @@ protected:
 
 
 //! Connects the core audio buses to the instrument or effect using the pin connector
-template<class ChildT, class ProcessorInterfaceT, int numChannelsIn, int numChannelsOut, ProcessFlags flags>
+template<class ChildT, int numChannelsIn, int numChannelsOut, AudioDataLayout layout, typename SampleT, InplaceOption inplace>
 class AudioProcessorImpl
 {
 	static_assert(always_false_v<ChildT>, "ChildT must be either Instrument or Effect");
 };
 
 //! Instrument specialization
-template<class ProcessorInterfaceT, int numChannelsIn, int numChannelsOut, ProcessFlags flags>
-class AudioProcessorImpl<Instrument, ProcessorInterfaceT, numChannelsIn, numChannelsOut, flags>
+template<int numChannelsIn, int numChannelsOut, AudioDataLayout layout, typename SampleT, InplaceOption inplace>
+class AudioProcessorImpl<Instrument, numChannelsIn, numChannelsOut, layout, SampleT, inplace>
 	: public Instrument
-	, public ProcessorInterfaceT
+	, public AudioProcessingMethod<Instrument,
+		typename detail::GetAudioDataType<layout, SampleT>::type,
+		typename detail::GetAudioDataType<layout, const SampleT>::type,
+		inplace
+	>
 {
 public:
 	AudioProcessorImpl(Model* parent = nullptr)
 		: m_pinConnector{numChannelsIn, numChannelsOut, parent}
 	{
+		connect(Engine::audioEngine(), &AudioEngine::sampleRateChanged, [this]() {
+			m_buffer.resize(m_pinConnector);
+		});
 	}
 
 	auto pinConnector() const -> const PluginPinConnector* final { return &m_pinConnector; }
 
-	auto isMidiBased() const -> bool final
-	{
-		return (flags & ProcessFlags::MidiBased) != ProcessFlags::None;
-	}
-
 protected:
-	void playImpl(SampleFrame* workingBuffer, NotePlayHandle* notesToPlay) override
+	void playImpl(SampleFrame* inOut) final
 	{
-		// TODO:
-		if constexpr ((flags & ProcessFlags::MidiBased) != ProcessFlags::None)
-		{
+		SampleFrame* temp = inOut.data();
+		auto busInOut = CoreAudioBusMut{{&temp, 1}, Engine::audioEngine()->framesPerPeriod()};
 
+		if constexpr (inplace == InplaceOption::True)
+		{
+			m_pinConnector.routeToPlugin(busInOut, m_buffer.dataInOut);
+			processImpl(m_buffer.dataInOut);
+			m_pinConnector.routeFromPlugin(m_buffer.dataInOut, busInOut);
+		}
+		else if constexpr (inplace == InplaceOption::False)
+		{
+			m_pinConnector.routeToPlugin(busInOut, m_buffer.dataIn);
+			processImpl(m_buffer.dataIn, m_buffer.dataOut);
+			m_pinConnector.routeFromPlugin(m_buffer.dataOut, busInOut);
 		}
 		else
 		{
+			if (m_inplace)
+			{
+				m_pinConnector.routeToPlugin(busInOut, m_buffer.dataInOut);
+				processImpl(m_buffer.dataInOut);
+				m_pinConnector.routeFromPlugin(m_buffer.dataInOut, busInOut);
+			}
+			else
+			{
+				m_pinConnector.routeToPlugin(busInOut, m_buffer.dataIn);
+				processImpl(m_buffer.dataIn, m_buffer.dataOut);
+				m_pinConnector.routeFromPlugin(m_buffer.dataOut, busInOut);
+			}
+		}
+	}
 
+	void playNoteImpl(NotePlayHandle* notesToPlay, SampleFrame* inOut) final
+	{
+		SampleFrame* temp = inOut.data();
+		auto busInOut = CoreAudioBusMut{{&temp, 1}, Engine::audioEngine()->framesPerPeriod()};
+
+		if constexpr (inplace == InplaceOption::True)
+		{
+			m_pinConnector.routeToPlugin(busInOut, m_buffer.dataInOut);
+			processImpl(notesToPlay, m_buffer.dataInOut);
+			m_pinConnector.routeFromPlugin(m_buffer.dataInOut, busInOut);
+		}
+		else if constexpr (inplace == InplaceOption::False)
+		{
+			m_pinConnector.routeToPlugin(busInOut, m_buffer.dataIn);
+			processImpl(notesToPlay, m_buffer.dataIn, m_buffer.dataOut);
+			m_pinConnector.routeFromPlugin(m_buffer.dataOut, busInOut);
+		}
+		else
+		{
+			if (m_inplace)
+			{
+				m_pinConnector.routeToPlugin(busInOut, m_buffer.dataInOut);
+				processImpl(notesToPlay, m_buffer.dataInOut);
+				m_pinConnector.routeFromPlugin(m_buffer.dataInOut, busInOut);
+			}
+			else
+			{
+				m_pinConnector.routeToPlugin(busInOut, m_buffer.dataIn);
+				processImpl(notesToPlay, m_buffer.dataIn, m_buffer.dataOut);
+				m_pinConnector.routeFromPlugin(m_buffer.dataOut, busInOut);
+			}
 		}
 	}
 
 private:
 	PluginPinConnector m_pinConnector;
+	WorkingBuffer<layout, SampleT, inplace> m_buffer;
 };
 
 //! Effect specialization
-template<class ProcessorInterfaceT, int numChannelsIn, int numChannelsOut, ProcessFlags flags>
-class AudioProcessorImpl<Effect, ProcessorInterfaceT, numChannelsIn, numChannelsOut, flags>
+template<int numChannelsIn, int numChannelsOut, AudioDataLayout layout, typename SampleT, InplaceOption inplace>
+class AudioProcessorImpl<Effect, numChannelsIn, numChannelsOut, layout, SampleT, inplace>
 	: public Effect
-	, public ProcessorInterfaceT
+	, public AudioProcessingMethod<Effect,
+		typename detail::GetAudioDataType<layout, SampleT>::type,
+		typename detail::GetAudioDataType<layout, const SampleT>::type,
+		inplace
+	>
 {
 public:
 	AudioProcessorImpl(Model* parent = nullptr)
 		: m_pinConnector{numChannelsIn, numChannelsOut, parent}
 	{
+		connect(Engine::audioEngine(), &AudioEngine::sampleRateChanged, [this]() {
+			m_buffer.resize(m_pinConnector);
+		});
 	}
 
 	auto pinConnector() const -> const PluginPinConnector* final { return &m_pinConnector; }
 
 	//! Returns whether the effect uses inplace processing
-	auto isInplace() const -> bool final
+	auto isInplace() const -> bool
 	{
-		return (flags & ProcessFlags::Inplace) != ProcessFlags::None;
+		if constexpr (inplace == InplaceOption::Dynamic)
+		{
+			return m_inplace;
+		}
+		else
+		{
+			return static_cast<bool>(inplace);
+		}
 	}
 
 protected:
@@ -219,11 +306,38 @@ protected:
 			return false;
 		}
 
+		SampleFrame* temp = inOut.data();
+		auto busInOut = CoreAudioBusMut{{&temp, 1}, inOut.size()};
 		ProcessStatus status;
 
-		// TODO: Use Pin Connector here
+		if constexpr (inplace == InplaceOption::True)
+		{
+			m_pinConnector.routeToPlugin(busInOut, m_buffer.dataInOut);
+			status = this->processImpl(m_buffer.dataInOut);
+			m_pinConnector.routeFromPlugin(m_buffer.dataInOut, busInOut);
+		}
+		else if constexpr (inplace == InplaceOption::False)
+		{
+			m_pinConnector.routeToPlugin(busInOut, m_buffer.dataIn);
+			status = this->processImpl(m_buffer.dataIn, m_buffer.dataOut);
+			m_pinConnector.routeFromPlugin(m_buffer.dataOut, busInOut);
+		}
+		else
+		{
+			if (m_inplace)
+			{
+				m_pinConnector.routeToPlugin(busInOut, m_buffer.dataInOut);
+				status = this->processImpl(m_buffer.dataInOut);
+				m_pinConnector.routeFromPlugin(m_buffer.dataInOut, busInOut);
+			}
+			else
+			{
+				m_pinConnector.routeToPlugin(busInOut, m_buffer.dataIn);
+				status = this->processImpl(m_buffer.dataIn, m_buffer.dataOut);
+				m_pinConnector.routeFromPlugin(m_buffer.dataOut, busInOut);
+			}
+		}
 
-		status = this->processImpl(inOut);
 		switch (status)
 		{
 			case ProcessStatus::Continue:
@@ -258,17 +372,16 @@ protected:
 
 private:
 	PluginPinConnector m_pinConnector;
+
+	WorkingBuffer<layout, SampleT, inplace> m_buffer;
+
+	/**
+	 * TODO: In future, can enable inplace processing at runtime for individual plugins
+	 * which advertise support for it
+	 */
+	bool m_inplace = false;
 };
 
-
-template<AudioDataLayout layout, typename SampleT>
-struct GetAudioDataType { using type = AudioData<layout, SampleT>; };
-
-template<>
-struct GetAudioDataType<AudioDataLayout::Interleaved, SampleFrame> { using type = CoreAudioDataMut; };
-
-template<>
-struct GetAudioDataType<AudioDataLayout::Interleaved, const SampleFrame> { using type = CoreAudioData; };
 
 } // namespace detail
 
@@ -288,26 +401,25 @@ struct GetAudioDataType<AudioDataLayout::Interleaved, const SampleFrame> { using
  *
  * A `processImpl` interface method is provided which must be implemented by the plugin implementation.
  *
+ * TODO C++20: Use class type NTTP for better template parameter ergonomics
+ *
  * @param ChildT Either `Instrument` or `Effect`
  * @param numChannelsIn The number of plugin input channels, or `DynamicChannelCount` if not known at compile time
  * @param numChannelsOut The number of plugin output channels, or `DynamicChannelCount` if not known at compile time
  * @param layout The audio data layout used by the plugin
  * @param SampleT The plugin's sample type - i.e. float, double, int32_t, `SampleFrame`, etc.
- * @param flags Other compile-time customizations for the plugin
+ * @param inplace Inplace processing options - dynamic (runtime), false, or true
  */
 template<class ChildT, int numChannelsIn, int numChannelsOut,
-	AudioDataLayout layout, typename SampleT, ProcessFlags flags>
+	AudioDataLayout layout, typename SampleT, InplaceOption inplace>
 class AudioPluginInterface
 	: public detail::AudioProcessorImpl<
 		ChildT,
-		detail::AudioProcessingMethod<
-			ChildT,
-			typename detail::GetAudioDataType<layout, SampleT>::type,
-			typename detail::GetAudioDataType<layout, const SampleT>::type,
-			flags>,
 		numChannelsIn,
 		numChannelsOut,
-		flags
+		layout,
+		SampleT,
+		inplace
 	>
 {
 	static_assert(!std::is_const_v<SampleT>);
@@ -328,13 +440,13 @@ public:
 };
 
 using DefaultInstrumentPluginInterface = AudioPluginInterface<Instrument, 0, 2,
-	AudioDataLayout::Interleaved, SampleFrame, ProcessFlags::None>;
+	AudioDataLayout::Interleaved, SampleFrame, InplaceOption::True>;
 
 using MidiInstrumentPluginInterface = AudioPluginInterface<Instrument, 0, 2,
-	AudioDataLayout::Interleaved, SampleFrame, ProcessFlags::MidiBased>;
+	AudioDataLayout::Interleaved, SampleFrame, InplaceOption::True>;
 
 using DefaultEffectPluginInterface = AudioPluginInterface<Effect, 2, 2,
-	AudioDataLayout::Interleaved, SampleFrame, ProcessFlags::Inplace>;
+	AudioDataLayout::Interleaved, SampleFrame, InplaceOption::True>;
 
 } // namespace lmms
 

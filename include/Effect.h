@@ -166,8 +166,6 @@ public:
 		return !isOkay() || dontRun() || !isEnabled() || !isRunning();
 	}
 
-	virtual bool isInplace() const = 0;
-
 	//! Returns nullptr if the effect does not have a pin connector
 	virtual auto pinConnector() const -> const PluginPinConnector*
 	{

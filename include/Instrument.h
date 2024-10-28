@@ -72,17 +72,35 @@ public:
 	// output buffer only once per audio engine period
 	void play(SampleFrame* workingBuffer)
 	{
-		playImpl(workingBuffer, nullptr);
+		playImpl(workingBuffer);
 	}
 
 	void playNote(NotePlayHandle* notesToPlay, SampleFrame* workingBuffer)
 	{
-		playImpl(workingBuffer, notesToPlay);
+		playNoteImpl(notesToPlay, workingBuffer);
 	}
 
 	// --------------------------------------------------------------------
 	// functions that can/should be re-implemented:
 	// --------------------------------------------------------------------
+
+	//! Receives all incoming MIDI events; Return true if event was handled.
+	virtual bool handleMidiEvent(const MidiEvent&, const TimePos& = TimePos(), f_cnt_t offset = 0) {}
+
+	/**
+	 * Needed for deleting plugin-specific-data of a note - plugin has to
+	 * cast void-ptr so that the plugin-data is deleted properly
+	 * (call of dtor if it's a class etc.)
+	 */
+	virtual void deleteNotePluginData(NotePlayHandle* noteToPlay) {}
+
+	/**
+	 * Get number of sample-frames that should be used when playing beat
+	 * (note with unspecified length)
+	 * Per default this function returns 0. In this case, channel is using
+	 * the length of the longest envelope (if one active).
+	 */
+	virtual auto beatLen(NotePlayHandle* nph) const -> f_cnt_t { return 0; }
 
 	virtual bool hasNoteInput() const { return true; }
 
@@ -112,7 +130,10 @@ public:
 	}
 
 	//! Returns whether the instrument is MIDI-based or NotePlayHandle-based
-	virtual bool isMidiBased() const = 0;
+	bool isMidiBased() const
+	{
+		return !m_flags.testFlag(Instrument::Flag::IsMidiBased);
+	}
 
 	bool isBendable() const
 	{
@@ -148,7 +169,10 @@ public:
 
 protected:
 	//! To be implemented by AudioProcessor
-	virtual void playImpl(SampleFrame* workingBuffer, NotePlayHandle* notesToPlay) = 0;
+	virtual void playImpl(SampleFrame* workingBuffer) = 0;
+
+	//! To be implemented by AudioProcessor
+	virtual void playNoteImpl(NotePlayHandle* notesToPlay, SampleFrame* workingBuffer) = 0;
 
 	// fade in to prevent clicks
 	void applyFadeIn(SampleFrame* buf, NotePlayHandle * n);

@@ -73,13 +73,14 @@ enum class AudioDataLayout
 
 
 /**
- * A simple type alias for floating point and integer audio data types
- * which documents the data layout.
+ * A simple type alias for floating point audio data types which documents the data layout.
  *
  * For example, `const InterleavedSampleType<sample_t>*` can be used as a replacement for `const sample_t*`
  * parameters in order to document that the data layout of the audio is interleaved.
+ *
+ * NOTE: Can add support for integer sample types later
  */
-template<AudioDataLayout layout, typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> = true>
+template<AudioDataLayout layout, typename T, std::enable_if_t<std::is_floating_point_v<T>, bool> = true>
 using SampleType = T;
 
 template<typename T>
@@ -107,6 +108,21 @@ using SplitAudioData = AudioData<AudioDataLayout::Split, T>;
 
 template<typename T>
 using InterleavedAudioData = AudioData<AudioDataLayout::Interleaved, T>;
+
+
+//! Converts between sample types
+template<typename In, typename Out>
+inline auto convertSample(const In sample) -> Out
+{
+	if constexpr (std::is_floating_point_v<In> && std::is_floating_point_v<Out>)
+	{
+		return static_cast<Out>(sample);
+	}
+	else
+	{
+		static_assert(always_false_v<In, Out>, "only implemented for floating point samples");
+	}
+}
 
 
 } // namespace lmms
