@@ -43,13 +43,15 @@ class DummyInstrument : public Instrument
 {
 public:
 	DummyInstrument( InstrumentTrack * _instrument_track ) :
-		Instrument( _instrument_track, nullptr )
+		Instrument(nullptr, _instrument_track)
 	{
 	}
 
 	~DummyInstrument() override = default;
 
-	void playNote( NotePlayHandle*, SampleFrame* buffer ) override
+	void playImpl(SampleFrame* out) override {}
+
+	void playNoteImpl(NotePlayHandle*, SampleFrame* buffer) override
 	{
 		zeroSampleFrames(buffer, Engine::audioEngine()->framesPerPeriod());
 	}

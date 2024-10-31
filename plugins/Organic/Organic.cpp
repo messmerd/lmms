@@ -72,7 +72,7 @@ float * OrganicInstrument::s_harmonics = nullptr;
 
 
 OrganicInstrument::OrganicInstrument( InstrumentTrack * _instrument_track ) :
-	Instrument( _instrument_track, &organic_plugin_descriptor ),
+	AudioPluginInterface(&organic_plugin_descriptor, _instrument_track),
 	m_modulationAlgo(static_cast<int>(Oscillator::ModulationAlgo::SignalMix),
 		static_cast<int>(Oscillator::ModulationAlgo::SignalMix),
 		static_cast<int>(Oscillator::ModulationAlgo::SignalMix)),

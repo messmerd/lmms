@@ -55,7 +55,7 @@ public:
 	KickerInstrument( InstrumentTrack * _instrument_track );
 	~KickerInstrument() override = default;
 
-	void processImpl(NotePlayHandle* nph, SampleFrame* out) override;
+	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 	void saveSettings(QDomDocument& doc, QDomElement& elem) override;

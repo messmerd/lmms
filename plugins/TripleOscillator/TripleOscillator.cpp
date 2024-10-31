@@ -216,7 +216,7 @@ void OscillatorObject::updateUseWaveTable()
 
 
 TripleOscillator::TripleOscillator( InstrumentTrack * _instrument_track ) :
-	Instrument( _instrument_track, &tripleoscillator_plugin_descriptor )
+	AudioPluginInterface(&tripleoscillator_plugin_descriptor, _instrument_track)
 {
 	for( int i = 0; i < NUM_OF_OSCILLATORS; ++i )
 	{
@@ -306,7 +306,7 @@ QString TripleOscillator::nodeName() const
 
 
 
-void TripleOscillator::processImpl(NotePlayHandle* _n, SampleFrame* _working_buffer)
+void TripleOscillator::processImpl(NotePlayHandle* _n, CoreAudioDataMut _working_buffer)
 {
 	if (!_n->m_pluginData)
 	{
@@ -376,11 +376,11 @@ void TripleOscillator::processImpl(NotePlayHandle* _n, SampleFrame* _working_buf
 	const fpp_t frames = _n->framesLeftForCurrentPeriod();
 	const f_cnt_t offset = _n->noteOffset();
 
-	osc_l->update( _working_buffer + offset, frames, 0 );
-	osc_r->update( _working_buffer + offset, frames, 1 );
+	osc_l->update(_working_buffer.data() + offset, frames, 0);
+	osc_r->update(_working_buffer.data() + offset, frames, 1);
 
-	applyFadeIn(_working_buffer, _n);
-	applyRelease( _working_buffer, _n );
+	applyFadeIn(_working_buffer.data(), _n);
+	applyRelease(_working_buffer.data(), _n);
 }
 
 

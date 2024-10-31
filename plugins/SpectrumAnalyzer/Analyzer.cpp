@@ -57,7 +57,7 @@ extern "C" {
 
 
 Analyzer::Analyzer(Model *parent, const Plugin::Descriptor::SubPluginFeatures::Key *key) :
-	Effect(&analyzer_plugin_descriptor, parent, key),
+	AudioPluginInterface(&analyzer_plugin_descriptor, parent, key),
 	m_processor(&m_controls),
 	m_controls(this),
 	m_processorThread(m_processor, m_inputBuffer),

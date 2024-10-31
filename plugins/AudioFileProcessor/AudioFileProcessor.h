@@ -44,7 +44,7 @@ class AudioFileProcessor : public DefaultInstrumentPluginInterface
 public:
 	AudioFileProcessor( InstrumentTrack * _instrument_track );
 
-	void processImpl(NotePlayHandle* nph, SampleFrame* workingBuffer) override;
+	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 	void saveSettings(QDomDocument& doc, QDomElement& elem) override;

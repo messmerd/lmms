@@ -231,7 +231,7 @@ public:
 
 
 
-
+// TODO: Refactor so AudioPluginInterface can be used
 class GigInstrument : public Instrument
 {
 	Q_OBJECT
@@ -243,9 +243,9 @@ public:
 	GigInstrument( InstrumentTrack * _instrument_track );
 	~GigInstrument() override;
 
-	void play( SampleFrame* _working_buffer ) override;
+	void playImpl( SampleFrame* _working_buffer ) override;
 
-	void playNote( NotePlayHandle * _n,
+	void playNoteImpl( NotePlayHandle * _n,
 						SampleFrame* _working_buffer ) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 

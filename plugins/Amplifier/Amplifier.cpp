@@ -51,7 +51,7 @@ Plugin::Descriptor PLUGIN_EXPORT amplifier_plugin_descriptor =
 
 
 AmplifierEffect::AmplifierEffect(Model* parent, const Descriptor::SubPluginFeatures::Key* key) :
-	Effect(&amplifier_plugin_descriptor, parent, key),
+	AudioPluginInterface(&amplifier_plugin_descriptor, parent, key),
 	m_ampControls(this)
 {
 }

@@ -27,7 +27,6 @@
 #define LMMS_EFFECT_H
 
 #include "AudioEngine.h"
-#include "AudioProcessor.h"
 #include "AutomatableModel.h"
 #include "Engine.h"
 #include "Plugin.h"
@@ -38,6 +37,7 @@ namespace lmms
 
 class EffectChain;
 class EffectControls;
+class PluginPinConnector;
 
 namespace gui
 {
@@ -51,8 +51,6 @@ class LMMS_EXPORT Effect : public Plugin
 {
 	Q_OBJECT
 public:
-	friend class AudioProcessor;
-
 	Effect( const Plugin::Descriptor * _desc,
 			Model * _parent,
 			const Descriptor::SubPluginFeatures::Key * _key );
@@ -219,7 +217,6 @@ protected:
 
 	virtual void onEnabledChanged() {}
 
-private:
 	/**
 		If the setting "Keep effects running even without input" is disabled,
 		after "decay" ms of a signal below "gate", the effect is turned off
@@ -227,6 +224,7 @@ private:
 	*/
 	void checkGate(double outSum);
 
+private:
 	EffectChain * m_parent;
 	void resample( int _i, const SampleFrame* _src_buf,
 					sample_rate_t _src_sr,

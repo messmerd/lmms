@@ -28,8 +28,8 @@
 #define ANALYZER_H
 
 
+#include "AudioPluginInterface.h"
 #include "DataprocLauncher.h"
-#include "Effect.h"
 #include "LocklessRingBuffer.h"
 #include "SaControls.h"
 #include "SaProcessor.h"
@@ -39,7 +39,7 @@ namespace lmms
 
 
 //! Top level class; handles LMMS interface and feeds data to the data processor.
-class Analyzer : public Effect
+class Analyzer : public DefaultEffectPluginInterface
 {
 public:
 	Analyzer(Model *parent, const Descriptor::SubPluginFeatures::Key *key);

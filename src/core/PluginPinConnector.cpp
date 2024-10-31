@@ -35,14 +35,6 @@
 namespace lmms
 {
 
-namespace
-{
-
-// Scratch pad for intermediate calculations within this class
-thread_local auto WorkingBuffer = std::array<float, MAXIMUM_BUFFER_SIZE>();
-
-} // namespace
-
 PluginPinConnector::PluginPinConnector(Model* parent)
 	: Model{parent}
 {

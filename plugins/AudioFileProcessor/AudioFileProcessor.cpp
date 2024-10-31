@@ -68,7 +68,7 @@ Plugin::Descriptor PLUGIN_EXPORT audiofileprocessor_plugin_descriptor =
 
 
 AudioFileProcessor::AudioFileProcessor( InstrumentTrack * _instrument_track ) :
-	Instrument( _instrument_track, &audiofileprocessor_plugin_descriptor ),
+	AudioPluginInterface(&audiofileprocessor_plugin_descriptor, _instrument_track),
 	m_ampModel( 100, 0, 500, 1, this, tr( "Amplify" ) ),
 	m_startPointModel( 0, 0, 1, 0.0000001f, this, tr( "Start of sample" ) ),
 	m_endPointModel( 1, 0, 1, 0.0000001f, this, tr( "End of sample" ) ),
@@ -105,7 +105,7 @@ AudioFileProcessor::AudioFileProcessor( InstrumentTrack * _instrument_track ) :
 
 
 
-void AudioFileProcessor::processImpl(NotePlayHandle* nph, SampleFrame* workingBuffer)
+void AudioFileProcessor::processImpl(NotePlayHandle* nph, CoreAudioDataMut out)
 {
 	const fpp_t frames = nph->framesLeftForCurrentPeriod();
 	const f_cnt_t offset = nph->noteOffset();
@@ -155,17 +155,17 @@ void AudioFileProcessor::processImpl(NotePlayHandle* nph, SampleFrame* workingBu
 
 	if (!nph->isFinished())
 	{
-		if (m_sample.play(workingBuffer + offset,
+		if (m_sample.play(out.data() + offset,
 						static_cast<Sample::PlaybackState*>(nph->m_pluginData),
 						frames, nph->frequency(),
 						static_cast<Sample::Loop>(m_loopModel.value())))
 		{
-			applyRelease(workingBuffer, nph);
+			applyRelease(out.data(), nph);
 			emit isPlaying(static_cast<Sample::PlaybackState*>(nph->m_pluginData)->frameIndex());
 		}
 		else
 		{
-			zeroSampleFrames(workingBuffer, frames + offset);
+			zeroSampleFrames(out.data(), frames + offset);
 			emit isPlaying( 0 );
 		}
 	}

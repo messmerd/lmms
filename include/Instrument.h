@@ -44,8 +44,9 @@ namespace lmms
 class InstrumentTrack;
 class MidiEvent;
 class NotePlayHandle;
-class Track;
+class PluginPinConnector;
 class SampleFrame;
+class Track;
 
 
 class LMMS_EXPORT Instrument : public Plugin
@@ -61,9 +62,9 @@ public:
 
 	using Flags = lmms::Flags<Flag>;
 
-	Instrument(InstrumentTrack * _instrument_track,
-			const Descriptor * _descriptor,
-			const Descriptor::SubPluginFeatures::Key * key = nullptr,
+	Instrument(const Descriptor* _descriptor,
+			InstrumentTrack* _instrument_track,
+			const Descriptor::SubPluginFeatures::Key* key = nullptr,
 			Flags flags = Flag::NoFlags);
 	~Instrument() override = default;
 
@@ -85,7 +86,10 @@ public:
 	// --------------------------------------------------------------------
 
 	//! Receives all incoming MIDI events; Return true if event was handled.
-	virtual bool handleMidiEvent(const MidiEvent&, const TimePos& = TimePos(), f_cnt_t offset = 0) {}
+	virtual bool handleMidiEvent(const MidiEvent&, const TimePos& = TimePos(), f_cnt_t offset = 0)
+	{
+		return true;
+	}
 
 	/**
 	 * Needed for deleting plugin-specific-data of a note - plugin has to
@@ -168,10 +172,10 @@ public:
 
 
 protected:
-	//! To be implemented by AudioProcessor
+	//! To be implemented by AudioPluginInterface
 	virtual void playImpl(SampleFrame* workingBuffer) = 0;
 
-	//! To be implemented by AudioProcessor
+	//! To be implemented by AudioPluginInterface
 	virtual void playNoteImpl(NotePlayHandle* notesToPlay, SampleFrame* workingBuffer) = 0;
 
 	// fade in to prevent clicks

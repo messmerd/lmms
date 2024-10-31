@@ -36,22 +36,14 @@ namespace lmms
 {
 
 
-Instrument::Instrument(InstrumentTrack * _instrument_track,
-			const Descriptor * _descriptor,
-			const Descriptor::SubPluginFeatures::Key *key,
+Instrument::Instrument(const Descriptor* _descriptor,
+			InstrumentTrack* _instrument_track,
+			const Descriptor::SubPluginFeatures::Key* key,
 			Flags flags) :
 	Plugin(_descriptor, nullptr/* _instrument_track*/, key),
 	m_instrumentTrack( _instrument_track ),
 	m_flags(flags)
 {
-}
-
-
-
-
-f_cnt_t Instrument::beatLen( NotePlayHandle * ) const
-{
-	return( 0 );
 }
 
 

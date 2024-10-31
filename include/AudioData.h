@@ -28,6 +28,7 @@
 #include <type_traits>
 
 #include "lmms_basics.h"
+#include "Span.h"
 
 namespace lmms
 {
@@ -111,7 +112,7 @@ using InterleavedAudioData = AudioData<AudioDataLayout::Interleaved, T>;
 
 
 //! Converts between sample types
-template<typename In, typename Out>
+template<typename Out, typename In>
 inline auto convertSample(const In sample) -> Out
 {
 	if constexpr (std::is_floating_point_v<In> && std::is_floating_point_v<Out>)

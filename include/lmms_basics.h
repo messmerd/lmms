@@ -25,12 +25,10 @@
 #ifndef LMMS_BASICS_H
 #define LMMS_BASICS_H
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 
 #include "lmmsconfig.h"
-#include "Span.h"
 
 namespace lmms
 {

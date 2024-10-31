@@ -145,6 +145,7 @@ public:
 };
 
 
+// TODO: Refactor so AudioPluginInterface can be used
 class Lb302Synth : public Instrument
 {
 	Q_OBJECT
@@ -152,8 +153,8 @@ public:
 	Lb302Synth( InstrumentTrack * _instrument_track );
 	~Lb302Synth() override;
 
-	void play( SampleFrame* _working_buffer ) override;
-	void playNote( NotePlayHandle * _n,
+	void playImpl( SampleFrame* _working_buffer ) override;
+	void playNoteImpl( NotePlayHandle * _n,
 						SampleFrame* _working_buffer ) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 

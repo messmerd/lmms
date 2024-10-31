@@ -108,9 +108,9 @@ public:
 		return &m_controls;
 	}
 
-	ProcessStatus processImpl(CoreAudioDataMut inOut) override
+	bool processAudioBufferImpl(CoreAudioDataMut inOut) override
 	{
-		return ProcessStatus::Sleep;
+		return false;
 	}
 
 	const QDomElement& originalPluginData() const

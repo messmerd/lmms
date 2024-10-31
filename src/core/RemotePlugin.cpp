@@ -371,7 +371,7 @@ bool RemotePlugin::process( const SampleFrame * _in_buf, SampleFrame * _out_buf 
 				static_cast<std::size_t>(frames * m_pinConnector.in().channelCount())
 			};
 
-			m_pinConnector.routeToPlugin(bus, pluginInput);
+			m_pinConnector.routeToPlugin<AudioDataLayout::Split>(bus, pluginInput);
 		}
 		else if (inputsClamped == DEFAULT_CHANNELS)
 		{
@@ -413,7 +413,7 @@ bool RemotePlugin::process( const SampleFrame * _in_buf, SampleFrame * _out_buf 
 			static_cast<std::size_t>(frames * m_pinConnector.out().channelCount())
 		};
 
-		m_pinConnector.routeFromPlugin(pluginOutput, bus);
+		m_pinConnector.routeFromPlugin<AudioDataLayout::Split>(pluginOutput, bus);
 	}
 	else if (outputsClamped == DEFAULT_CHANNELS)
 	{
