@@ -287,6 +287,22 @@ namespace copy_construction_tests
 } // namespace copy_construction_tests
 
 
+namespace nonconst_to_const_construction_tests
+{
+/*
+	int arr[] = {1, 2, 3};
+
+	constexpr bool test1()
+	{
+		auto span1 = Span<int>{arr};
+		Span<const int> span2{span1};
+		return true;
+	}
+	static_assert(test1());
+*/
+} // namespace nonconst_to_const_construction_tests
+
+
 namespace subview_tests
 {
 	// static extents
