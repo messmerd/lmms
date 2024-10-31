@@ -390,7 +390,7 @@ gui::PluginView* OpulenzInstrument::instantiateView( QWidget * _parent )
 }
 
 
-void OpulenzInstrument::processImpl(SampleFrame* _working_buffer)
+void OpulenzInstrument::processImpl(CoreAudioDataMut out)
 {
 	emulatorMutex.lock();
 	theEmulator->update(renderbuffer, frameCount);
@@ -400,7 +400,7 @@ void OpulenzInstrument::processImpl(SampleFrame* _working_buffer)
                 sample_t s = float(renderbuffer[frame]) / 8192.0;
                 for( ch_cnt_t ch = 0; ch < DEFAULT_CHANNELS; ++ch )
                 {
-                        _working_buffer[frame][ch] = s;
+                        out[frame][ch] = s;
                 }
 	}
 	emulatorMutex.unlock();

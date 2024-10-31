@@ -74,7 +74,7 @@ public:
 	ZynAddSubFxInstrument( InstrumentTrack * _instrument_track );
 	~ZynAddSubFxInstrument() override;
 
-	void processImpl(SampleFrame* _working_buffer) override;
+	void processImpl(CoreAudioDataMut out) override;
 
 	bool handleMidiEvent( const MidiEvent& event, const TimePos& time = TimePos(), f_cnt_t offset = 0 ) override;
 

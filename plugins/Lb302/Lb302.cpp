@@ -729,7 +729,7 @@ void Lb302Synth::initSlide()
 }
 
 
-void Lb302Synth::playNote( NotePlayHandle * _n, SampleFrame* _working_buffer )
+void Lb302Synth::playNoteImpl( NotePlayHandle * _n, SampleFrame* _working_buffer )
 {
 	if( _n->isMasterNote() || ( _n->hasParent() && _n->isReleased() ) )
 	{
@@ -788,7 +788,7 @@ void Lb302Synth::processNote( NotePlayHandle * _n )
 
 
 
-void Lb302Synth::play( SampleFrame* _working_buffer )
+void Lb302Synth::playImpl( SampleFrame* _working_buffer )
 {
 	m_notesMutex.lock();
 	while( ! m_notes.isEmpty() )

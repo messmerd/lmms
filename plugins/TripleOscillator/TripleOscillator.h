@@ -111,7 +111,7 @@ public:
 	TripleOscillator( InstrumentTrack * _track );
 	~TripleOscillator() override = default;
 
-	void processImpl(NotePlayHandle* _n, CoreAudioDataMut _working_buffer) override;
+	void processImpl(NotePlayHandle* _n, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

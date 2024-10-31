@@ -277,7 +277,7 @@ QString MalletsInstrument::nodeName() const
 
 
 
-void MalletsInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_buffer)
+void MalletsInstrument::processImpl(NotePlayHandle* _n, CoreAudioDataMut out)
 {
 	if( m_filesMissing )
 	{
@@ -400,10 +400,8 @@ void MalletsInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_bu
 
 	for( fpp_t frame = offset; frame < frames + offset; ++frame )
 	{
-		_working_buffer[frame][0] = ps->nextSampleLeft() *
-				( m_scalers[p] + add_scale );
-		_working_buffer[frame][1] = ps->nextSampleRight() *
-				( m_scalers[p] + add_scale );
+		out[frame][0] = ps->nextSampleLeft() * (m_scalers[p] + add_scale);
+		out[frame][1] = ps->nextSampleRight() * (m_scalers[p] + add_scale);
 	}
 }
 

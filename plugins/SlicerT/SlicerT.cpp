@@ -75,7 +75,7 @@ SlicerT::SlicerT(InstrumentTrack* instrumentTrack)
 	m_sliceSnap.setValue(0);
 }
 
-void SlicerT::processImpl(NotePlayHandle* handle, SampleFrame* workingBuffer)
+void SlicerT::processImpl(NotePlayHandle* handle, CoreAudioDataMut out)
 {
 	if (m_originalSample.sampleSize() <= 1) { return; }
 
@@ -121,7 +121,7 @@ void SlicerT::processImpl(NotePlayHandle* handle, SampleFrame* workingBuffer)
 		SRC_STATE* resampleState = playbackState->resamplingState();
 		SRC_DATA resampleData;
 		resampleData.data_in = (m_originalSample.data() + noteFrame)->data();
-		resampleData.data_out = (workingBuffer + offset)->data();
+		resampleData.data_out = out[offset].data();
 		resampleData.input_frames = noteLeft * m_originalSample.sampleSize();
 		resampleData.output_frames = frames;
 		resampleData.src_ratio = speedRatio;
@@ -140,8 +140,8 @@ void SlicerT::processImpl(NotePlayHandle* handle, SampleFrame* workingBuffer)
 			fadeValue = std::clamp(fadeValue, 0.0f, 1.0f);
 			fadeValue = cosinusInterpolate(0, 1, fadeValue);
 
-			workingBuffer[i + offset][0] *= fadeValue;
-			workingBuffer[i + offset][1] *= fadeValue;
+			out[i + offset][0] *= fadeValue;
+			out[i + offset][1] *= fadeValue;
 		}
 
 		emit isPlaying(noteDone, sliceStart, sliceEnd);

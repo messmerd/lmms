@@ -65,18 +65,6 @@ class NotePlayHandle;
 namespace detail
 {
 
-template<AudioDataLayout layout, typename SampleT>
-struct GetAudioDataType { using type = AudioData<layout, SampleT>; };
-
-template<>
-struct GetAudioDataType<AudioDataLayout::Interleaved, SampleFrame> { using type = CoreAudioDataMut; };
-
-template<>
-struct GetAudioDataType<AudioDataLayout::Interleaved, const SampleFrame> { using type = CoreAudioData; };
-
-
-///////////////////////////////////
-
 template<AudioDataLayout layout, typename SampleT, bool inplace>
 class AudioPluginBufferInterface;
 
@@ -177,11 +165,12 @@ private:
 };
 
 
-//! Helper metafunction to choose the correct base class for `AudioProcessorImpl`
-//template<AudioDataLayout layout, typename SampleT, InplaceOption inplace, bool customWorkingBuffer>
-//using AudioPluginBufferClass = std::conditional_t<customWorkingBuffer,
-//	AudioPluginBufferInterface<layout, SampleT, inplace == InplaceOption::True>,
-//	AudioPluginBufferDefaultImpl<layout, SampleT, inplace == InplaceOption::True>>;
+// FIXME: My std::span implementation fails to convert Span<T> to Span<const T>, so this is a workaround
+template<class T, std::size_t extent>
+constexpr inline auto constSpan(const Span<T, extent>& s)
+{
+	return Span<std::add_const_t<T>, extent>{s.data(), s.size()};
+}
 
 
 //! Provides the correct `processImpl` interface for instruments or effects to implement
@@ -268,78 +257,80 @@ public:
 protected:
 	void playImpl(SampleFrame* inOut) final
 	{
-		auto busInOut = CoreAudioBusMut{{&inOut, 1}, Engine::audioEngine()->framesPerPeriod()};
+		auto busConst = CoreAudioBus{{&inOut, 1}, Engine::audioEngine()->framesPerPeriod()};
+		auto busMut = CoreAudioBusMut{{&inOut, 1}, Engine::audioEngine()->framesPerPeriod()};
 
 		if constexpr (inplace == InplaceOption::True)
 		{
 			auto workingBuffer = this->getWorkingBuffer();
-			m_pinConnector.routeToPlugin(busInOut, workingBuffer);
+			m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBuffer);
 			this->processImpl(workingBuffer);
-			m_pinConnector.routeFromPlugin(workingBuffer, busInOut);
+			m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBuffer), busMut);
 		}
 		else if constexpr (inplace == InplaceOption::False)
 		{
 			auto workingBufferIn = this->getWorkingBufferIn();
 			auto workingBufferOut = this->getWorkingBufferOut();
-			m_pinConnector.routeToPlugin(busInOut, workingBufferIn);
-			this->processImpl(workingBufferIn, workingBufferOut);
-			m_pinConnector.routeFromPlugin(workingBufferOut, busInOut);
+			m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBufferIn);
+			this->processImpl(constSpan(workingBufferIn), workingBufferOut);
+			m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBufferOut), busMut);
 		}
 		else
 		{
 			if (m_inplace)
 			{
 				auto workingBuffer = this->getWorkingBufferIn();
-				m_pinConnector.routeToPlugin(busInOut, workingBuffer);
+				m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBuffer);
 				this->processImpl(workingBuffer);
-				m_pinConnector.routeFromPlugin(workingBuffer, busInOut);
+				m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBuffer), busMut);
 			}
 			else
 			{
 				auto workingBufferIn = this->getWorkingBufferIn();
 				auto workingBufferOut = this->getWorkingBufferOut();
-				m_pinConnector.routeToPlugin(busInOut, workingBufferIn);
-				this->processImpl(workingBufferIn, workingBufferOut);
-				m_pinConnector.routeFromPlugin(workingBufferOut, busInOut);
+				m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBufferIn);
+				this->processImpl(constSpan(workingBufferIn), workingBufferOut);
+				m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBufferOut), busMut);
 			}
 		}
 	}
 
 	void playNoteImpl(NotePlayHandle* notesToPlay, SampleFrame* inOut) final
 	{
-		auto busInOut = CoreAudioBusMut{{&inOut, 1}, Engine::audioEngine()->framesPerPeriod()};
+		auto busConst = CoreAudioBus{{&inOut, 1}, Engine::audioEngine()->framesPerPeriod()};
+		auto busMut = CoreAudioBusMut{{&inOut, 1}, Engine::audioEngine()->framesPerPeriod()};
 
 		if constexpr (inplace == InplaceOption::True)
 		{
 			auto workingBuffer = this->getWorkingBuffer();
-			m_pinConnector.routeToPlugin(busInOut, workingBuffer);
+			m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBuffer);
 			this->processImpl(notesToPlay, workingBuffer);
-			m_pinConnector.routeFromPlugin(workingBuffer, busInOut);
+			m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBuffer), busMut);
 		}
 		else if constexpr (inplace == InplaceOption::False)
 		{
 			auto workingBufferIn = this->getWorkingBufferIn();
 			auto workingBufferOut = this->getWorkingBufferOut();
-			m_pinConnector.routeToPlugin(busInOut, workingBufferIn);
-			this->processImpl(notesToPlay, workingBufferIn, workingBufferOut);
-			m_pinConnector.routeFromPlugin(workingBufferOut, busInOut);
+			m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBufferIn);
+			this->processImpl(notesToPlay, constSpan(workingBufferIn), workingBufferOut);
+			m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBufferOut), busMut);
 		}
 		else
 		{
 			if (m_inplace)
 			{
 				auto workingBuffer = this->getWorkingBufferIn();
-				m_pinConnector.routeToPlugin(busInOut, workingBuffer);
+				m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBuffer);
 				this->processImpl(notesToPlay, workingBuffer);
-				m_pinConnector.routeFromPlugin(workingBuffer, busInOut);
+				m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBuffer), busMut);
 			}
 			else
 			{
 				auto workingBufferIn = this->getWorkingBufferIn();
 				auto workingBufferOut = this->getWorkingBufferOut();
-				m_pinConnector.routeToPlugin(busInOut, workingBufferIn);
-				this->processImpl(notesToPlay, workingBufferIn, workingBufferOut);
-				m_pinConnector.routeFromPlugin(workingBufferOut, busInOut);
+				m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBufferIn);
+				this->processImpl(notesToPlay, constSpan(workingBufferIn), workingBufferOut);
+				m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBufferOut), busMut);
 			}
 		}
 	}
@@ -401,40 +392,41 @@ protected:
 		}
 
 		SampleFrame* temp = inOut.data();
-		auto busInOut = CoreAudioBusMut{{&temp, 1}, inOut.size()};
+		auto busConst = CoreAudioBus{{&temp, 1}, inOut.size()};
+		auto busMut = CoreAudioBusMut{{&temp, 1}, inOut.size()};
 		ProcessStatus status;
 
 		if constexpr (inplace == InplaceOption::True)
 		{
 			auto workingBuffer = this->getWorkingBuffer();
-			m_pinConnector.routeToPlugin(busInOut, workingBuffer);
+			m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBuffer);
 			status = this->processImpl(workingBuffer);
-			m_pinConnector.routeFromPlugin(workingBuffer, busInOut);
+			m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBuffer), busMut);
 		}
 		else if constexpr (inplace == InplaceOption::False)
 		{
 			auto workingBufferIn = this->getWorkingBufferIn();
 			auto workingBufferOut = this->getWorkingBufferOut();
-			m_pinConnector.routeToPlugin(busInOut, workingBufferIn);
-			status = this->processImpl(workingBufferIn, workingBufferOut);
-			m_pinConnector.routeFromPlugin(workingBufferOut, busInOut);
+			m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBufferIn);
+			status = this->processImpl(constSpan(workingBufferIn), workingBufferOut);
+			m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBufferOut), busMut);
 		}
 		else
 		{
 			if (m_inplace)
 			{
 				auto workingBuffer = this->getWorkingBufferIn();
-				m_pinConnector.routeToPlugin(busInOut, workingBuffer);
+				m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBuffer);
 				status = this->processImpl(workingBuffer);
-				m_pinConnector.routeFromPlugin(workingBuffer, busInOut);
+				m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBuffer), busMut);
 			}
 			else
 			{
 				auto workingBufferIn = this->getWorkingBufferIn();
 				auto workingBufferOut = this->getWorkingBufferOut();
-				m_pinConnector.routeToPlugin(busInOut, workingBufferIn);
-				status = this->processImpl(workingBufferIn, workingBufferOut);
-				m_pinConnector.routeFromPlugin(workingBufferOut, busInOut);
+				m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBufferIn);
+				status = this->processImpl(constSpan(workingBufferIn), workingBufferOut);
+				m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBufferOut), busMut);
 			}
 		}
 
@@ -507,6 +499,7 @@ private:
  * @param layout The audio data layout used by the plugin
  * @param SampleT The plugin's sample type - i.e. float, double, int32_t, `SampleFrame`, etc.
  * @param inplace Inplace processing options - dynamic (runtime), false, or true
+ * @param customWorkingBuffer If true, plugin implementation will implement `AudioPluginBufferInterface`
  */
 template<class ChildT, int numChannelsIn, int numChannelsOut,
 	AudioDataLayout layout, typename SampleT, InplaceOption inplace, bool customWorkingBuffer>

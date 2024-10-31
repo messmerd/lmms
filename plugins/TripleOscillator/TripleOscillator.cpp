@@ -306,7 +306,7 @@ QString TripleOscillator::nodeName() const
 
 
 
-void TripleOscillator::processImpl(NotePlayHandle* _n, CoreAudioDataMut _working_buffer)
+void TripleOscillator::processImpl(NotePlayHandle* _n, CoreAudioDataMut out)
 {
 	if (!_n->m_pluginData)
 	{
@@ -376,11 +376,11 @@ void TripleOscillator::processImpl(NotePlayHandle* _n, CoreAudioDataMut _working
 	const fpp_t frames = _n->framesLeftForCurrentPeriod();
 	const f_cnt_t offset = _n->noteOffset();
 
-	osc_l->update(_working_buffer.data() + offset, frames, 0);
-	osc_r->update(_working_buffer.data() + offset, frames, 1);
+	osc_l->update(out.data() + offset, frames, 0);
+	osc_r->update(out.data() + offset, frames, 1);
 
-	applyFadeIn(_working_buffer.data(), _n);
-	applyRelease(_working_buffer.data(), _n);
+	applyFadeIn(out.data(), _n);
+	applyRelease(out.data(), _n);
 }
 
 

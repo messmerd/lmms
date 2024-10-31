@@ -379,6 +379,11 @@ template<class T, std::size_t N>
 Span(const std::array<T, N>&) -> Span<const T, N>;
 
 
+// ???
+//template<class T, std::size_t N>
+//Span(const Span<T, N>&) -> Span<const T, N>;
+
+
 // Non-member functions
 
 template<class T, std::size_t N>

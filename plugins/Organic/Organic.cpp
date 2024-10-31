@@ -220,7 +220,7 @@ QString OrganicInstrument::nodeName() const
 
 
 
-void OrganicInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_buffer)
+void OrganicInstrument::processImpl(NotePlayHandle* _n, CoreAudioDataMut out)
 {
 	const fpp_t frames = _n->framesLeftForCurrentPeriod();
 	const f_cnt_t offset = _n->noteOffset();
@@ -292,8 +292,8 @@ void OrganicInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_bu
 	Oscillator * osc_l = static_cast<oscPtr *>( _n->m_pluginData )->oscLeft;
 	Oscillator * osc_r = static_cast<oscPtr *>( _n->m_pluginData)->oscRight;
 
-	osc_l->update( _working_buffer + offset, frames, 0 );
-	osc_r->update( _working_buffer + offset, frames, 1 );
+	osc_l->update(out.data() + offset, frames, 0);
+	osc_r->update(out.data() + offset, frames, 1);
 
 
 	// -- fx section --
@@ -303,10 +303,8 @@ void OrganicInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_bu
 
 	for (auto i = std::size_t{0}; i < frames + offset; i++)
 	{
-		_working_buffer[i][0] = waveshape( _working_buffer[i][0], t ) *
-						m_volModel.value() / 100.0f;
-		_working_buffer[i][1] = waveshape( _working_buffer[i][1], t ) *
-						m_volModel.value() / 100.0f;
+		out[i][0] = waveshape(out[i][0], t) * m_volModel.value() / 100.0f;
+		out[i][1] = waveshape(out[i][1], t) * m_volModel.value() / 100.0f;
 	}
 
 	// -- --

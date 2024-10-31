@@ -59,7 +59,7 @@ public:
 	PatmanInstrument( InstrumentTrack * _track );
 	~PatmanInstrument() override;
 
-	void processImpl(NotePlayHandle* nph, SampleFrame* workingBuffer) override;
+	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

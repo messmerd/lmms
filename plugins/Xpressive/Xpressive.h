@@ -67,7 +67,7 @@ class Xpressive : public DefaultInstrumentPluginInterface
 public:
 	Xpressive(InstrumentTrack* instrument_track );
 
-	void processImpl(NotePlayHandle* nph, SampleFrame* working_buffer) override;
+	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle* nph ) override;
 
 

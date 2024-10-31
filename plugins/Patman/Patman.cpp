@@ -133,7 +133,7 @@ QString PatmanInstrument::nodeName() const
 
 
 
-void PatmanInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_buffer)
+void PatmanInstrument::processImpl(NotePlayHandle* _n, CoreAudioDataMut out)
 {
 	if( m_patchFile == "" )
 	{
@@ -152,14 +152,14 @@ void PatmanInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_buf
 	float play_freq = hdata->tuned ? _n->frequency() :
 						hdata->sample->frequency();
 
-	if (hdata->sample->play(_working_buffer + offset, hdata->state, frames,
+	if (hdata->sample->play(out.data() + offset, hdata->state, frames,
 					play_freq, m_loopedModel.value() ? Sample::Loop::On : Sample::Loop::Off))
 	{
-		applyRelease( _working_buffer, _n );
+		applyRelease(out.data(), _n);
 	}
 	else
 	{
-		zeroSampleFrames(_working_buffer, frames + offset);
+		zeroSampleFrames(out.data(), frames + offset);
 	}
 }
 

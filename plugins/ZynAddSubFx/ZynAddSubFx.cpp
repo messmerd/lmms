@@ -334,16 +334,16 @@ QString ZynAddSubFxInstrument::nodeName() const
 
 
 
-void ZynAddSubFxInstrument::processImpl(SampleFrame* _buf)
+void ZynAddSubFxInstrument::processImpl(CoreAudioDataMut out)
 {
 	if (!m_pluginMutex.tryLock(Engine::getSong()->isExporting() ? -1 : 0)) {return;}
 	if( m_remotePlugin )
 	{
-		m_remotePlugin->process( nullptr, _buf );
+		m_remotePlugin->process(nullptr, out.data());
 	}
 	else
 	{
-		m_plugin->processAudio( _buf );
+		m_plugin->processAudio(out.data());
 	}
 	m_pluginMutex.unlock();
 }

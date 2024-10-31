@@ -326,7 +326,7 @@ WatsynInstrument::WatsynInstrument( InstrumentTrack * _instrument_track ) :
 }
 
 
-void WatsynInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_buffer)
+void WatsynInstrument::processImpl(NotePlayHandle* _n, CoreAudioDataMut out)
 {
 	if (!_n->m_pluginData)
 	{
@@ -338,7 +338,7 @@ void WatsynInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_buf
 
 	const fpp_t frames = _n->framesLeftForCurrentPeriod();
 	const f_cnt_t offset = _n->noteOffset();
-	SampleFrame* buffer = _working_buffer + offset;
+	SampleFrame* buffer = out.data() + offset;
 
 	auto w = static_cast<WatsynObject*>(_n->m_pluginData);
 
@@ -443,7 +443,7 @@ void WatsynInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_buf
 		}
 	}
 
-	applyRelease( _working_buffer, _n );
+	applyRelease(out.data(), _n);
 }
 
 

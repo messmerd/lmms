@@ -442,7 +442,7 @@ QString SfxrInstrument::nodeName() const
 
 
 
-void SfxrInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_buffer)
+void SfxrInstrument::processImpl(NotePlayHandle* _n, CoreAudioDataMut out)
 {
 	float currentSampleRate = Engine::audioEngine()->outputSampleRate();
 
@@ -454,7 +454,7 @@ void SfxrInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_buffe
 	}
 	else if( static_cast<SfxrSynth*>(_n->m_pluginData)->isPlaying() == false )
 	{
-		zeroSampleFrames(_working_buffer + offset, frameNum);
+		zeroSampleFrames(out.data() + offset, frameNum);
 		_n->noteOff();
 		return;
 	}
@@ -473,13 +473,13 @@ void SfxrInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_buffe
 	{
 		for( ch_cnt_t j=0; j<DEFAULT_CHANNELS; j++ )
 		{
-			_working_buffer[i+offset][j] = pitchedBuffer[i*pitchedFrameNum/frameNum][j];
+			out[i+offset][j] = pitchedBuffer[i*pitchedFrameNum/frameNum][j];
 		}
 	}
 
 	delete[] pitchedBuffer;
 
-	applyRelease( _working_buffer, _n );
+	applyRelease(out.data(), _n);
 }
 
 

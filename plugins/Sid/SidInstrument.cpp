@@ -285,7 +285,7 @@ static int sid_fillbuffer(unsigned char* sidreg, reSID::SID *sid, int tdelta, sh
 
 
 
-void SidInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_buffer)
+void SidInstrument::processImpl(NotePlayHandle* _n, CoreAudioDataMut out)
 {
 	const int clockrate = C64_PAL_CYCLES_PER_SEC;
 	const int samplerate = Engine::audioEngine()->outputSampleRate();
@@ -420,7 +420,7 @@ void SidInstrument::processImpl(NotePlayHandle* _n, SampleFrame* _working_buffer
 		sample_t s = float(buf[frame])/32768.0;
 		for( ch_cnt_t ch = 0; ch < DEFAULT_CHANNELS; ++ch )
 		{
-			_working_buffer[frame+offset][ch] = s;
+			out[frame+offset][ch] = s;
 		}
 	}
 }

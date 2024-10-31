@@ -57,7 +57,7 @@ public:
 	Vibed(InstrumentTrack* instrumentTrack);
 	~Vibed() override = default;
 
-	void processImpl(NotePlayHandle* n, SampleFrame* workingBuffer) override;
+	void processImpl(NotePlayHandle* n, CoreAudioDataMut out) override;
 	void deleteNotePluginData(NotePlayHandle* n) override;
 
 	void saveSettings(QDomDocument& doc, QDomElement& elem) override;

@@ -139,7 +139,7 @@ public:
 	WatsynInstrument( InstrumentTrack * _instrument_track );
 	~WatsynInstrument() override = default;
 
-	void processImpl(NotePlayHandle* _n, SampleFrame* _working_buffer) override;
+	void processImpl(NotePlayHandle* _n, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

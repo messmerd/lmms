@@ -546,7 +546,7 @@ NesInstrument::NesInstrument( InstrumentTrack * instrumentTrack ) :
 
 
 
-void NesInstrument::playNote( NotePlayHandle * n, SampleFrame* workingBuffer )
+void NesInstrument::processImpl(NotePlayHandle* n, CoreAudioDataMut out)
 {
 	const fpp_t frames = n->framesLeftForCurrentPeriod();
 	const f_cnt_t offset = n->noteOffset();
@@ -559,9 +559,9 @@ void NesInstrument::playNote( NotePlayHandle * n, SampleFrame* workingBuffer )
 
 	auto nes = static_cast<NesObject*>(n->m_pluginData);
 
-	nes->renderOutput( workingBuffer + offset, frames );
+	nes->renderOutput(out.data() + offset, frames);
 	
-	applyRelease( workingBuffer, n );
+	applyRelease(out.data(), n);
 }
 
 

@@ -188,7 +188,7 @@ public:
 	MalletsInstrument( InstrumentTrack * _instrument_track );
 	~MalletsInstrument() override = default;
 
-	void processImpl(NotePlayHandle* nph, SampleFrame* workingBuffer) override;
+	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

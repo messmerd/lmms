@@ -177,7 +177,7 @@ bool Lv2Instrument::handleMidiEvent(
 
 // not yet working
 #ifndef LV2_INSTRUMENT_USE_MIDI
-void Lv2Instrument::playNote(NotePlayHandle *nph, SampleFrame*)
+void Lv2Instrument::processImpl(NotePlayHandle *nph, CoreAudioDataMut)
 {
 }
 #endif
@@ -185,7 +185,7 @@ void Lv2Instrument::playNote(NotePlayHandle *nph, SampleFrame*)
 
 
 
-void Lv2Instrument::play(SampleFrame* buf)
+void Lv2Instrument::processImpl(CoreAudioDataMut out)
 {
 	copyModelsFromLmms();
 
@@ -194,7 +194,7 @@ void Lv2Instrument::play(SampleFrame* buf)
 	run(fpp);
 
 	copyModelsToLmms();
-	copyBuffersToLmms(buf, fpp);
+	copyBuffersToLmms(out.data(), fpp);
 }
 
 

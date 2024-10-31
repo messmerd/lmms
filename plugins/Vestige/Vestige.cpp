@@ -397,7 +397,7 @@ void VestigeInstrument::loadFile( const QString & _file )
 
 
 
-void VestigeInstrument::processImpl(SampleFrame* _buf)
+void VestigeInstrument::processImpl(CoreAudioDataMut out)
 {
 	if (!m_pluginMutex.tryLock(Engine::getSong()->isExporting() ? -1 : 0)) {return;}
 
@@ -407,7 +407,7 @@ void VestigeInstrument::processImpl(SampleFrame* _buf)
 		return;
 	}
 
-	m_plugin->process( nullptr, _buf );
+	m_plugin->process(nullptr, out.data());
 
 	m_pluginMutex.unlock();
 }

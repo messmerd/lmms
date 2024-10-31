@@ -64,7 +64,7 @@ public:
 	VestigeInstrument( InstrumentTrack * _instrument_track );
 	virtual ~VestigeInstrument();
 
-	void processImpl(SampleFrame* _working_buffer) override;
+	void processImpl(CoreAudioDataMut out) override;
 
 	virtual void saveSettings( QDomDocument & _doc, QDomElement & _parent );
 	virtual void loadSettings( const QDomElement & _this );
