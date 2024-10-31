@@ -29,6 +29,7 @@
 
 #include "Effect.h"
 #include "Instrument.h"
+#include "InstrumentTrack.h"
 #include "PluginPinConnector.h"
 
 namespace lmms
