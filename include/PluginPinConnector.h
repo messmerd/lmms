@@ -304,24 +304,24 @@ inline void PluginPinConnector::routeToPlugin(CoreAudioBus in, typename detail::
 			for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
 			{
 				// Route to left output channel
-				if constexpr (epL & 0b01)
+				if constexpr ((epL & 0b01) != 0)
 				{
 					outPtr[sampleIdx] += inPtr[sampleIdx + 1];
 					++numRoutedL;
 				}
-				if constexpr (epL & 0b10)
+				if constexpr ((epL & 0b10) != 0)
 				{
 					outPtr[sampleIdx] += inPtr[sampleIdx];
 					++numRoutedL;
 				}
 
 				// Route to right output channel
-				if constexpr (epR & 0b01)
+				if constexpr ((epR & 0b01) != 0)
 				{
 					outPtr[sampleIdx + 1] += inPtr[sampleIdx + 1];
 					++numRoutedR;
 				}
-				if constexpr (epR & 0b10)
+				if constexpr ((epR & 0b10) != 0)
 				{
 					outPtr[sampleIdx + 1] += inPtr[sampleIdx];
 					++numRoutedR;
@@ -536,24 +536,24 @@ inline void PluginPinConnector::routeFromPlugin(
 			for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
 			{
 				// Route to left output channel
-				if constexpr (epL & 0b01)
+				if constexpr ((epL & 0b01) != 0)
 				{
 					outPtr[sampleIdx] += inPtr[sampleIdx + 1];
 					++numRoutedL;
 				}
-				if constexpr (epL & 0b10)
+				if constexpr ((epL & 0b10) != 0)
 				{
 					outPtr[sampleIdx] += inPtr[sampleIdx];
 					++numRoutedL;
 				}
 
 				// Route to right output channel
-				if constexpr (epR & 0b01)
+				if constexpr ((epR & 0b01) != 0)
 				{
 					outPtr[sampleIdx + 1] += inPtr[sampleIdx + 1];
 					++numRoutedR;
 				}
-				if constexpr (epR & 0b10)
+				if constexpr ((epR & 0b10) != 0)
 				{
 					outPtr[sampleIdx + 1] += inPtr[sampleIdx];
 					++numRoutedR;
