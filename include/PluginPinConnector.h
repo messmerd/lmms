@@ -135,10 +135,14 @@ public:
 	 *
 	 * `in`     : track channels from LMMS core (currently just the main track channel pair)
 	 *            `in.frames` provides the number of frames in each `in`/`out` audio buffer
-	 * `out`    : plugin input channels in Split form
+	 * `out`    : plugin input channels in Split form (Interleaved is not needed or implemented yet)
 	 */
 	template<AudioDataLayout layout, typename SampleT>
-	void routeToPlugin(CoreAudioBus in, typename detail::GetAudioDataType<layout, SampleT>::type out) const;
+	void routeToPlugin(CoreAudioBus in, AudioData<layout, SampleT> out) const;
+
+	//! Overload for SampleFrame-based plugins
+	template<AudioDataLayout layout, typename SampleT>
+	void routeToPlugin(CoreAudioBus in, CoreAudioDataMut out) const;
 
 	/*
 	 * Routes audio from plugin outputs to LMMS track channels according to the plugin pin connector configuration.
@@ -146,14 +150,17 @@ public:
 	 * Iterates through each output channel, mixing together all input audio routed to the output channel.
 	 * If no audio is routed to an output channel, `inOut` remains unchanged for audio bypass.
 	 *
-	 * `in`      : plugin output channels in Split form
+	 * `in`      : plugin output channels in Split form (Interleaved is not needed or implemented yet)
 	 * `inOut`   : track channels from/to LMMS core (inplace processing)
 	 *            `inOut.frames` provides the number of frames in each `in`/`inOut` audio buffer
 	 */
 	template<AudioDataLayout layout, typename SampleT>
-	void routeFromPlugin(
-		typename detail::GetAudioDataType<layout, const SampleT>::type in,
-		CoreAudioBusMut inOut) const;
+	void routeFromPlugin(AudioData<layout, const SampleT> in, CoreAudioBusMut inOut) const;
+
+	//! Overload for SampleFrame-based plugins
+	template<AudioDataLayout layout, typename SampleT>
+	void routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut) const;
+
 
 	/**
 	 * SerializingObject implementation
@@ -190,179 +197,401 @@ private:
 // Out-of-class definitions
 
 template<AudioDataLayout layout, typename SampleT>
-inline void PluginPinConnector::routeToPlugin(CoreAudioBus in, typename detail::GetAudioDataType<layout, SampleT>::type out) const
+inline void PluginPinConnector::routeToPlugin(CoreAudioBus in, AudioData<layout, SampleT> out) const
 {
-	// C++ doesn't allow partial specialization of functions, so unfortunately both the
-	// `SampleFrame` amd non-`SampleFrame` implementations need to go here.
-	constexpr bool isSampleFrame = std::is_same_v<std::remove_const_t<SampleT>, SampleFrame>;
+	static_assert(layout == AudioDataLayout::Split, "Only split data is implemented so far");
 
-	if constexpr (!isSampleFrame)
+	// Ignore all unused track channels for better performance
+	const auto inSizeConstrained = m_trackChannelsUpperBound / 2;
+	assert(inSizeConstrained <= in.bus.size());
+
+	// Zero the output buffer
+	std::fill(out.begin(), out.end(), SampleT{});
+
+	std::uint8_t outChannel = 0;
+	for (f_cnt_t outSampleIdx = 0; outSampleIdx < out.size(); outSampleIdx += in.frames, ++outChannel)
 	{
-		static_assert(layout == AudioDataLayout::Split, "Only split data is implemented so far");
-
-		// Ignore all unused track channels for better performance
-		const auto inSizeConstrained = m_trackChannelsUpperBound / 2;
-		assert(inSizeConstrained <= in.bus.size());
-
-		// Zero the output buffer
-		std::fill(out.begin(), out.end(), SampleT{});
-
-		std::uint8_t outChannel = 0;
-		for (f_cnt_t outSampleIdx = 0; outSampleIdx < out.size(); outSampleIdx += in.frames, ++outChannel)
-		{
-			mix_ch_t numRouted = 0; // counter for # of in channels routed to the current out channel
-			SampleType<layout, SampleT>* outPtr = &out[outSampleIdx];
-
-			for (std::uint8_t inChannelPairIdx = 0; inChannelPairIdx < inSizeConstrained; ++inChannelPairIdx)
-			{
-				const SampleFrame* inPtr = in.bus[inChannelPairIdx]; // L/R track channel pair
-
-				const std::uint8_t inChannel = inChannelPairIdx * 2;
-				const std::uint8_t enabledPins =
-					(static_cast<std::uint8_t>(m_in.enabled(inChannel, outChannel)) << 1u)
-					| static_cast<std::uint8_t>(m_in.enabled(inChannel + 1, outChannel));
-
-				switch (enabledPins)
-				{
-					case 0b00: break;
-					case 0b01: // R channel only
-					{
-						for (f_cnt_t frame = 0; frame < in.frames; ++frame)
-						{
-							outPtr[frame] += convertSample<SampleT>(inPtr[frame].right());
-						}
-						++numRouted;
-						break;
-					}
-					case 0b10: // L channel only
-					{
-						for (f_cnt_t frame = 0; frame < in.frames; ++frame)
-						{
-							outPtr[frame] += convertSample<SampleT>(inPtr[frame].left());
-						}
-						++numRouted;
-						break;
-					}
-					case 0b11: // Both channels
-					{
-						for (f_cnt_t frame = 0; frame < in.frames; ++frame)
-						{
-							outPtr[frame] += convertSample<SampleT>(inPtr[frame].left() + inPtr[frame].right());
-						}
-						numRouted += 2;
-						break;
-					}
-					default:
-						unreachable();
-						break;
-				}
-			}
-
-			// Either no input channels were routed to this output and output stays zeroed,
-			// or only one channel was routed and normalization is not needed
-			if (numRouted <= 1) { continue; }
-
-			// Normalize output
-			for (f_cnt_t frame = 0; frame < in.frames; ++frame)
-			{
-				outPtr[frame] /= numRouted;
-			}
-		}
-	}
-	else // implementation for `SampleFrame`
-	{
-		static_assert(layout == AudioDataLayout::Interleaved);
-
-		// Ignore all unused track channels for better performance
-		const auto inSizeConstrained = m_trackChannelsUpperBound / 2;
-		assert(inSizeConstrained <= in.bus.size());
-
-		// Zero the output buffer
-		std::fill(out.begin(), out.end(), SampleFrame{});
-
-		// Counters for # of in channels routed to the current pair of out channels
-		mix_ch_t numRoutedL = 0;
-		mix_ch_t numRoutedR = 0;
-
-		const auto samples = in.frames * 2;
-		sample_t* outPtr = out.data()->data();
-
-		/*
-		* This is essentially a function template with specializations for each
-		* of the 16 total routing combinations of an input `SampleFrame*` to an
-		* output `SampleFrame*`. The purpose is to eliminate all branching within
-		* the inner for-loop in hopes of better performance.
-		*
-		* TODO C++20: Use explicit non-type template parameter instead of `enabledPins` auto parameter
-		*/
-		auto route2x2 = [&](const sample_t* inPtr, auto enabledPins) {
-			constexpr auto epL =  static_cast<std::uint8_t>(enabledPins() >> 2); // for L out channel
-			constexpr auto epR = static_cast<std::uint8_t>(enabledPins() & 0b0011); // for R out channel
-
-			if constexpr (enabledPins() == 0) { return; }
-
-			for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
-			{
-				// Route to left output channel
-				if constexpr ((epL & 0b01) != 0)
-				{
-					outPtr[sampleIdx] += inPtr[sampleIdx + 1];
-					++numRoutedL;
-				}
-				if constexpr ((epL & 0b10) != 0)
-				{
-					outPtr[sampleIdx] += inPtr[sampleIdx];
-					++numRoutedL;
-				}
-
-				// Route to right output channel
-				if constexpr ((epR & 0b01) != 0)
-				{
-					outPtr[sampleIdx + 1] += inPtr[sampleIdx + 1];
-					++numRoutedR;
-				}
-				if constexpr ((epR & 0b10) != 0)
-				{
-					outPtr[sampleIdx + 1] += inPtr[sampleIdx];
-					++numRoutedR;
-				}
-			}
-		};
-
+		mix_ch_t numRouted = 0; // counter for # of in channels routed to the current out channel
+		SampleType<layout, SampleT>* outPtr = &out[outSampleIdx];
 
 		for (std::uint8_t inChannelPairIdx = 0; inChannelPairIdx < inSizeConstrained; ++inChannelPairIdx)
 		{
-			const sample_t* inPtr = in.bus[inChannelPairIdx]->data(); // L/R track channel pair
+			const SampleFrame* inPtr = in.bus[inChannelPairIdx]; // L/R track channel pair
 
 			const std::uint8_t inChannel = inChannelPairIdx * 2;
 			const std::uint8_t enabledPins =
-				(static_cast<std::uint8_t>(m_in.enabled(inChannel, 0)) << 3u)
-				| (static_cast<std::uint8_t>(m_in.enabled(inChannel + 1, 0)) << 2u)
-				| (static_cast<std::uint8_t>(m_in.enabled(inChannel, 1)) << 1u)
-				| static_cast<std::uint8_t>(m_in.enabled(inChannel + 1, 1));
+				(static_cast<std::uint8_t>(m_in.enabled(inChannel, outChannel)) << 1u)
+				| static_cast<std::uint8_t>(m_in.enabled(inChannel + 1, outChannel));
 
 			switch (enabledPins)
 			{
-				case 0: break;
-				case 1: route2x2(inPtr, std::integral_constant<std::uint8_t, 1>{}); break;
-				case 2: route2x2(inPtr, std::integral_constant<std::uint8_t, 2>{}); break;
-				case 3: route2x2(inPtr, std::integral_constant<std::uint8_t, 3>{}); break;
-				case 4: route2x2(inPtr, std::integral_constant<std::uint8_t, 4>{}); break;
-				case 5: route2x2(inPtr, std::integral_constant<std::uint8_t, 5>{}); break;
-				case 6: route2x2(inPtr, std::integral_constant<std::uint8_t, 6>{}); break;
-				case 7: route2x2(inPtr, std::integral_constant<std::uint8_t, 7>{}); break;
-				case 8: route2x2(inPtr, std::integral_constant<std::uint8_t, 8>{}); break;
-				case 9: route2x2(inPtr, std::integral_constant<std::uint8_t, 9>{}); break;
-				case 10: route2x2(inPtr, std::integral_constant<std::uint8_t, 10>{}); break;
-				case 11: route2x2(inPtr, std::integral_constant<std::uint8_t, 11>{}); break;
-				case 12: route2x2(inPtr, std::integral_constant<std::uint8_t, 12>{}); break;
-				case 13: route2x2(inPtr, std::integral_constant<std::uint8_t, 13>{}); break;
-				case 14: route2x2(inPtr, std::integral_constant<std::uint8_t, 14>{}); break;
-				case 15: route2x2(inPtr, std::integral_constant<std::uint8_t, 15>{}); break;
+				case 0b00: break;
+				case 0b01: // R channel only
+				{
+					for (f_cnt_t frame = 0; frame < in.frames; ++frame)
+					{
+						outPtr[frame] += convertSample<SampleT>(inPtr[frame].right());
+					}
+					++numRouted;
+					break;
+				}
+				case 0b10: // L channel only
+				{
+					for (f_cnt_t frame = 0; frame < in.frames; ++frame)
+					{
+						outPtr[frame] += convertSample<SampleT>(inPtr[frame].left());
+					}
+					++numRouted;
+					break;
+				}
+				case 0b11: // Both channels
+				{
+					for (f_cnt_t frame = 0; frame < in.frames; ++frame)
+					{
+						outPtr[frame] += convertSample<SampleT>(inPtr[frame].left() + inPtr[frame].right());
+					}
+					numRouted += 2;
+					break;
+				}
 				default:
 					unreachable();
 					break;
 			}
+		}
+
+		// Either no input channels were routed to this output and output stays zeroed,
+		// or only one channel was routed and normalization is not needed
+		if (numRouted <= 1) { continue; }
+
+		// Normalize output
+		for (f_cnt_t frame = 0; frame < in.frames; ++frame)
+		{
+			outPtr[frame] /= numRouted;
+		}
+	}
+}
+
+template<AudioDataLayout layout, typename SampleT>
+inline void PluginPinConnector::routeToPlugin(CoreAudioBus in, CoreAudioDataMut out) const
+{
+	static_assert(layout == AudioDataLayout::Interleaved);
+
+	// Ignore all unused track channels for better performance
+	const auto inSizeConstrained = m_trackChannelsUpperBound / 2;
+	assert(inSizeConstrained <= in.bus.size());
+
+	// Zero the output buffer
+	std::fill(out.begin(), out.end(), SampleFrame{});
+
+	// Counters for # of in channels routed to the current pair of out channels
+	mix_ch_t numRoutedL = 0;
+	mix_ch_t numRoutedR = 0;
+
+	const auto samples = in.frames * 2;
+	sample_t* outPtr = out.data()->data();
+
+	/*
+	* This is essentially a function template with specializations for each
+	* of the 16 total routing combinations of an input `SampleFrame*` to an
+	* output `SampleFrame*`. The purpose is to eliminate all branching within
+	* the inner for-loop in hopes of better performance.
+	*
+	* TODO C++20: Use explicit non-type template parameter instead of `enabledPins` auto parameter
+	*/
+	auto route2x2 = [&](const sample_t* inPtr, auto enabledPins) {
+		constexpr auto epL =  static_cast<std::uint8_t>(enabledPins() >> 2); // for L out channel
+		constexpr auto epR = static_cast<std::uint8_t>(enabledPins() & 0b0011); // for R out channel
+
+		if constexpr (enabledPins() == 0) { return; }
+
+		for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
+		{
+			// Route to left output channel
+			if constexpr ((epL & 0b01) != 0)
+			{
+				outPtr[sampleIdx] += inPtr[sampleIdx + 1];
+				++numRoutedL;
+			}
+			if constexpr ((epL & 0b10) != 0)
+			{
+				outPtr[sampleIdx] += inPtr[sampleIdx];
+				++numRoutedL;
+			}
+
+			// Route to right output channel
+			if constexpr ((epR & 0b01) != 0)
+			{
+				outPtr[sampleIdx + 1] += inPtr[sampleIdx + 1];
+				++numRoutedR;
+			}
+			if constexpr ((epR & 0b10) != 0)
+			{
+				outPtr[sampleIdx + 1] += inPtr[sampleIdx];
+				++numRoutedR;
+			}
+		}
+	};
+
+
+	for (std::uint8_t inChannelPairIdx = 0; inChannelPairIdx < inSizeConstrained; ++inChannelPairIdx)
+	{
+		const sample_t* inPtr = in.bus[inChannelPairIdx]->data(); // L/R track channel pair
+
+		const std::uint8_t inChannel = inChannelPairIdx * 2;
+		const std::uint8_t enabledPins =
+			(static_cast<std::uint8_t>(m_in.enabled(inChannel, 0)) << 3u)
+			| (static_cast<std::uint8_t>(m_in.enabled(inChannel + 1, 0)) << 2u)
+			| (static_cast<std::uint8_t>(m_in.enabled(inChannel, 1)) << 1u)
+			| static_cast<std::uint8_t>(m_in.enabled(inChannel + 1, 1));
+
+		switch (enabledPins)
+		{
+			case 0: break;
+			case 1: route2x2(inPtr, std::integral_constant<std::uint8_t, 1>{}); break;
+			case 2: route2x2(inPtr, std::integral_constant<std::uint8_t, 2>{}); break;
+			case 3: route2x2(inPtr, std::integral_constant<std::uint8_t, 3>{}); break;
+			case 4: route2x2(inPtr, std::integral_constant<std::uint8_t, 4>{}); break;
+			case 5: route2x2(inPtr, std::integral_constant<std::uint8_t, 5>{}); break;
+			case 6: route2x2(inPtr, std::integral_constant<std::uint8_t, 6>{}); break;
+			case 7: route2x2(inPtr, std::integral_constant<std::uint8_t, 7>{}); break;
+			case 8: route2x2(inPtr, std::integral_constant<std::uint8_t, 8>{}); break;
+			case 9: route2x2(inPtr, std::integral_constant<std::uint8_t, 9>{}); break;
+			case 10: route2x2(inPtr, std::integral_constant<std::uint8_t, 10>{}); break;
+			case 11: route2x2(inPtr, std::integral_constant<std::uint8_t, 11>{}); break;
+			case 12: route2x2(inPtr, std::integral_constant<std::uint8_t, 12>{}); break;
+			case 13: route2x2(inPtr, std::integral_constant<std::uint8_t, 13>{}); break;
+			case 14: route2x2(inPtr, std::integral_constant<std::uint8_t, 14>{}); break;
+			case 15: route2x2(inPtr, std::integral_constant<std::uint8_t, 15>{}); break;
+			default:
+				unreachable();
+				break;
+		}
+	}
+
+	// If the number of channels routed to a specific output is <= 1, no normalization is needed,
+	// otherwise each output sample needs to be divided by the number that were routed.
+
+	if (numRoutedL > 1)
+	{
+		if (numRoutedR > 1)
+		{
+			// Normalize both output channels
+			for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
+			{
+				outPtr[sampleIdx] /= numRoutedL;
+				outPtr[sampleIdx + 1] /= numRoutedR;
+			}
+		}
+		else
+		{
+			// Normalize left output channel
+			for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
+			{
+				outPtr[sampleIdx] /= numRoutedL;
+			}
+		}
+	}
+	else
+	{
+		// Either no input channels were routed to either output channel and output stays zeroed,
+		// or only one channel was routed and normalization is not needed
+		if (numRoutedR <= 1) { return; }
+
+		// Normalize right output channel
+		for (f_cnt_t sampleIdx = 1; sampleIdx < samples; sampleIdx += 2)
+		{
+			outPtr[sampleIdx] /= numRoutedR;
+		}
+	}
+}
+
+template<AudioDataLayout layout, typename SampleT>
+inline void PluginPinConnector::routeFromPlugin(AudioData<layout, const SampleT> in, CoreAudioBusMut inOut) const
+{
+	static_assert(layout == AudioDataLayout::Split, "Only split data is implemented so far");
+	assert(inOut.frames <= MAXIMUM_BUFFER_SIZE);
+
+	// Ignore all unused track channels for better performance
+	const auto inOutSizeConstrained = m_trackChannelsUpperBound / 2;
+	assert(inOutSizeConstrained <= inOut.bus.size());
+
+	for (std::uint8_t outChannelPairIdx = 0; outChannelPairIdx < inOutSizeConstrained; ++outChannelPairIdx)
+	{
+		SampleFrame* outPtr = inOut.bus[outChannelPairIdx]; // L/R track channel pair
+		const auto outChannel = static_cast<std::uint8_t>(outChannelPairIdx * 2);
+
+		// TODO C++20: Use explicit non-type template parameter instead of `outChannelOffset` auto parameter
+		const auto mixInputs = [&](std::uint8_t outChannel, auto outChannelOffset) {
+			constexpr auto outChannelOffsetConst = outChannelOffset();
+			s_workingBuffer.fill(0); // used as buffer out
+
+			// Counter for # of in channels routed to the current out channel
+			mix_ch_t numRouted = 0;
+
+			std::uint8_t inChannel = 0;
+			for (f_cnt_t inSampleIdx = 0; inSampleIdx < in.size(); inSampleIdx += inOut.frames, ++inChannel)
+			{
+				if (!m_out.enabled(outChannel + outChannelOffsetConst, inChannel)) { continue; }
+
+				const SampleType<layout, const SampleT>* inPtr = &in[inSampleIdx];
+				for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+				{
+					s_workingBuffer[frame] += inPtr[frame];
+				}
+				++numRouted;
+			}
+
+			switch (numRouted)
+			{
+				case 0:
+					// Nothing needs to be written to `inOut` for audio bypass,
+					// since it already contains the LMMS core input audio.
+					break;
+				case 1:
+				{
+					// Normalization not needed, but copying is
+					for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+					{
+						outPtr[frame][outChannelOffsetConst] = s_workingBuffer[frame];
+					}
+					break;
+				}
+				default: // >= 2
+				{
+					// Normalize output
+					for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+					{
+						outPtr[frame][outChannelOffsetConst] = s_workingBuffer[frame] / numRouted;
+					}
+					break;
+				}
+			}
+		};
+
+		// Left SampleFrame channel first
+		mixInputs(outChannel, std::integral_constant<int, 0>{});
+
+		// Right SampleFrame channel second
+		mixInputs(outChannel, std::integral_constant<int, 1>{});
+	}
+}
+
+template<AudioDataLayout layout, typename SampleT>
+inline void PluginPinConnector::routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut) const
+{
+	static_assert(layout == AudioDataLayout::Interleaved);
+	assert(inOut.frames <= MAXIMUM_BUFFER_SIZE);
+
+	// Ignore all unused track channels for better performance
+	const auto inOutSizeConstrained = m_trackChannelsUpperBound / 2;
+	assert(inOutSizeConstrained <= inOut.bus.size());
+
+	// Counters for # of in channels routed to the current pair of out channels
+	mix_ch_t numRoutedL;
+	mix_ch_t numRoutedR;
+
+	const auto samples = inOut.frames * 2;
+	const sample_t* inPtr = in.data()->data();
+
+	/*
+	* This is essentially a function template with specializations for each
+	* of the 16 total routing combinations of an input `SampleFrame*` to an
+	* output `SampleFrame*`. The purpose is to eliminate all branching within
+	* the inner for-loop in hopes of better performance.
+	*
+	* TODO C++20: Use explicit non-type template parameter instead of `enabledPins` auto parameter
+	*/
+	auto route2x2 = [&](sample_t* outPtr, auto enabledPins) {
+		constexpr auto epL =  static_cast<std::uint8_t>(enabledPins() >> 2); // for L out channel
+		constexpr auto epR = static_cast<std::uint8_t>(enabledPins() & 0b0011); // for R out channel
+
+		if constexpr (enabledPins() == 0) { return; }
+
+		// We know at this point that we are writing to at least one of the output channels
+		// rather than bypassing, so it is safe to set to zero prior to accumulation
+		if constexpr (epL != 0 && epR != 0)
+		{
+			std::fill_n(outPtr, inOut.frames, 0.f);
+		}
+		else if constexpr (epL != 0)
+		{
+			for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
+			{
+				outPtr[sampleIdx] = 0.f;
+			}
+		}
+		else if constexpr (epR != 0)
+		{
+			for (f_cnt_t sampleIdx = 1; sampleIdx < samples; sampleIdx += 2)
+			{
+				outPtr[sampleIdx] = 0.f;
+			}
+		}
+
+		for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
+		{
+			// Route to left output channel
+			if constexpr ((epL & 0b01) != 0)
+			{
+				outPtr[sampleIdx] += inPtr[sampleIdx + 1];
+				++numRoutedL;
+			}
+			if constexpr ((epL & 0b10) != 0)
+			{
+				outPtr[sampleIdx] += inPtr[sampleIdx];
+				++numRoutedL;
+			}
+
+			// Route to right output channel
+			if constexpr ((epR & 0b01) != 0)
+			{
+				outPtr[sampleIdx + 1] += inPtr[sampleIdx + 1];
+				++numRoutedR;
+			}
+			if constexpr ((epR & 0b10) != 0)
+			{
+				outPtr[sampleIdx + 1] += inPtr[sampleIdx];
+				++numRoutedR;
+			}
+		}
+	};
+
+
+	for (std::uint8_t outChannelPairIdx = 0; outChannelPairIdx < inOutSizeConstrained; ++outChannelPairIdx)
+	{
+		sample_t* outPtr = inOut.bus[outChannelPairIdx]->data(); // L/R track channel pair
+
+		numRoutedL = 0;
+		numRoutedR = 0;
+
+		const std::uint8_t outChannel = outChannelPairIdx * 2;
+		const std::uint8_t enabledPins =
+			(static_cast<std::uint8_t>(m_out.enabled(outChannel, 0)) << 3u)
+			| (static_cast<std::uint8_t>(m_out.enabled(outChannel, 1)) << 2u)
+			| (static_cast<std::uint8_t>(m_out.enabled(outChannel + 1, 0)) << 1u)
+			| static_cast<std::uint8_t>(m_out.enabled(outChannel + 1, 1));
+
+		switch (enabledPins)
+		{
+			case 0: break;
+			case 1: route2x2(outPtr, std::integral_constant<std::uint8_t, 1>{}); break;
+			case 2: route2x2(outPtr, std::integral_constant<std::uint8_t, 2>{}); break;
+			case 3: route2x2(outPtr, std::integral_constant<std::uint8_t, 3>{}); break;
+			case 4: route2x2(outPtr, std::integral_constant<std::uint8_t, 4>{}); break;
+			case 5: route2x2(outPtr, std::integral_constant<std::uint8_t, 5>{}); break;
+			case 6: route2x2(outPtr, std::integral_constant<std::uint8_t, 6>{}); break;
+			case 7: route2x2(outPtr, std::integral_constant<std::uint8_t, 7>{}); break;
+			case 8: route2x2(outPtr, std::integral_constant<std::uint8_t, 8>{}); break;
+			case 9: route2x2(outPtr, std::integral_constant<std::uint8_t, 9>{}); break;
+			case 10: route2x2(outPtr, std::integral_constant<std::uint8_t, 10>{}); break;
+			case 11: route2x2(outPtr, std::integral_constant<std::uint8_t, 11>{}); break;
+			case 12: route2x2(outPtr, std::integral_constant<std::uint8_t, 12>{}); break;
+			case 13: route2x2(outPtr, std::integral_constant<std::uint8_t, 13>{}); break;
+			case 14: route2x2(outPtr, std::integral_constant<std::uint8_t, 14>{}); break;
+			case 15: route2x2(outPtr, std::integral_constant<std::uint8_t, 15>{}); break;
+			default:
+				unreachable();
+				break;
 		}
 
 		// If the number of channels routed to a specific output is <= 1, no normalization is needed,
@@ -402,242 +631,6 @@ inline void PluginPinConnector::routeToPlugin(CoreAudioBus in, typename detail::
 		}
 	}
 }
-
-
-template<AudioDataLayout layout, typename SampleT>
-inline void PluginPinConnector::routeFromPlugin(
-	typename detail::GetAudioDataType<layout, const SampleT>::type in,
-	CoreAudioBusMut inOut) const
-{
-	// C++ doesn't allow partial specialization of functions, so unfortunately both the
-	// `SampleFrame` amd non-`SampleFrame` implementations need to go here.
-	constexpr bool isSampleFrame = std::is_same_v<std::remove_const_t<SampleT>, SampleFrame>;
-
-	if constexpr (!isSampleFrame)
-	{
-		static_assert(layout == AudioDataLayout::Split, "Only split data is implemented so far");
-		assert(inOut.frames <= MAXIMUM_BUFFER_SIZE);
-
-		// Ignore all unused track channels for better performance
-		const auto inOutSizeConstrained = m_trackChannelsUpperBound / 2;
-		assert(inOutSizeConstrained <= inOut.bus.size());
-
-		for (std::uint8_t outChannelPairIdx = 0; outChannelPairIdx < inOutSizeConstrained; ++outChannelPairIdx)
-		{
-			SampleFrame* outPtr = inOut.bus[outChannelPairIdx]; // L/R track channel pair
-			const auto outChannel = static_cast<std::uint8_t>(outChannelPairIdx * 2);
-
-			// TODO C++20: Use explicit non-type template parameter instead of `outChannelOffset` auto parameter
-			const auto mixInputs = [&](std::uint8_t outChannel, auto outChannelOffset) {
-				constexpr auto outChannelOffsetConst = outChannelOffset();
-				s_workingBuffer.fill(0); // used as buffer out
-
-				// Counter for # of in channels routed to the current out channel
-				mix_ch_t numRouted = 0;
-
-				std::uint8_t inChannel = 0;
-				for (f_cnt_t inSampleIdx = 0; inSampleIdx < in.size(); inSampleIdx += inOut.frames, ++inChannel)
-				{
-					if (!m_out.enabled(outChannel + outChannelOffsetConst, inChannel)) { continue; }
-
-					const SampleType<layout, const SampleT>* inPtr = &in[inSampleIdx];
-					for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
-					{
-						s_workingBuffer[frame] += inPtr[frame];
-					}
-					++numRouted;
-				}
-
-				switch (numRouted)
-				{
-					case 0:
-						// Nothing needs to be written to `inOut` for audio bypass,
-						// since it already contains the LMMS core input audio.
-						break;
-					case 1:
-					{
-						// Normalization not needed, but copying is
-						for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
-						{
-							outPtr[frame][outChannelOffsetConst] = s_workingBuffer[frame];
-						}
-						break;
-					}
-					default: // >= 2
-					{
-						// Normalize output
-						for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
-						{
-							outPtr[frame][outChannelOffsetConst] = s_workingBuffer[frame] / numRouted;
-						}
-						break;
-					}
-				}
-			};
-
-			// Left SampleFrame channel first
-			mixInputs(outChannel, std::integral_constant<int, 0>{});
-
-			// Right SampleFrame channel second
-			mixInputs(outChannel, std::integral_constant<int, 1>{});
-		}
-	}
-	else // implementation for `SampleFrame`
-	{
-		static_assert(layout == AudioDataLayout::Interleaved);
-		assert(inOut.frames <= MAXIMUM_BUFFER_SIZE);
-
-		// Ignore all unused track channels for better performance
-		const auto inOutSizeConstrained = m_trackChannelsUpperBound / 2;
-		assert(inOutSizeConstrained <= inOut.bus.size());
-
-		// Counters for # of in channels routed to the current pair of out channels
-		mix_ch_t numRoutedL;
-		mix_ch_t numRoutedR;
-
-		const auto samples = inOut.frames * 2;
-		const sample_t* inPtr = in.data()->data();
-
-		/*
-		* This is essentially a function template with specializations for each
-		* of the 16 total routing combinations of an input `SampleFrame*` to an
-		* output `SampleFrame*`. The purpose is to eliminate all branching within
-		* the inner for-loop in hopes of better performance.
-		*
-		* TODO C++20: Use explicit non-type template parameter instead of `enabledPins` auto parameter
-		*/
-		auto route2x2 = [&](sample_t* outPtr, auto enabledPins) {
-			constexpr auto epL =  static_cast<std::uint8_t>(enabledPins() >> 2); // for L out channel
-			constexpr auto epR = static_cast<std::uint8_t>(enabledPins() & 0b0011); // for R out channel
-
-			if constexpr (enabledPins() == 0) { return; }
-
-			// We know at this point that we are writing to at least one of the output channels
-			// rather than bypassing, so it is safe to set to zero prior to accumulation
-			if constexpr (epL != 0 && epR != 0)
-			{
-				std::fill_n(outPtr, inOut.frames, 0.f);
-			}
-			else if constexpr (epL != 0)
-			{
-				for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
-				{
-					outPtr[sampleIdx] = 0.f;
-				}
-			}
-			else if constexpr (epR != 0)
-			{
-				for (f_cnt_t sampleIdx = 1; sampleIdx < samples; sampleIdx += 2)
-				{
-					outPtr[sampleIdx] = 0.f;
-				}
-			}
-
-			for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
-			{
-				// Route to left output channel
-				if constexpr ((epL & 0b01) != 0)
-				{
-					outPtr[sampleIdx] += inPtr[sampleIdx + 1];
-					++numRoutedL;
-				}
-				if constexpr ((epL & 0b10) != 0)
-				{
-					outPtr[sampleIdx] += inPtr[sampleIdx];
-					++numRoutedL;
-				}
-
-				// Route to right output channel
-				if constexpr ((epR & 0b01) != 0)
-				{
-					outPtr[sampleIdx + 1] += inPtr[sampleIdx + 1];
-					++numRoutedR;
-				}
-				if constexpr ((epR & 0b10) != 0)
-				{
-					outPtr[sampleIdx + 1] += inPtr[sampleIdx];
-					++numRoutedR;
-				}
-			}
-		};
-
-
-		for (std::uint8_t outChannelPairIdx = 0; outChannelPairIdx < inOutSizeConstrained; ++outChannelPairIdx)
-		{
-			sample_t* outPtr = inOut.bus[outChannelPairIdx]->data(); // L/R track channel pair
-
-			numRoutedL = 0;
-			numRoutedR = 0;
-
-			const std::uint8_t outChannel = outChannelPairIdx * 2;
-			const std::uint8_t enabledPins =
-				(static_cast<std::uint8_t>(m_out.enabled(outChannel, 0)) << 3u)
-				| (static_cast<std::uint8_t>(m_out.enabled(outChannel, 1)) << 2u)
-				| (static_cast<std::uint8_t>(m_out.enabled(outChannel + 1, 0)) << 1u)
-				| static_cast<std::uint8_t>(m_out.enabled(outChannel + 1, 1));
-
-			switch (enabledPins)
-			{
-				case 0: break;
-				case 1: route2x2(outPtr, std::integral_constant<std::uint8_t, 1>{}); break;
-				case 2: route2x2(outPtr, std::integral_constant<std::uint8_t, 2>{}); break;
-				case 3: route2x2(outPtr, std::integral_constant<std::uint8_t, 3>{}); break;
-				case 4: route2x2(outPtr, std::integral_constant<std::uint8_t, 4>{}); break;
-				case 5: route2x2(outPtr, std::integral_constant<std::uint8_t, 5>{}); break;
-				case 6: route2x2(outPtr, std::integral_constant<std::uint8_t, 6>{}); break;
-				case 7: route2x2(outPtr, std::integral_constant<std::uint8_t, 7>{}); break;
-				case 8: route2x2(outPtr, std::integral_constant<std::uint8_t, 8>{}); break;
-				case 9: route2x2(outPtr, std::integral_constant<std::uint8_t, 9>{}); break;
-				case 10: route2x2(outPtr, std::integral_constant<std::uint8_t, 10>{}); break;
-				case 11: route2x2(outPtr, std::integral_constant<std::uint8_t, 11>{}); break;
-				case 12: route2x2(outPtr, std::integral_constant<std::uint8_t, 12>{}); break;
-				case 13: route2x2(outPtr, std::integral_constant<std::uint8_t, 13>{}); break;
-				case 14: route2x2(outPtr, std::integral_constant<std::uint8_t, 14>{}); break;
-				case 15: route2x2(outPtr, std::integral_constant<std::uint8_t, 15>{}); break;
-				default:
-					unreachable();
-					break;
-			}
-
-			// If the number of channels routed to a specific output is <= 1, no normalization is needed,
-			// otherwise each output sample needs to be divided by the number that were routed.
-
-			if (numRoutedL > 1)
-			{
-				if (numRoutedR > 1)
-				{
-					// Normalize both output channels
-					for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
-					{
-						outPtr[sampleIdx] /= numRoutedL;
-						outPtr[sampleIdx + 1] /= numRoutedR;
-					}
-				}
-				else
-				{
-					// Normalize left output channel
-					for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
-					{
-						outPtr[sampleIdx] /= numRoutedL;
-					}
-				}
-			}
-			else
-			{
-				// Either no input channels were routed to either output channel and output stays zeroed,
-				// or only one channel was routed and normalization is not needed
-				if (numRoutedR <= 1) { return; }
-
-				// Normalize right output channel
-				for (f_cnt_t sampleIdx = 1; sampleIdx < samples; sampleIdx += 2)
-				{
-					outPtr[sampleIdx] /= numRoutedR;
-				}
-			}
-		}
-	}
-}
-
 
 } // namespace lmms
 
