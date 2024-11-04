@@ -108,8 +108,8 @@ public:
 		std::vector<QString> m_channelNames; //!< optional
 	};
 
-	PluginPinConnector(Model* parent = nullptr);
-	PluginPinConnector(int pluginChannelCountIn, int pluginChannelCountOut, Model* parent = nullptr);
+	PluginPinConnector(Model* parent);
+	PluginPinConnector(int pluginChannelCountIn, int pluginChannelCountOut, Model* parent);
 
 	/**
 	 * Getters
@@ -176,8 +176,11 @@ public:
 
 public slots:
 	void setTrackChannelCount(int count);
+	void updateRoutedChannels(unsigned int trackChannel);
 
 private:
+	void updateAllRoutedChannels();
+
 	Matrix m_in;  //!< LMMS --> Plugin
 	Matrix m_out; //!< Plugin --> LMMS
 
@@ -479,13 +482,13 @@ inline void PluginPinConnector::routeFromPlugin(AudioData<layout, const SampleT>
 					++numRoutedL;
 				}
 
-				if constexpr (bc == 0b01)
+				if constexpr (rc == 0b01)
 				{
 					if (!m_out.enabled(outChannel + 1, inChannel)) { continue; }
 					++numRoutedR;
 				}
 
-				if constexpr (bc == 0b11)
+				if constexpr (rc == 0b11)
 				{
 					if (!m_out.enabled(outChannel, inChannel)
 						&& !m_out.enabled(outChannel + 1, inChannel)) { continue; }
@@ -496,11 +499,11 @@ inline void PluginPinConnector::routeFromPlugin(AudioData<layout, const SampleT>
 				const SampleType<layout, const SampleT>* inPtr = &in[inSampleIdx];
 				for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 				{
-					if constexpr ((bc & 0b10) != 0)
+					if constexpr ((rc & 0b10) != 0)
 					{
 						outPtr[frame].leftRef() += inPtr[frame];
 					}
-					if constexpr ((bc & 0b01) != 0)
+					if constexpr ((rc & 0b01) != 0)
 					{
 						outPtr[frame].rightRef() += inPtr[frame];
 					}
@@ -579,13 +582,6 @@ inline void PluginPinConnector::routeFromPlugin(CoreAudioData in, CoreAudioBusMu
 	const auto inOutSizeConstrained = m_trackChannelsUpperBound / 2;
 	assert(inOutSizeConstrained <= inOut.bus.size());
 
-	// Counters for # of in channels routed to the current pair of out channels
-	mix_ch_t numRoutedL; // uninitialized
-	mix_ch_t numRoutedR; // uninitialized
-
-	const auto samples = inOut.frames * 2;
-	const sample_t* inPtr = in.data()->data();
-
 	/*
 	* This is essentially a function template with specializations for each
 	* of the 16 total routing combinations of an input `SampleFrame*` to an
@@ -594,57 +590,43 @@ inline void PluginPinConnector::routeFromPlugin(CoreAudioData in, CoreAudioBusMu
 	*
 	* TODO C++20: Use explicit non-type template parameter instead of `enabledPins` auto parameter
 	*/
-	auto route2x2 = [&](sample_t* outPtr, auto enabledPins) {
+	auto route2x2 = [samples = inOut.frames * 2, inPtr = in.data()->data()](sample_t* outPtr, auto enabledPins) {
 		constexpr auto epL =  static_cast<std::uint8_t>(enabledPins() >> 2); // for L out channel
 		constexpr auto epR = static_cast<std::uint8_t>(enabledPins() & 0b0011); // for R out channel
 
 		if constexpr (enabledPins() == 0) { return; }
 
 		// We know at this point that we are writing to at least one of the output channels
-		// rather than bypassing, so it is safe to set output buffer to zero prior to accumulation
-		if constexpr (epL != 0 && epR != 0)
-		{
-			std::fill_n(outPtr, inOut.frames, 0.f);
-		}
-		else if constexpr (epL != 0)
-		{
-			for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
-			{
-				outPtr[sampleIdx] = 0.f;
-			}
-		}
-		else if constexpr (epR != 0)
-		{
-			for (f_cnt_t sampleIdx = 1; sampleIdx < samples; sampleIdx += 2)
-			{
-				outPtr[sampleIdx] = 0.f;
-			}
-		}
+		// rather than bypassing, so it is safe to overwrite the contents of the output buffer
 
 		for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
 		{
 			// Route to left output channel
-			if constexpr ((epL & 0b01) != 0)
+			if constexpr ((epL & 0b11) != 0)
 			{
-				outPtr[sampleIdx] += inPtr[sampleIdx + 1];
-				++numRoutedL;
+				outPtr[sampleIdx] = (inPtr[sampleIdx] + inPtr[sampleIdx + 1]) / 2;
 			}
-			if constexpr ((epL & 0b10) != 0)
+			else if constexpr ((epL & 0b01) != 0)
 			{
-				outPtr[sampleIdx] += inPtr[sampleIdx];
-				++numRoutedL;
+				outPtr[sampleIdx] = inPtr[sampleIdx + 1];
+			}
+			else if constexpr ((epL & 0b10) != 0)
+			{
+				outPtr[sampleIdx] = inPtr[sampleIdx];
 			}
 
 			// Route to right output channel
-			if constexpr ((epR & 0b01) != 0)
+			if constexpr ((epR & 0b11) != 0)
 			{
-				outPtr[sampleIdx + 1] += inPtr[sampleIdx + 1];
-				++numRoutedR;
+				outPtr[sampleIdx + 1] = (inPtr[sampleIdx] + inPtr[sampleIdx + 1]) / 2;
 			}
-			if constexpr ((epR & 0b10) != 0)
+			else if constexpr ((epR & 0b01) != 0)
 			{
-				outPtr[sampleIdx + 1] += inPtr[sampleIdx];
-				++numRoutedR;
+				outPtr[sampleIdx + 1] = inPtr[sampleIdx + 1];
+			}
+			else if constexpr ((epR & 0b10) != 0)
+			{
+				outPtr[sampleIdx + 1] = inPtr[sampleIdx];
 			}
 		}
 	};
@@ -653,9 +635,6 @@ inline void PluginPinConnector::routeFromPlugin(CoreAudioData in, CoreAudioBusMu
 	for (std::uint8_t outChannelPairIdx = 0; outChannelPairIdx < inOutSizeConstrained; ++outChannelPairIdx)
 	{
 		sample_t* outPtr = inOut.bus[outChannelPairIdx]->data(); // L/R track channel pair
-
-		numRoutedL = 0;
-		numRoutedR = 0;
 
 		const std::uint8_t outChannel = outChannelPairIdx * 2;
 		const std::uint8_t enabledPins =
@@ -685,43 +664,6 @@ inline void PluginPinConnector::routeFromPlugin(CoreAudioData in, CoreAudioBusMu
 			default:
 				unreachable();
 				break;
-		}
-
-		// If the number of channels routed to a specific output is <= 1, no normalization is needed,
-		// otherwise each output sample needs to be divided by the number that were routed.
-
-		// TODO: Move the normalization into route2x2?
-		if (numRoutedL > 1)
-		{
-			if (numRoutedR > 1)
-			{
-				// Normalize both output channels
-				for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
-				{
-					outPtr[sampleIdx] /= numRoutedL;
-					outPtr[sampleIdx + 1] /= numRoutedR;
-				}
-			}
-			else
-			{
-				// Normalize left output channel
-				for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
-				{
-					outPtr[sampleIdx] /= numRoutedL;
-				}
-			}
-		}
-		else
-		{
-			// Either no input channels were routed to either output channel and output stays zeroed,
-			// or only one channel was routed and normalization is not needed
-			if (numRoutedR <= 1) { return; }
-
-			// Normalize right output channel
-			for (f_cnt_t sampleIdx = 1; sampleIdx < samples; sampleIdx += 2)
-			{
-				outPtr[sampleIdx] /= numRoutedR;
-			}
 		}
 	}
 }

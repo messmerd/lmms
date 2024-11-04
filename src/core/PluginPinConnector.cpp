@@ -164,11 +164,30 @@ void PluginPinConnector::setTrackChannelCount(int count)
 	}
 
 	m_trackChannelsUpperBound = std::min<unsigned>(m_trackChannelsUpperBound, count);
+	m_routedChannels.resize(static_cast<std::size_t>(count));
 
 	m_in.setTrackChannelCount(this, count, QString::fromUtf16(u"Pin in [%1 \U0001F82E %2]"));
 	m_out.setTrackChannelCount(this, count, QString::fromUtf16(u"Pin out [%2 \U0001F82E %1]"));
 
+	updateAllRoutedChannels();
+
 	emit propertiesChanged();
+}
+
+void PluginPinConnector::updateRoutedChannels(unsigned int trackChannel)
+{
+	const auto& pins = m_out.m_pins.at(trackChannel);
+	m_routedChannels[trackChannel] = std::any_of(pins.begin(), pins.end(), [](BoolModel* m) {
+		return m->value();
+	});
+}
+
+void PluginPinConnector::updateAllRoutedChannels()
+{
+	for (unsigned int tc = 0; tc < s_totalTrackChannels; ++tc)
+	{
+		updateRoutedChannels(tc);
+	}
 }
 
 auto PluginPinConnector::instantiateView(QWidget* parent) -> gui::PluginPinConnectorView*
@@ -232,6 +251,8 @@ void PluginPinConnector::Matrix::setTrackChannelCount(PluginPinConnector* parent
 		auto parentModel = dynamic_cast<Model*>(parent->parent());
 		assert(parentModel != nullptr);
 
+		const bool isOutMatrix = this == &parent->out();
+
 		m_pins.resize(count);
 		for (auto tcIdx = oldSize; tcIdx < count; ++tcIdx)
 		{
@@ -241,6 +262,10 @@ void PluginPinConnector::Matrix::setTrackChannelCount(PluginPinConnector* parent
 			{
 				const auto name = nameFormat.arg(tcIdx + 1).arg(channelName(pcIdx));
 				BoolModel* model = channels.emplace_back(new BoolModel{false, parentModel, name});
+				if (isOutMatrix)
+				{
+					connect(model, &BoolModel::dataChanged, [=]() { parent->updateRoutedChannels(tcIdx); });
+				}
 				connect(model, &BoolModel::dataChanged, parent, &PluginPinConnector::dataChanged);
 			}
 		}
@@ -255,6 +280,8 @@ void PluginPinConnector::Matrix::setPluginChannelCount(PluginPinConnector* paren
 
 	if (channelCount() < count)
 	{
+		const bool isOutMatrix = this == &parent->out();
+
 		for (unsigned tcIdx = 0; tcIdx < m_pins.size(); ++tcIdx)
 		{
 			auto& pluginChannels = m_pins[tcIdx];
@@ -263,6 +290,10 @@ void PluginPinConnector::Matrix::setPluginChannelCount(PluginPinConnector* paren
 			{
 				const auto name = nameFormat.arg(tcIdx + 1).arg(channelName(pcIdx));
 				BoolModel* model = pluginChannels.emplace_back(new BoolModel{false, parentModel, name});
+				if (isOutMatrix)
+				{
+					connect(model, &BoolModel::dataChanged, [=]() { parent->updateRoutedChannels(tcIdx); });
+				}
 				connect(model, &BoolModel::dataChanged, parent, &PluginPinConnector::dataChanged);
 			}
 		}

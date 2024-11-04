@@ -251,6 +251,7 @@ public:
 		connect(Engine::audioEngine(), &AudioEngine::sampleRateChanged, [this]() {
 			this->resizeWorkingBuffers(m_pinConnector);
 		});
+		this->resizeWorkingBuffers(m_pinConnector);
 	}
 
 	auto pinConnector() const -> const PluginPinConnector* final { return &m_pinConnector; }
@@ -282,7 +283,7 @@ protected:
 			{
 				auto workingBuffer = this->getWorkingBufferIn();
 				m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBuffer);
-				this->processImpl(workingBuffer);
+				this->processImpl(workingBuffer, workingBuffer);
 				m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBuffer), busMut);
 			}
 			else
@@ -322,7 +323,7 @@ protected:
 			{
 				auto workingBuffer = this->getWorkingBufferIn();
 				m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBuffer);
-				this->processImpl(notesToPlay, workingBuffer);
+				this->processImpl(notesToPlay, workingBuffer, workingBuffer);
 				m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBuffer), busMut);
 			}
 			else
@@ -366,6 +367,7 @@ public:
 		connect(Engine::audioEngine(), &AudioEngine::sampleRateChanged, [this]() {
 			this->resizeWorkingBuffers(m_pinConnector);
 		});
+		this->resizeWorkingBuffers(m_pinConnector);
 	}
 
 	auto pinConnector() const -> const PluginPinConnector* final { return &m_pinConnector; }
@@ -418,7 +420,7 @@ protected:
 			{
 				auto workingBuffer = this->getWorkingBufferIn();
 				m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBuffer);
-				status = this->processImpl(workingBuffer);
+				status = this->processImpl(workingBuffer, workingBuffer);
 				m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBuffer), busMut);
 			}
 			else
