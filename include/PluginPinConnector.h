@@ -319,30 +319,32 @@ inline void PluginPinConnector::routeToPlugin(CoreAudioBus in, CoreAudioDataMut 
 
 		if constexpr (enabledPins() == 0) { return; }
 
+		if constexpr (epL == 0b11) { numRoutedL += 2; }
+		else if constexpr (epL != 0) { ++numRoutedL; }
+
+		if constexpr (epR == 0b11) { numRoutedR += 2; }
+		else if constexpr (epR != 0) { ++numRoutedR; }
+
 		for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
 		{
 			// Route to left output channel
 			if constexpr ((epL & 0b01) != 0)
 			{
 				outPtr[sampleIdx] += inPtr[sampleIdx + 1];
-				++numRoutedL;
 			}
 			if constexpr ((epL & 0b10) != 0)
 			{
 				outPtr[sampleIdx] += inPtr[sampleIdx];
-				++numRoutedL;
 			}
 
 			// Route to right output channel
 			if constexpr ((epR & 0b01) != 0)
 			{
 				outPtr[sampleIdx + 1] += inPtr[sampleIdx + 1];
-				++numRoutedR;
 			}
 			if constexpr ((epR & 0b10) != 0)
 			{
 				outPtr[sampleIdx + 1] += inPtr[sampleIdx];
-				++numRoutedR;
 			}
 		}
 	};
@@ -602,29 +604,29 @@ inline void PluginPinConnector::routeFromPlugin(CoreAudioData in, CoreAudioBusMu
 		for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
 		{
 			// Route to left output channel
-			if constexpr ((epL & 0b11) != 0)
+			if constexpr (epL == 0b11)
 			{
 				outPtr[sampleIdx] = (inPtr[sampleIdx] + inPtr[sampleIdx + 1]) / 2;
 			}
-			else if constexpr ((epL & 0b01) != 0)
+			else if constexpr (epL == 0b01)
 			{
 				outPtr[sampleIdx] = inPtr[sampleIdx + 1];
 			}
-			else if constexpr ((epL & 0b10) != 0)
+			else if constexpr (epL == 0b10)
 			{
 				outPtr[sampleIdx] = inPtr[sampleIdx];
 			}
 
 			// Route to right output channel
-			if constexpr ((epR & 0b11) != 0)
+			if constexpr (epR == 0b11)
 			{
 				outPtr[sampleIdx + 1] = (inPtr[sampleIdx] + inPtr[sampleIdx + 1]) / 2;
 			}
-			else if constexpr ((epR & 0b01) != 0)
+			else if constexpr (epR == 0b01)
 			{
 				outPtr[sampleIdx + 1] = inPtr[sampleIdx + 1];
 			}
-			else if constexpr ((epR & 0b10) != 0)
+			else if constexpr (epR == 0b10)
 			{
 				outPtr[sampleIdx + 1] = inPtr[sampleIdx];
 			}
