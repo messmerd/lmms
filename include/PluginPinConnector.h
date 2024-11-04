@@ -187,8 +187,13 @@ private:
 	//! This value is <= to the total number of track channels (currently always 2)
 	unsigned int m_trackChannelsUpperBound = DEFAULT_CHANNELS; // TODO: Need to recalculate when pins are set/unset
 
-	// Scratch pad for intermediate calculations within this class
-	static inline thread_local std::array<float, MAXIMUM_BUFFER_SIZE> s_workingBuffer{}; // TODO: Reduce MAXIMUM_BUFFER_SIZE value?
+	/**
+	 * Caches whether any plugin output channels are routed to a given track channel (meaning the
+	 * track channel is not "bypassed"), which eliminates need for O(N) checking in `routeFromPlugin`.
+	 *
+	 * This means m_routedChannels[i] == true iif m_out.enabled(i, x) == true for any plugin channel x.
+	 */
+	std::vector<bool> m_routedChannels; // TODO: Need to calculate when pins are set/unset
 
 	// TODO: When full routing is added, get LMMS channel counts from bus or router class
 };
@@ -200,6 +205,9 @@ template<AudioDataLayout layout, typename SampleT>
 inline void PluginPinConnector::routeToPlugin(CoreAudioBus in, AudioData<layout, SampleT> out) const
 {
 	static_assert(layout == AudioDataLayout::Split, "Only split data is implemented so far");
+
+	assert(m_in.channelCount() != DynamicChannelCount);
+	if (m_in.channelCount() == 0) { return; }
 
 	// Ignore all unused track channels for better performance
 	const auto inSizeConstrained = m_trackChannelsUpperBound / 2;
@@ -275,6 +283,10 @@ template<AudioDataLayout layout, typename SampleT>
 inline void PluginPinConnector::routeToPlugin(CoreAudioBus in, CoreAudioDataMut out) const
 {
 	static_assert(layout == AudioDataLayout::Interleaved);
+
+	assert(m_in.channelCount() != DynamicChannelCount);
+	if (m_in.channelCount() == 0) { return; }
+	assert(m_in.channelCount() == 2); // SampleFrame routing only allows exactly 0 or 2 channels
 
 	// Ignore all unused track channels for better performance
 	const auto inSizeConstrained = m_trackChannelsUpperBound / 2;
@@ -409,7 +421,9 @@ template<AudioDataLayout layout, typename SampleT>
 inline void PluginPinConnector::routeFromPlugin(AudioData<layout, const SampleT> in, CoreAudioBusMut inOut) const
 {
 	static_assert(layout == AudioDataLayout::Split, "Only split data is implemented so far");
-	assert(inOut.frames <= MAXIMUM_BUFFER_SIZE);
+
+	assert(m_out.channelCount() != DynamicChannelCount);
+	if (m_out.channelCount() == 0) { return; }
 
 	// Ignore all unused track channels for better performance
 	const auto inOutSizeConstrained = m_trackChannelsUpperBound / 2;
@@ -420,59 +434,135 @@ inline void PluginPinConnector::routeFromPlugin(AudioData<layout, const SampleT>
 		SampleFrame* outPtr = inOut.bus[outChannelPairIdx]; // L/R track channel pair
 		const auto outChannel = static_cast<std::uint8_t>(outChannelPairIdx * 2);
 
-		// TODO C++20: Use explicit non-type template parameter instead of `outChannelOffset` auto parameter
-		const auto mixInputs = [&](std::uint8_t outChannel, auto outChannelOffset) {
-			constexpr auto outChannelOffsetConst = outChannelOffset();
-			s_workingBuffer.fill(0); // used as buffer out
+		/*
+		 * Routes plugin audio to track channel pair and normalizes the result. For track channels
+		 * without any plugin audio routed to it, the track channel is unmodified for "bypass"
+		 * behavior.
+		 *
+		 * TODO C++20: Use explicit non-type template parameter instead of `routedChannels` auto parameter
+		 */
+		const auto routeNx2 = [&](SampleFrame* outPtr, std::uint8_t outChannel, auto routedChannels) {
+			constexpr std::uint8_t rc = routedChannels();
 
-			// Counter for # of in channels routed to the current out channel
-			mix_ch_t numRouted = 0;
+			if constexpr (rc == 0b00)
+			{
+				// Both track channels bypassed - nothing to do
+				return;
+			}
 
-			std::uint8_t inChannel = 0;
+			// We know at this point that we are writing to at least one of the output channels
+			// rather than bypassing, so it is safe to set output buffer of those channels
+			// to zero prior to accumulation
+
+			for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+			{
+				if constexpr ((rc & 0b10) != 0)
+				{
+					outPtr[frame].leftRef() = 0.f;
+				}
+				if constexpr ((rc & 0b01) != 0)
+				{
+					outPtr[frame].rightRef() = 0.f;
+				}
+			}
+
+			// Counters for # of in channels routed to the current pair of out channels
+			mix_ch_t numRoutedL = 0;
+			mix_ch_t numRoutedR = 0;
+
+			unsigned int inChannel = 0; // plugin out channel
 			for (f_cnt_t inSampleIdx = 0; inSampleIdx < in.size(); inSampleIdx += inOut.frames, ++inChannel)
 			{
-				if (!m_out.enabled(outChannel + outChannelOffsetConst, inChannel)) { continue; }
+				if constexpr (rc == 0b10)
+				{
+					if (!m_out.enabled(outChannel, inChannel)) { continue; }
+					++numRoutedL;
+				}
+
+				if constexpr (bc == 0b01)
+				{
+					if (!m_out.enabled(outChannel + 1, inChannel)) { continue; }
+					++numRoutedR;
+				}
+
+				if constexpr (bc == 0b11)
+				{
+					if (!m_out.enabled(outChannel, inChannel)
+						&& !m_out.enabled(outChannel + 1, inChannel)) { continue; }
+					++numRoutedL;
+					++numRoutedR;
+				}
 
 				const SampleType<layout, const SampleT>* inPtr = &in[inSampleIdx];
 				for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 				{
-					s_workingBuffer[frame] += inPtr[frame];
+					if constexpr ((bc & 0b10) != 0)
+					{
+						outPtr[frame].leftRef() += inPtr[frame];
+					}
+					if constexpr ((bc & 0b01) != 0)
+					{
+						outPtr[frame].rightRef() += inPtr[frame];
+					}
 				}
-				++numRouted;
 			}
 
-			switch (numRouted)
+			// If num routed is 0 or 1, either no plugin channels were routed to the output
+			// and the output stays zeroed, or only one channel was routed and normalization is not needed
+
+			if (numRoutedL > 1)
 			{
-				case 0:
-					// Nothing needs to be written to `inOut` for audio bypass,
-					// since it already contains the LMMS core input audio.
-					break;
-				case 1:
+				if (numRoutedR > 1)
 				{
-					// Normalization not needed, but copying is
+					// Normalize output - both channels
 					for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 					{
-						outPtr[frame][outChannelOffsetConst] = s_workingBuffer[frame];
+						outPtr[frame].leftRef() /= numRoutedL;
+						outPtr[frame].rightRef() /= numRoutedR;
 					}
-					break;
 				}
-				default: // >= 2
+				else
 				{
-					// Normalize output
+					// Normalize output - left channel
 					for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 					{
-						outPtr[frame][outChannelOffsetConst] = s_workingBuffer[frame] / numRouted;
+						outPtr[frame].leftRef() /= numRoutedL;
 					}
-					break;
+				}
+			}
+			else if (numRoutedR > 1)
+			{
+				// Normalize output - right channel
+				for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+				{
+					outPtr[frame].rightRef() /= numRoutedR;
 				}
 			}
 		};
 
-		// Left SampleFrame channel first
-		mixInputs(outChannel, std::integral_constant<int, 0>{});
 
-		// Right SampleFrame channel second
-		mixInputs(outChannel, std::integral_constant<int, 1>{});
+		const std::uint8_t routedChannels =
+				(static_cast<std::uint8_t>(m_routedChannels[outChannel]) << 1u)
+				| static_cast<std::uint8_t>(m_routedChannels[outChannel + 1]);
+
+		switch (routedChannels)
+		{
+			case 0b00:
+				// Both track channels are bypassed, so nothing needs to be written to output
+				break;
+			case 0b01:
+				routeNx2(outPtr, outChannel, std::integral_constant<std::uint8_t, 0b01>{});
+				break;
+			case 0b10:
+				routeNx2(outPtr, outChannel, std::integral_constant<std::uint8_t, 0b10>{});
+				break;
+			case 0b11:
+				routeNx2(outPtr, outChannel, std::integral_constant<std::uint8_t, 0b11>{});
+				break;
+			default:
+				unreachable();
+				break;
+		}
 	}
 }
 
@@ -480,15 +570,18 @@ template<AudioDataLayout layout, typename SampleT>
 inline void PluginPinConnector::routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut) const
 {
 	static_assert(layout == AudioDataLayout::Interleaved);
-	assert(inOut.frames <= MAXIMUM_BUFFER_SIZE);
+
+	assert(m_out.channelCount() != DynamicChannelCount);
+	if (m_out.channelCount() == 0) { return; }
+	assert(m_out.channelCount() == 2); // SampleFrame routing only allows exactly 0 or 2 channels
 
 	// Ignore all unused track channels for better performance
 	const auto inOutSizeConstrained = m_trackChannelsUpperBound / 2;
 	assert(inOutSizeConstrained <= inOut.bus.size());
 
 	// Counters for # of in channels routed to the current pair of out channels
-	mix_ch_t numRoutedL;
-	mix_ch_t numRoutedR;
+	mix_ch_t numRoutedL; // uninitialized
+	mix_ch_t numRoutedR; // uninitialized
 
 	const auto samples = inOut.frames * 2;
 	const sample_t* inPtr = in.data()->data();
@@ -508,7 +601,7 @@ inline void PluginPinConnector::routeFromPlugin(CoreAudioData in, CoreAudioBusMu
 		if constexpr (enabledPins() == 0) { return; }
 
 		// We know at this point that we are writing to at least one of the output channels
-		// rather than bypassing, so it is safe to set to zero prior to accumulation
+		// rather than bypassing, so it is safe to set output buffer to zero prior to accumulation
 		if constexpr (epL != 0 && epR != 0)
 		{
 			std::fill_n(outPtr, inOut.frames, 0.f);
@@ -597,6 +690,7 @@ inline void PluginPinConnector::routeFromPlugin(CoreAudioData in, CoreAudioBusMu
 		// If the number of channels routed to a specific output is <= 1, no normalization is needed,
 		// otherwise each output sample needs to be divided by the number that were routed.
 
+		// TODO: Move the normalization into route2x2?
 		if (numRoutedL > 1)
 		{
 			if (numRoutedR > 1)
