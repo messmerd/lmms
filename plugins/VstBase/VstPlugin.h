@@ -32,6 +32,7 @@
 #include <QTimer>
 
 #include "JournallingObject.h"
+#include "PluginPinConnector.h"
 #include "RemotePlugin.h"
 
 #include "vstbase_export.h"
@@ -44,7 +45,7 @@ class VSTBASE_EXPORT VstPlugin : public RemotePlugin, public JournallingObject
 {
 	Q_OBJECT
 public:
-	explicit VstPlugin(const QString& plugin, Model* parent = nullptr);
+	VstPlugin(const QString& plugin, PluginPinConnector* pinConnector, Model* parent = nullptr);
 	~VstPlugin() override;
 
 	void tryLoad( const QString &remoteVstPluginExecutable );

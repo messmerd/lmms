@@ -38,14 +38,18 @@ namespace lmms
 class VstPlugin;
 
 
-class VstEffect : public DefaultEffectPluginInterface
+class VstEffect : public AudioPluginInterface<Effect,
+	DynamicChannelCount, DynamicChannelCount,
+	AudioDataLayout::Split, sample_t,
+	InplaceOption::Never, true>
 {
 public:
 	VstEffect( Model * _parent,
 			const Descriptor::SubPluginFeatures::Key * _key );
 	~VstEffect() override = default;
 
-	ProcessStatus processImpl(CoreAudioDataMut inOut) override;
+	auto processImpl(SplitAudioData<const sample_t> in,
+		SplitAudioData<sample_t> out) -> ProcessStatus override;
 
 	EffectControls * controls() override
 	{
@@ -54,6 +58,13 @@ public:
 
 
 private:
+	/**
+	 * AudioPluginBufferInterface implementation
+	 */
+	auto getWorkingBufferIn() -> SplitAudioData<sample_t> override;
+	auto getWorkingBufferOut() -> SplitAudioData<sample_t> override;
+	void resizeWorkingBuffers(int channelsIn, int channelsOut) override;
+
 	//! Returns true if plugin was loaded (m_plugin != nullptr)
 	bool openPlugin(const QString& plugin);
 	void closePlugin();

@@ -72,7 +72,7 @@ class LMMS_EXPORT RemotePlugin : public QObject, public RemotePluginBase
 {
 	Q_OBJECT
 public:
-	explicit RemotePlugin(Model* parent = nullptr);
+	explicit RemotePlugin(PluginPinConnector* pinConnector, Model* parent = nullptr);
 	~RemotePlugin() override;
 
 	inline bool isRunning()
@@ -99,7 +99,19 @@ public:
 
 	bool processMessage( const message & _m ) override;
 
-	bool process( const SampleFrame* _in_buf, SampleFrame* _out_buf );
+	bool process(Span<const float> in, Span<float> out);
+
+	auto getWorkingBufferIn() -> Span<float>
+	{
+		return m_audioBufferIn;
+	}
+
+	auto getWorkingBufferOut() -> Span<float>
+	{
+		return m_audioBufferOut;
+	}
+
+	void resizeWorkingBuffers(int channelsIn, int channelsOut);
 
 	void processMidiEvent( const MidiEvent&, const f_cnt_t _offset );
 
@@ -143,11 +155,6 @@ public:
 		m_commMutex.unlock();
 	}
 
-	PluginPinConnector& pinConnector()
-	{
-		return m_pinConnector;
-	}
-
 public slots:
 	virtual void showUI();
 	virtual void hideUI();
@@ -158,12 +165,11 @@ protected:
 		m_splitChannels = _on;
 	}
 
-
 	bool m_failed;
+
+	PluginPinConnector* m_pinConnector = nullptr;
+
 private:
-	void resizeSharedProcessingMemory();
-
-
 	QProcess m_process;
 	ProcessWatcher m_watcher;
 
@@ -175,12 +181,14 @@ private:
 #else
 	QMutex m_commMutex;
 #endif
-	bool m_splitChannels;
+	bool m_splitChannels; // TODO: Remove - this is handled by AudioPluginInterface / pin connector
 
 	SharedMemory<float[]> m_audioBuffer;
-	std::size_t m_audioBufferSize;
+	std::size_t m_audioBufferSize; // TODO: Move to `SharedMemory`?
 
-	PluginPinConnector m_pinConnector;
+	// Views into `m_audioBuffer`
+	Span<float> m_audioBufferIn;
+	Span<float> m_audioBufferOut;
 
 #ifndef SYNC_WITH_SHM_FIFO
 	int m_server;

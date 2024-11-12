@@ -118,6 +118,9 @@ public:
 	auto out() const -> const Matrix& { return m_out; }
 	auto trackChannelCount() const -> std::size_t { return s_totalTrackChannels; }
 
+	//! The pin connector is initialized once the number of in/out channels are known
+	auto initialized() const -> bool { return m_in.m_channelCount != 0 || m_out.m_channelCount != 0; }
+
 	/**
 	 * Setters
 	 */
@@ -160,6 +163,18 @@ public:
 	//! Overload for SampleFrame-based plugins
 	template<AudioDataLayout layout, typename SampleT>
 	void routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut) const;
+
+	/**
+	 * Overloads for effects
+	 *
+	 * These methods function the same as those above, but mix the plugin output with the track channel
+	 */
+	template<AudioDataLayout layout, typename SampleT>
+	void routeFromPlugin(AudioData<layout, const SampleT> in, CoreAudioBusMut inOut, float wet, float dry) const;
+
+	//! Overload for SampleFrame-based plugins
+	template<AudioDataLayout layout, typename SampleT>
+	void routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut, float wet, float dry) const;
 
 
 	/**

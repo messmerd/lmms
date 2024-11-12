@@ -26,6 +26,7 @@
 #include "VstEffect.h"
 
 #include "GuiApplication.h"
+#include "PluginPinConnector.h"
 #include "Song.h"
 #include "TextFloat.h"
 #include "VstPlugin.h"
@@ -79,27 +80,58 @@ VstEffect::VstEffect( Model * _parent,
 
 
 
-ProcessStatus VstEffect::processImpl(CoreAudioDataMut inOut)
+auto VstEffect::processImpl(SplitAudioData<const sample_t> in,
+	SplitAudioData<sample_t> out) -> ProcessStatus
 {
 	assert(m_plugin != nullptr);
-	static thread_local auto tempBuf = std::array<SampleFrame, MAXIMUM_BUFFER_SIZE>();
-
-	std::memcpy(tempBuf.data(), inOut.data(), inOut.size_bytes());
 	if (m_pluginMutex.tryLock(Engine::getSong()->isExporting() ? -1 : 0))
 	{
-		m_plugin->process(tempBuf.data(), tempBuf.data());
+		if (!m_plugin->process(in, out))
+		{
+			m_pluginMutex.unlock();
+			return ProcessStatus::Sleep;
+		}
 		m_pluginMutex.unlock();
 	}
 
+	// TODO: Move to AudioPluginInterface:
+	/*
 	const float w = wetLevel();
 	const float d = dryLevel();
-	for (fpp_t f = 0; f < inOut.size(); ++f)
+	for (fpp_t f = 0; f < out.size(); ++f)
 	{
 		inOut[f][0] = w * tempBuf[f][0] + d * inOut[f][0];
 		inOut[f][1] = w * tempBuf[f][1] + d * inOut[f][1];
-	}
+	}*/
 
 	return ProcessStatus::ContinueIfNotQuiet;
+}
+
+
+
+
+auto VstEffect::getWorkingBufferIn() -> SplitAudioData<sample_t>
+{
+	assert(m_plugin != nullptr);
+	return static_cast<SplitAudioData<sample_t>>(m_plugin->getWorkingBufferIn());
+}
+
+
+
+
+auto VstEffect::getWorkingBufferOut() -> SplitAudioData<sample_t>
+{
+	assert(m_plugin != nullptr);
+	return static_cast<SplitAudioData<sample_t>>(m_plugin->getWorkingBufferOut());
+}
+
+
+
+
+void VstEffect::resizeWorkingBuffers(int channelsIn, int channelsOut)
+{
+	assert(m_plugin != nullptr);
+	m_plugin->resizeWorkingBuffers(channelsIn, channelsOut);
 }
 
 
@@ -117,7 +149,7 @@ bool VstEffect::openPlugin(const QString& plugin)
 	}
 
 	QMutexLocker ml( &m_pluginMutex ); Q_UNUSED( ml );
-	m_plugin = QSharedPointer<VstPlugin>(new VstPlugin{plugin, this});
+	m_plugin = QSharedPointer<VstPlugin>(new VstPlugin{plugin, pinConnector(), this});
 	if( m_plugin->failed() )
 	{
 		m_plugin.clear();
