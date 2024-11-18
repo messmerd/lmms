@@ -27,6 +27,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <type_traits>
 
 #include "lmmsconfig.h"
 
@@ -48,6 +49,7 @@ using ch_cnt_t = uint8_t;		// channel-count (0-DEFAULT_CHANNELS)
 using bpm_t = uint16_t;			// tempo (MIN_BPM to MAX_BPM)
 using bitrate_t = uint16_t;		// bitrate in kbps
 using mix_ch_t = uint16_t;		// Mixer-channel (0 to MAX_CHANNEL)
+using pi_ch_t = uint16_t;		// plugin channel
 
 using jo_id_t = uint32_t; // (unique) ID of a journalling object
 
@@ -72,6 +74,67 @@ constexpr const char* UI_CTRL_KEY =
 #else
 "Ctrl";
 #endif
+
+
+/**
+ * Simple minimally functional stand-in for C++20's std::span
+ *
+ * TODO C++20: Use std::span instead
+ */
+template<typename T, std::size_t extents = static_cast<std::size_t>(-1)>
+class Span
+{
+public:
+	using element_type = T;
+	using pointer = T*;
+
+	constexpr Span() = default;
+	constexpr Span(const Span&) = default;
+
+	//! Constructor from mutable to const
+	template<typename U = T, std::enable_if_t<std::is_const_v<U>, bool> = true>
+	constexpr Span(const Span<std::remove_const_t<U>, extents>& other)
+		: m_data{other.data()}
+		, m_size{other.size()}
+	{
+	}
+
+	constexpr Span(T* data, std::size_t size)
+		: m_data{data}
+		, m_size{size}
+	{
+	}
+
+	//! Constructor from mutable to const
+	template<typename U = T, std::enable_if_t<std::is_const_v<U>, bool> = true>
+	constexpr Span(std::remove_const_t<U>* data, std::size_t size)
+		: m_data{data}
+		, m_size{size}
+	{
+	}
+
+	~Span() = default;
+
+	constexpr auto data() const -> T* { return m_data; }
+	constexpr auto size() const -> std::size_t
+	{
+		if constexpr (extents == static_cast<std::size_t>(-1)) { return m_size; }
+		else { return extents; }
+	}
+	constexpr auto size_bytes() const -> std::size_t { return size() * sizeof(T); } // NOLINT
+
+	constexpr auto operator[](std::size_t idx) const -> const T& { return m_data[idx]; }
+	constexpr auto operator[](std::size_t idx) -> T& { return m_data[idx]; }
+
+	constexpr auto begin() const -> const T* { return m_data; }
+	constexpr auto begin() -> T* { return m_data; }
+	constexpr auto end() const -> const T* { return m_data + size(); }
+	constexpr auto end() -> T* { return m_data + size(); }
+
+private:
+	T* m_data = nullptr;
+	std::size_t m_size = 0;
+};
 
 
 /**
