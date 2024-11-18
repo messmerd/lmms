@@ -23,6 +23,8 @@
  */
 
 #include "RemotePlugin.h"
+#include <stdexcept>
+#include "lmms_basics.h"
 
 //#define DEBUG_REMOTE_PLUGIN
 #ifdef DEBUG_REMOTE_PLUGIN
@@ -143,8 +145,6 @@ RemotePlugin::RemotePlugin(PluginPinConnector* pinConnector, Model* parent)
 #if (QT_VERSION < QT_VERSION_CHECK(5,14,0))
 	, m_commMutex{QMutex::Recursive}
 #endif
-	, m_splitChannels{false}
-	, m_audioBufferSize{0}
 {
 #ifndef SYNC_WITH_SHM_FIFO
 	struct sockaddr_un sa;
@@ -310,7 +310,7 @@ bool RemotePlugin::init(const QString &pluginExecutable,
 #endif
 
 	sendMessage(message(IdSyncKey).addString(Engine::getSong()->syncKey()));
-	resizeWorkingBuffers(m_pinConnector->in().channelCount(), m_pinConnector->out().channelCount());
+	updateBuffer(m_pinConnector->in().channelCount(), m_pinConnector->out().channelCount());
 
 	if( waitForInitDoneMsg )
 	{
@@ -324,13 +324,13 @@ bool RemotePlugin::init(const QString &pluginExecutable,
 
 
 
-bool RemotePlugin::process(Span<const float> in, Span<float> out)
+bool RemotePlugin::process()
 {
 	if (m_failed || !isRunning())
 	{
-		if (out.data() != nullptr)
+		if (m_outputBuffer.size() != 0)
 		{
-			std::memset(out.data(), 0, out.size_bytes());
+			std::memset(m_outputBuffer.data(), 0, m_outputBuffer.size_bytes());
 		}
 		return false;
 	}
@@ -347,9 +347,9 @@ bool RemotePlugin::process(Span<const float> in, Span<float> out)
 			fetchAndProcessAllMessages();
 			unlock();
 		}
-		if (out.data() != nullptr)
+		if (m_outputBuffer.size() != 0)
 		{
-			std::memset(out.data(), 0, out.size_bytes());
+			std::memset(m_outputBuffer.data(), 0, m_outputBuffer.size_bytes());
 		}
 		return false;
 	}
@@ -359,7 +359,7 @@ bool RemotePlugin::process(Span<const float> in, Span<float> out)
 	lock();
 	sendMessage(IdStartProcessing);
 
-	if (m_failed || out.data() == nullptr || m_pinConnector->out().channelCount() == 0)
+	if (m_failed || m_outputBuffer.size() == 0)
 	{
 		unlock();
 		return false;
@@ -374,11 +374,16 @@ bool RemotePlugin::process(Span<const float> in, Span<float> out)
 
 
 
-void RemotePlugin::resizeWorkingBuffers(int channelsIn, int channelsOut)
+void RemotePlugin::updateBuffer(int channelsIn, int channelsOut)
 {
-	assert(channelsIn >= 0);
-	assert(channelsOut >= 0);
-	const std::size_t size = (channelsIn + channelsOut) * Engine::audioEngine()->framesPerPeriod();
+	if (channelsIn < 0 || channelsOut < 0)
+	{
+		qCritical() << "Invalid channel count";
+		return;
+	}
+
+	const auto frames = Engine::audioEngine()->framesPerPeriod();
+	const auto size = (channelsIn + channelsOut) * frames;
 
 	try
 	{
@@ -393,10 +398,14 @@ void RemotePlugin::resizeWorkingBuffers(int channelsIn, int channelsOut)
 
 	m_audioBufferSize = size * sizeof(float);
 
-	m_audioBufferIn = Span<float>{m_audioBuffer.get(),
-		channelsIn * Engine::audioEngine()->framesPerPeriod()};
-	m_audioBufferOut = Span<float>{m_audioBuffer.get() + m_audioBufferIn.size(),
-		channelsOut * Engine::audioEngine()->framesPerPeriod()};
+	m_frames = frames;
+	m_channelsIn = static_cast<pi_ch_t>(channelsIn);
+	m_channelsOut = static_cast<pi_ch_t>(channelsOut);
+
+	m_inputBuffer = Span<float>{m_audioBuffer.get(), m_channelsIn * m_frames};
+	m_outputBuffer = Span<float>{m_audioBuffer.get() + m_channelsIn * m_frames, m_channelsOut * m_frames};
+
+	bufferUpdated();
 
 	sendMessage(message(IdChangeSharedMemoryKey).addString(m_audioBuffer.key()));
 }
@@ -486,17 +495,17 @@ bool RemotePlugin::processMessage( const message & _m )
 
 		case IdChangeInputCount:
 			m_pinConnector->setPluginChannelCountIn(_m.getInt(0));
-			resizeWorkingBuffers(m_pinConnector->in().channelCount(), m_pinConnector->out().channelCount());
+			updateBuffer(m_pinConnector->in().channelCount(), m_pinConnector->out().channelCount());
 			break;
 
 		case IdChangeOutputCount:
 			m_pinConnector->setPluginChannelCountOut(_m.getInt(0));
-			resizeWorkingBuffers(m_pinConnector->in().channelCount(), m_pinConnector->out().channelCount());
+			updateBuffer(m_pinConnector->in().channelCount(), m_pinConnector->out().channelCount());
 			break;
 
 		case IdChangeInputOutputCount:
 			m_pinConnector->setPluginChannelCounts(_m.getInt(0), _m.getInt(1));
-			resizeWorkingBuffers(m_pinConnector->in().channelCount(), m_pinConnector->out().channelCount());
+			updateBuffer(m_pinConnector->in().channelCount(), m_pinConnector->out().channelCount());
 			break;
 
 		case IdDebugMessage:

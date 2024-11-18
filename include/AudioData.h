@@ -25,10 +25,10 @@
 #ifndef LMMS_AUDIO_DATA_H
 #define LMMS_AUDIO_DATA_H
 
+#include <cassert>
 #include <type_traits>
 
 #include "lmms_basics.h"
-#include "Span.h"
 
 namespace lmms
 {
@@ -91,24 +91,87 @@ template<typename T>
 using InterleavedSampleType = SampleType<AudioDataLayout::Interleaved, T>;
 
 
+//! Use when the number of channels is not known at compile time
+inline constexpr int DynamicChannelCount = -1;
+
+
 /**
- * A non-owning span for passing an audio buffer of a particular layout.
- * This is a simple replacement for pointer and size pairs.
+ * Non-owning view for multi-channel "split" (non-interleaved) audio data
  *
- * All data is contiguous in memory.
- * The size should be equal to the frame count * the channel count.
- *
- * TODO C++23: Use std::mdspan to make accessing samples by channel or frame
- *             easier, consistent regardless of layout, and less error prone.
+ * TODO C++23: Use std::mdspan
  */
-template<AudioDataLayout layout, typename T>
-using AudioData = Span<SampleType<layout, T>>;
+template<typename SampleT, int channelCount = DynamicChannelCount, typename = SplitSampleType<SampleT>>
+class SplitAudioData
+{
+public:
+	SplitAudioData() = default;
 
-template<typename T>
-using SplitAudioData = AudioData<AudioDataLayout::Split, T>;
+	/**
+	 * `data` is a 2D array of channels to buffers:
+	 *  data[channels][frames]
+	 * Each buffer contains `frames` frames.
+	 */
+	SplitAudioData(SplitSampleType<SampleT>** data, pi_ch_t channels, f_cnt_t frames)
+		: m_data{data}
+		, m_channels{channels}
+		, m_frames{frames}
+	{
+		assert(channelCount == DynamicChannelCount || channels == channelCount);
+	}
 
-template<typename T>
-using InterleavedAudioData = AudioData<AudioDataLayout::Interleaved, T>;
+	//! Contruct const from mutable
+	template<typename T = SampleT, std::enable_if_t<std::is_const_v<T>, bool> = true>
+	SplitAudioData(const SplitAudioData<std::remove_const_t<T>, channelCount>& other)
+		: m_data{other.m_data}
+		, m_channels{other.m_channels}
+		, m_frames{other.m_frames}
+	{
+	}
+
+	/**
+	 * Returns pointer to the buffer of a given channel.
+	 * The size of the buffer is `frames()`.
+	 */
+	auto buffer(pi_ch_t channel) const -> SplitSampleType<SampleT>*
+	{
+		assert(channel < m_channels);
+		return m_data[channel];
+	}
+
+	template<pi_ch_t channel>
+	auto buffer() const -> SplitSampleType<SampleT>*
+	{
+		static_assert(channel != DynamicChannelCount);
+		static_assert(channel < channelCount);
+		return m_data[channel];
+	}
+
+	constexpr auto channels() const -> pi_ch_t
+	{
+		if constexpr (channelCount == DynamicChannelCount)
+		{
+			return m_channels;
+		}
+		else
+		{
+			return static_cast<pi_ch_t>(channelCount);
+		}
+	}
+
+	auto frames() const -> f_cnt_t { return m_frames; }
+
+	/**
+	 * WARNING: This method assumes that internally there is a single
+	 *     contiguous buffer for all channels whose size is channels() * frames().
+	 *     Whether this is true depends on the implementation of the source buffer.
+	 */
+	auto sourceBuffer() const -> SplitSampleType<SampleT>* { return m_data[0]; }
+
+private:
+	SplitSampleType<SampleT>** m_data = nullptr;
+	pi_ch_t m_channels = 0;
+	f_cnt_t m_frames = 0;
+};
 
 
 //! Converts between sample types

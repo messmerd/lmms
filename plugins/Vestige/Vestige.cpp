@@ -365,7 +365,7 @@ void VestigeInstrument::loadFile( const QString & _file )
 	}
 
 	m_pluginMutex.lock();
-	m_plugin = new VstInstrumentPlugin{m_pluginDLL, this};
+	m_plugin = new VstInstrumentPlugin{m_pluginDLL, pinConnector(), this};
 	if( m_plugin->failed() )
 	{
 		m_pluginMutex.unlock();
@@ -397,17 +397,17 @@ void VestigeInstrument::loadFile( const QString & _file )
 
 
 
-void VestigeInstrument::processImpl(CoreAudioDataMut out)
+void VestigeInstrument::processImpl()
 {
 	if (!m_pluginMutex.tryLock(Engine::getSong()->isExporting() ? -1 : 0)) {return;}
 
-	if( m_plugin == nullptr )
+	if (m_plugin == nullptr)
 	{
 		m_pluginMutex.unlock();
 		return;
 	}
 
-	m_plugin->process(nullptr, out.data());
+	m_plugin->process();
 
 	m_pluginMutex.unlock();
 }
@@ -483,12 +483,6 @@ gui::PluginView * VestigeInstrument::instantiateView( QWidget * _parent )
 	return new gui::VestigeInstrumentView( this, _parent );
 }
 
-
-PluginPinConnector* VestigeInstrument::pinConnector()
-{
-	if (!m_plugin) { return nullptr; }
-	return &m_plugin->pinConnector();
-}
 
 
 namespace gui

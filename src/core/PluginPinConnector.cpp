@@ -28,8 +28,8 @@
 #include <QDomDocument>
 #include <QDomElement>
 #include <stdexcept>
+#include <QDebug>
 
-#include "AudioEngine.h"
 #include "PluginPinConnectorView.h"
 
 namespace lmms
@@ -180,6 +180,7 @@ void PluginPinConnector::updateRoutedChannels(unsigned int trackChannel)
 	m_routedChannels[trackChannel] = std::any_of(pins.begin(), pins.end(), [](BoolModel* m) {
 		return m->value();
 	});
+	qDebug() << "updateRoutedChannels(" << trackChannel << ")";
 }
 
 void PluginPinConnector::updateAllRoutedChannels()

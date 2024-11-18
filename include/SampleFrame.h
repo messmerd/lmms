@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <type_traits>
 
 
 namespace lmms
@@ -243,17 +244,33 @@ using CoreAudioDataMut = Span<SampleFrame>;
  *   bus[channel pair index][frame index]
  *
  * where
- *   0 <= channel pair index < bus.size()
+ *   0 <= channel pair index < channelPairs
  *   0 <= frame index < frames
  *
  * TODO C++23: Use std::mdspan
  */
-template<class T>
+template<typename T>
 struct AudioBus
 {
 	static_assert(std::is_same_v<std::remove_const_t<T>, SampleFrame>);
 
-	Span<T* const> bus;
+	AudioBus(T* const* bus, ch_cnt_t channelPairs, f_cnt_t frames)
+		: bus{bus}
+		, channelPairs{channelPairs}
+		, frames{frames}
+	{
+	}
+
+	template<typename U = T, std::enable_if_t<std::is_const_v<U>, bool> = true>
+	AudioBus(const AudioBus<std::remove_const_t<T>>& other)
+		: bus{other.bus}
+		, channelPairs{other.channelPairs}
+		, frames{other.frames}
+	{
+	}
+
+	T* const* bus = nullptr; //!< [channel pair index][frame index]
+	ch_cnt_t channelPairs = 0;
 	f_cnt_t frames = 0;
 };
 

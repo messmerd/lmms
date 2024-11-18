@@ -24,7 +24,9 @@
 
 #include "VstPlugin.h"
 
+#include "RemotePlugin.h"
 #include "communication.h"
+#include "lmms_basics.h"
 
 #include <QtEndian>
 #include <QDebug>
@@ -131,8 +133,6 @@ VstPlugin::VstPlugin(const QString& plugin, PluginPinConnector* pinConnector, Mo
 	, m_version{0}
 	, m_currentProgram{-1}
 {
-	setSplittedChannels( true );
-
 	auto pluginType = ExecutableType::Unknown;
 #ifdef LMMS_BUILD_LINUX
 	QFileInfo fi(m_plugin);
@@ -816,6 +816,39 @@ bool VstPlugin::eventFilter(QObject *obj, QEvent *event)
 QString VstPlugin::embedMethod() const
 {
 	return m_embedMethod;
+}
+
+auto VstPlugin::inputBuffer() -> SplitAudioData<float>
+{
+	return {m_audioBufferIn.data(), channelsIn(), frames()};
+}
+
+auto VstPlugin::outputBuffer() -> SplitAudioData<float>
+{
+	return {m_audioBufferOut.data(), channelsOut(), frames()};
+}
+
+void VstPlugin::updateBuffers(int channelsIn, int channelsOut)
+{
+	RemotePlugin::updateBuffer(channelsIn, channelsOut);
+}
+
+void VstPlugin::bufferUpdated()
+{
+	// Update the views into the RemotePlugin buffer
+	int idx = 0;
+	m_audioBufferIn.resize(channelsIn());
+	for (float* ptr = RemotePlugin::inputBuffer().data(); idx < channelsIn(); ++idx, ptr += frames())
+	{
+		m_audioBufferIn[idx] = ptr;
+	}
+
+	idx = 0;
+	m_audioBufferOut.resize(channelsOut());
+	for (float* ptr = RemotePlugin::outputBuffer().data(); idx < channelsOut(); ++idx, ptr += frames())
+	{
+		m_audioBufferOut[idx] = ptr;
+	}
 }
 
 

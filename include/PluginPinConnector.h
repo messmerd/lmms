@@ -26,12 +26,15 @@
 #ifndef LMMS_PLUGIN_PIN_CONNECTOR_H
 #define LMMS_PLUGIN_PIN_CONNECTOR_H
 
-#include <array>
 #include <cassert>
+#include <cstdint>
+#include <cstring>
 #include <vector>
 
-#include "AudioEngine.h"
+#include "AudioData.h"
+#include "AudioPluginBuffer.h"
 #include "AutomatableModel.h"
+#include "lmms_basics.h"
 #include "lmms_export.h"
 #include "SampleFrame.h"
 #include "SerializingObject.h"
@@ -48,23 +51,6 @@ class PluginPinConnectorView;
 
 } // namespace gui
 
-
-namespace detail
-{
-
-template<AudioDataLayout layout, typename SampleT>
-struct GetAudioDataType { using type = AudioData<layout, SampleT>; };
-
-template<>
-struct GetAudioDataType<AudioDataLayout::Interleaved, SampleFrame> { using type = CoreAudioDataMut; };
-
-template<>
-struct GetAudioDataType<AudioDataLayout::Interleaved, const SampleFrame> { using type = CoreAudioData; };
-
-} // namespace detail
-
-
-inline constexpr int DynamicChannelCount = -1;
 
 //! Configuration for audio channel routing in/out of plugin
 class LMMS_EXPORT PluginPinConnector
@@ -87,7 +73,7 @@ public:
 
 		auto channelName(int channel) const -> QString;
 
-		auto enabled(std::uint8_t trackChannel, unsigned pluginChannel) const -> bool
+		auto enabled(ch_cnt_t trackChannel, pi_ch_t pluginChannel) const -> bool
 		{
 			return m_pins[trackChannel][pluginChannel]->value();
 		}
@@ -140,12 +126,13 @@ public:
 	 *            `in.frames` provides the number of frames in each `in`/`out` audio buffer
 	 * `out`    : plugin input channels in Split form (Interleaved is not needed or implemented yet)
 	 */
-	template<AudioDataLayout layout, typename SampleT>
-	void routeToPlugin(CoreAudioBus in, AudioData<layout, SampleT> out) const;
+	template<AudioDataLayout layout, typename SampleT, int channelCountIn>
+	void routeToPlugin(CoreAudioBus in,
+		typename detail::AudioDataTypeSelector<layout, SampleT, channelCountIn>::type out) const
+	{
+		routeToPluginImpl<layout, SampleT, channelCountIn>(in, out);
+	}
 
-	//! Overload for SampleFrame-based plugins
-	template<AudioDataLayout layout, typename SampleT>
-	void routeToPlugin(CoreAudioBus in, CoreAudioDataMut out) const;
 
 	/*
 	 * Routes audio from plugin outputs to LMMS track channels according to the plugin pin connector configuration.
@@ -154,27 +141,29 @@ public:
 	 * If no audio is routed to an output channel, `inOut` remains unchanged for audio bypass.
 	 *
 	 * `in`      : plugin output channels in Split form (Interleaved is not needed or implemented yet)
-	 * `inOut`   : track channels from/to LMMS core (inplace processing)
+	 * `inOut`   : track channels from/to LMMS core
 	 *            `inOut.frames` provides the number of frames in each `in`/`inOut` audio buffer
 	 */
-	template<AudioDataLayout layout, typename SampleT>
-	void routeFromPlugin(AudioData<layout, const SampleT> in, CoreAudioBusMut inOut) const;
+	template<AudioDataLayout layout, typename SampleT, int channelCountOut>
+	void routeFromPlugin(typename detail::AudioDataTypeSelector<layout, const SampleT, channelCountOut>::type in,
+		CoreAudioBusMut inOut) const
+	{
+		routeToPluginImpl<layout, SampleT, channelCountOut>(in, inOut);
+	}
 
-	//! Overload for SampleFrame-based plugins
-	template<AudioDataLayout layout, typename SampleT>
-	void routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut) const;
 
 	/**
 	 * Overloads for effects
 	 *
 	 * These methods function the same as those above, but mix the plugin output with the track channel
 	 */
-	template<AudioDataLayout layout, typename SampleT>
-	void routeFromPlugin(AudioData<layout, const SampleT> in, CoreAudioBusMut inOut, float wet, float dry) const;
+	template<AudioDataLayout layout, typename SampleT, int channelCountOut>
+	void routeFromPlugin(SplitAudioData<SampleT, channelCountOut> in, CoreAudioBusMut inOut,
+		float wet, float dry) const;
 
 	//! Overload for SampleFrame-based plugins
-	template<AudioDataLayout layout, typename SampleT>
-	void routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut, float wet, float dry) const;
+	template<AudioDataLayout layout, typename SampleT, int channelCountOut>
+	void routeFromPlugin(CoreAudioDataMut in, CoreAudioBusMut inOut, float wet, float dry) const;
 
 
 	/**
@@ -194,6 +183,19 @@ public slots:
 	void updateRoutedChannels(unsigned int trackChannel);
 
 private:
+	template<AudioDataLayout layout, typename SampleT, int channelCountIn>
+	void routeToPluginImpl(CoreAudioBus in, SplitAudioData<SampleT, channelCountIn> out) const;
+
+	template<AudioDataLayout layout, typename SampleT, int channelCountIn>
+	void routeToPluginImpl(CoreAudioBus in, CoreAudioDataMut out) const;
+
+	template<AudioDataLayout layout, typename SampleT, int channelCountOut>
+	void routeFromPluginImpl(SplitAudioData<SampleT, channelCountOut> in, CoreAudioBusMut inOut) const;
+
+	template<AudioDataLayout layout, typename SampleT, int channelCountOut>
+	void routeFromPluginImpl(CoreAudioDataMut in, CoreAudioBusMut inOut) const;
+
+
 	void updateAllRoutedChannels();
 
 	Matrix m_in;  //!< LMMS --> Plugin
@@ -219,26 +221,28 @@ private:
 
 // Out-of-class definitions
 
-template<AudioDataLayout layout, typename SampleT>
-inline void PluginPinConnector::routeToPlugin(CoreAudioBus in, AudioData<layout, SampleT> out) const
+template<AudioDataLayout layout, typename SampleT, int channelCountIn>
+inline void PluginPinConnector::routeToPluginImpl(CoreAudioBus in, SplitAudioData<SampleT, channelCountIn> out) const
 {
 	static_assert(layout == AudioDataLayout::Split, "Only split data is implemented so far");
+
+	if constexpr (channelCountIn == 0) { return; }
 
 	assert(m_in.channelCount() != DynamicChannelCount);
 	if (m_in.channelCount() == 0) { return; }
 
 	// Ignore all unused track channels for better performance
 	const auto inSizeConstrained = m_trackChannelsUpperBound / 2;
-	assert(inSizeConstrained <= in.bus.size());
+	assert(inSizeConstrained <= in.channelPairs);
 
 	// Zero the output buffer
-	std::fill(out.begin(), out.end(), SampleT{});
+	std::fill_n(out.sourceBuffer(), out.channels() * out.frames(), SampleT{});
+	//std::memset(out.sourceBuffer(), 0, out.channels() * out.frames() * sizeof(SampleT));
 
-	std::uint8_t outChannel = 0;
-	for (f_cnt_t outSampleIdx = 0; outSampleIdx < out.size(); outSampleIdx += in.frames, ++outChannel)
+	for (std::uint32_t outChannel = 0; outChannel < out.channels(); ++outChannel)
 	{
 		mix_ch_t numRouted = 0; // counter for # of in channels routed to the current out channel
-		SampleType<layout, SampleT>* outPtr = &out[outSampleIdx];
+		SampleType<layout, SampleT>* outPtr = out.buffer(outChannel);
 
 		for (std::uint8_t inChannelPairIdx = 0; inChannelPairIdx < inSizeConstrained; ++inChannelPairIdx)
 		{
@@ -297,10 +301,12 @@ inline void PluginPinConnector::routeToPlugin(CoreAudioBus in, AudioData<layout,
 	}
 }
 
-template<AudioDataLayout layout, typename SampleT>
-inline void PluginPinConnector::routeToPlugin(CoreAudioBus in, CoreAudioDataMut out) const
+template<AudioDataLayout layout, typename SampleT, int channelCountIn>
+inline void PluginPinConnector::routeToPluginImpl(CoreAudioBus in, CoreAudioDataMut out) const
 {
 	static_assert(layout == AudioDataLayout::Interleaved);
+
+	if constexpr (channelCountIn == 0) { return; }
 
 	assert(m_in.channelCount() != DynamicChannelCount);
 	if (m_in.channelCount() == 0) { return; }
@@ -308,7 +314,7 @@ inline void PluginPinConnector::routeToPlugin(CoreAudioBus in, CoreAudioDataMut 
 
 	// Ignore all unused track channels for better performance
 	const auto inSizeConstrained = m_trackChannelsUpperBound / 2;
-	assert(inSizeConstrained <= in.bus.size());
+	assert(inSizeConstrained <= in.channelPairs);
 
 	// Zero the output buffer
 	std::fill(out.begin(), out.end(), SampleFrame{});
@@ -321,13 +327,13 @@ inline void PluginPinConnector::routeToPlugin(CoreAudioBus in, CoreAudioDataMut 
 	sample_t* outPtr = out.data()->data();
 
 	/*
-	* This is essentially a function template with specializations for each
-	* of the 16 total routing combinations of an input `SampleFrame*` to an
-	* output `SampleFrame*`. The purpose is to eliminate all branching within
-	* the inner for-loop in hopes of better performance.
-	*
-	* TODO C++20: Use explicit non-type template parameter instead of `enabledPins` auto parameter
-	*/
+	 * This is essentially a function template with specializations for each
+	 * of the 16 total routing combinations of an input `SampleFrame*` to an
+	 * output `SampleFrame*`. The purpose is to eliminate all branching within
+	 * the inner for-loop in hopes of better performance.
+	 *
+	 * TODO C++20: Use explicit non-type template parameter instead of `enabledPins` auto parameter
+	 */
 	auto route2x2 = [&](const sample_t* inPtr, auto enabledPins) {
 		constexpr auto epL =  static_cast<std::uint8_t>(enabledPins() >> 2); // for L out channel
 		constexpr auto epR = static_cast<std::uint8_t>(enabledPins() & 0b0011); // for R out channel
@@ -437,22 +443,25 @@ inline void PluginPinConnector::routeToPlugin(CoreAudioBus in, CoreAudioDataMut 
 	}
 }
 
-template<AudioDataLayout layout, typename SampleT>
-inline void PluginPinConnector::routeFromPlugin(AudioData<layout, const SampleT> in, CoreAudioBusMut inOut) const
+template<AudioDataLayout layout, typename SampleT, int channelCountOut>
+inline void PluginPinConnector::routeFromPluginImpl(SplitAudioData<SampleT, channelCountOut> in,
+	CoreAudioBusMut inOut) const
 {
 	static_assert(layout == AudioDataLayout::Split, "Only split data is implemented so far");
+
+	if constexpr (channelCountOut == 0) { return; }
 
 	assert(m_out.channelCount() != DynamicChannelCount);
 	if (m_out.channelCount() == 0) { return; }
 
 	// Ignore all unused track channels for better performance
 	const auto inOutSizeConstrained = m_trackChannelsUpperBound / 2;
-	assert(inOutSizeConstrained <= inOut.bus.size());
+	assert(inOutSizeConstrained <= inOut.channelPairs);
 
-	for (std::uint8_t outChannelPairIdx = 0; outChannelPairIdx < inOutSizeConstrained; ++outChannelPairIdx)
+	for (ch_cnt_t outChannelPairIdx = 0; outChannelPairIdx < inOutSizeConstrained; ++outChannelPairIdx)
 	{
 		SampleFrame* outPtr = inOut.bus[outChannelPairIdx]; // L/R track channel pair
-		const auto outChannel = static_cast<std::uint8_t>(outChannelPairIdx * 2);
+		const auto outChannel = static_cast<ch_cnt_t>(outChannelPairIdx * 2);
 
 		/*
 		 * Routes plugin audio to track channel pair and normalizes the result. For track channels
@@ -461,7 +470,7 @@ inline void PluginPinConnector::routeFromPlugin(AudioData<layout, const SampleT>
 		 *
 		 * TODO C++20: Use explicit non-type template parameter instead of `routedChannels` auto parameter
 		 */
-		const auto routeNx2 = [&](SampleFrame* outPtr, std::uint8_t outChannel, auto routedChannels) {
+		const auto routeNx2 = [&](SampleFrame* outPtr, ch_cnt_t outChannel, auto routedChannels) {
 			constexpr std::uint8_t rc = routedChannels();
 
 			if constexpr (rc == 0b00)
@@ -487,11 +496,10 @@ inline void PluginPinConnector::routeFromPlugin(AudioData<layout, const SampleT>
 			}
 
 			// Counters for # of in channels routed to the current pair of out channels
-			mix_ch_t numRoutedL = 0;
-			mix_ch_t numRoutedR = 0;
+			ch_cnt_t numRoutedL = 0;
+			ch_cnt_t numRoutedR = 0;
 
-			unsigned int inChannel = 0; // plugin out channel
-			for (f_cnt_t inSampleIdx = 0; inSampleIdx < in.size(); inSampleIdx += inOut.frames, ++inChannel)
+			for (pi_ch_t inChannel = 0; inChannel < in.channels(); ++inChannel)
 			{
 				if constexpr (rc == 0b10)
 				{
@@ -513,7 +521,7 @@ inline void PluginPinConnector::routeFromPlugin(AudioData<layout, const SampleT>
 					++numRoutedR;
 				}
 
-				const SampleType<layout, const SampleT>* inPtr = &in[inSampleIdx];
+				const SampleType<layout, const SampleT>* inPtr = in.buffer(inChannel);
 				for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 				{
 					if constexpr ((rc & 0b10) != 0)
@@ -586,10 +594,12 @@ inline void PluginPinConnector::routeFromPlugin(AudioData<layout, const SampleT>
 	}
 }
 
-template<AudioDataLayout layout, typename SampleT>
-inline void PluginPinConnector::routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut) const
+template<AudioDataLayout layout, typename SampleT, int channelCountOut>
+inline void PluginPinConnector::routeFromPluginImpl(CoreAudioDataMut in, CoreAudioBusMut inOut) const
 {
 	static_assert(layout == AudioDataLayout::Interleaved);
+
+	if constexpr (channelCountOut == 0) { return; }
 
 	assert(m_out.channelCount() != DynamicChannelCount);
 	if (m_out.channelCount() == 0) { return; }
@@ -597,7 +607,7 @@ inline void PluginPinConnector::routeFromPlugin(CoreAudioData in, CoreAudioBusMu
 
 	// Ignore all unused track channels for better performance
 	const auto inOutSizeConstrained = m_trackChannelsUpperBound / 2;
-	assert(inOutSizeConstrained <= inOut.bus.size());
+	assert(inOutSizeConstrained <= inOut.channelPairs);
 
 	/*
 	* This is essentially a function template with specializations for each
@@ -649,11 +659,11 @@ inline void PluginPinConnector::routeFromPlugin(CoreAudioData in, CoreAudioBusMu
 	};
 
 
-	for (std::uint8_t outChannelPairIdx = 0; outChannelPairIdx < inOutSizeConstrained; ++outChannelPairIdx)
+	for (ch_cnt_t outChannelPairIdx = 0; outChannelPairIdx < inOutSizeConstrained; ++outChannelPairIdx)
 	{
 		sample_t* outPtr = inOut.bus[outChannelPairIdx]->data(); // L/R track channel pair
 
-		const std::uint8_t outChannel = outChannelPairIdx * 2;
+		const ch_cnt_t outChannel = outChannelPairIdx * 2;
 		const std::uint8_t enabledPins =
 			(static_cast<std::uint8_t>(m_out.enabled(outChannel, 0)) << 3u)
 			| (static_cast<std::uint8_t>(m_out.enabled(outChannel, 1)) << 2u)

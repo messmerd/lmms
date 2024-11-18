@@ -25,12 +25,13 @@
 #ifndef LMMS_AUDIO_PLUGIN_INTERFACE_H
 #define LMMS_AUDIO_PLUGIN_INTERFACE_H
 
-#include <vector>
-
+#include "AudioData.h"
+#include "AudioPluginBuffer.h"
 #include "Effect.h"
 #include "Instrument.h"
 #include "InstrumentTrack.h"
 #include "PluginPinConnector.h"
+#include "SampleFrame.h"
 
 namespace lmms
 {
@@ -48,145 +49,23 @@ enum class ProcessStatus
 };
 
 
-//! Whether inplace processing is available - may only be known at runtime
-enum class InplaceOption
-{
-	Never,
-	Dynamic, // TODO: CLAP allows an in/out channel pair to be marked in-place
-	Always
-};
-
-// ProcessFlags:
-//   Midi vs NPH (leave for future PR?)
-//   custom working buffer?
-
-
 class NotePlayHandle;
+
+// TODO: Make AudioPluginBuffer and `processImpl` usage by AudioPluginInterface identical
+//       regardless of inplace status? Implementation of buffer would implement potential optimizations.
+// TODO: Statically-known channel counts optimization?
+
 
 namespace detail
 {
 
-// TODO: Make AudioPluginBuffer and `processImpl` usage by AudioPluginInterface identical
-//       regardless of inplace status? Implementation of buffer would implement potential optimizations.
-template<AudioDataLayout layout, typename SampleT>
-class AudioPluginBufferInterface
-{
-protected:
-	virtual auto getWorkingBufferIn() -> AudioData<layout, SampleT> = 0;
-	virtual auto getWorkingBufferOut() -> AudioData<layout, SampleT> = 0;
-	virtual void resizeWorkingBuffers(int channelsIn, int channelsOut) = 0;
-};
-
-template<>
-class AudioPluginBufferInterface<AudioDataLayout::Interleaved, SampleFrame>
-{
-protected:
-	virtual auto getWorkingBufferIn() -> CoreAudioDataMut = 0;
-	virtual auto getWorkingBufferOut() -> CoreAudioDataMut = 0;
-	virtual void resizeWorkingBuffers(int channelsIn, int channelsOut) = 0;
-};
-
-
-template<AudioDataLayout layout, typename SampleT, bool inplace>
-class AudioPluginBufferDefaultImpl;
-
-template<AudioDataLayout layout, typename SampleT>
-class AudioPluginBufferDefaultImpl<layout, SampleT, false>
-	: public AudioPluginBufferInterface<layout, SampleT>
-{
-public:
-	auto getWorkingBufferIn() -> AudioData<layout, SampleT> final
-	{
-		return AudioData<layout, SampleT>{m_bufferIn.data(), m_bufferIn.size()};
-	}
-
-	auto getWorkingBufferOut() -> AudioData<layout, SampleT> final
-	{
-		return AudioData<layout, SampleT>{m_bufferOut.data(), m_bufferOut.size()};
-	}
-
-	void resizeWorkingBuffers(int channelsIn, int channelsOut) final
-	{
-		const auto frames = Engine::audioEngine()->framesPerPeriod();
-		if (channelsIn >= 0) { m_bufferIn.resize(frames * channelsIn); }
-		if (channelsOut >= 0) { m_bufferOut.resize(frames * channelsOut); }
-	}
-
-private:
-	std::vector<SampleType<layout, SampleT>> m_bufferIn;
-	std::vector<SampleType<layout, SampleT>> m_bufferOut;
-};
-
-template<AudioDataLayout layout, typename SampleT>
-class AudioPluginBufferDefaultImpl<layout, SampleT, true>
-	: public AudioPluginBufferInterface<layout, SampleT>
-{
-public:
-	auto getWorkingBufferIn() -> AudioData<layout, SampleT> final
-	{
-		return AudioData<layout, SampleT>{m_buffer.data(), m_buffer.size()};
-	}
-
-	auto getWorkingBufferOut() -> AudioData<layout, SampleT> final
-	{
-		return getWorkingBufferIn();
-	}
-
-	void resizeWorkingBuffers(int channelsIn, int channelsOut) final
-	{
-		const auto channels = std::max(channelsIn, channelsOut);
-		if (channels < 0) { return; }
-		m_buffer.resize(Engine::audioEngine()->framesPerPeriod() * channels);
-	}
-
-private:
-	std::vector<SampleType<layout, SampleT>> m_buffer; // inOut
-};
-
-template<>
-class AudioPluginBufferDefaultImpl<AudioDataLayout::Interleaved, SampleFrame, true>
-	: public AudioPluginBufferInterface<AudioDataLayout::Interleaved, SampleFrame>
-{
-public:
-	auto getWorkingBufferIn() -> CoreAudioDataMut final
-	{
-		return CoreAudioDataMut{m_buffer.data(), m_buffer.size()};
-	}
-
-	auto getWorkingBufferOut() -> CoreAudioDataMut final
-	{
-		return getWorkingBufferIn();
-	}
-
-	void resizeWorkingBuffers(int channelsIn, int channelsOut) final
-	{
-		assert(channelsIn == 2);
-		assert(channelsOut == 2);
-		(void)channelsIn;
-		(void)channelsOut;
-		m_buffer.resize(Engine::audioEngine()->framesPerPeriod());
-	}
-
-private:
-	std::vector<SampleFrame> m_buffer; // inOut
-};
-
-
-// FIXME: My std::span implementation fails to convert Span<T> to Span<const T>, so this is a workaround
-template<class T, std::size_t extent>
-constexpr inline auto constSpan(const Span<T, extent>& s)
-{
-	return Span<std::add_const_t<T>, extent>{s.data(), s.size()};
-}
-
-
 //! Provides the correct `processImpl` interface for instruments or effects to implement
-template<class ChildT, typename BufferT, typename ConstBufferT, InplaceOption inplace>
+template<class ChildT, typename BufferT, typename ConstBufferT, bool inplace, bool customWorkingBuffer>
 class AudioProcessingMethod;
 
 //! Instrument specialization
-template<typename BufferT, typename ConstBufferT, InplaceOption inplace>
-class AudioProcessingMethod<Instrument, BufferT, ConstBufferT, inplace>
+template<typename BufferT, typename ConstBufferT>
+class AudioProcessingMethod<Instrument, BufferT, ConstBufferT, false, false>
 {
 protected:
 	//! The main audio processing method for NotePlayHandle-based Instruments
@@ -196,9 +75,9 @@ protected:
 	virtual void processImpl(ConstBufferT in, BufferT out) {}
 };
 
-//! Instrument specialization (inplace)
+//! Instrument specialization (in-place)
 template<typename BufferT, typename ConstBufferT>
-class AudioProcessingMethod<Instrument, BufferT, ConstBufferT, InplaceOption::Always>
+class AudioProcessingMethod<Instrument, BufferT, ConstBufferT, true, false>
 {
 protected:
 	//! The main audio processing method for NotePlayHandle-based Instruments
@@ -208,46 +87,72 @@ protected:
 	virtual void processImpl(BufferT inOut) {}
 };
 
-//! Effect specialization
-template<typename BufferT, typename ConstBufferT, InplaceOption inplace>
-class AudioProcessingMethod<Effect, BufferT, ConstBufferT, inplace>
+//! Instrument specialization (custom working buffers)
+template<typename BufferT, typename ConstBufferT, bool inplace>
+class AudioProcessingMethod<Instrument, BufferT, ConstBufferT, inplace, true>
 {
 protected:
 	/**
-	 * The main audio processing method for Effects. Runs when plugin is not bypassed.
-	 * If `isInplace() == true`, `in` and `out` are the same buffer.
+	 * The main audio processing method for NotePlayHandle-based Instruments.
+	 * The implementation knows how to provide the working buffers.
 	 */
+	virtual void processImpl(NotePlayHandle* nph) {}
+
+	/**
+	 * The main audio processing method for MIDI-based Instruments.
+	 * The implementation knows how to provide the working buffers.
+	 */
+	virtual void processImpl() {}
+};
+
+//! Effect specialization
+template<typename BufferT, typename ConstBufferT>
+class AudioProcessingMethod<Effect, BufferT, ConstBufferT, false, false>
+{
+protected:
+	//! The main audio processing method for Effects. Runs when plugin is not asleep.
 	virtual auto processImpl(ConstBufferT in, BufferT out) -> ProcessStatus = 0;
 };
 
-//! Effect specialization (inplace)
+//! Effect specialization (in-place)
 template<typename BufferT, typename ConstBufferT>
-class AudioProcessingMethod<Effect, BufferT, ConstBufferT, InplaceOption::Always>
+class AudioProcessingMethod<Effect, BufferT, ConstBufferT, true, false>
 {
 protected:
 	//! The main audio processing method for inplace Effects. Runs when plugin is not asleep.
 	virtual auto processImpl(BufferT inOut) -> ProcessStatus = 0;
 };
 
+//! Effect specialization (custom working buffers)
+template<typename BufferT, typename ConstBufferT, bool inplace>
+class AudioProcessingMethod<Effect, BufferT, ConstBufferT, inplace, true>
+{
+protected:
+	/**
+	 * The main audio processing method for Effects. Runs when plugin is not asleep.
+	 * The implementation knows how to provide the working buffers.
+	 */
+	virtual auto processImpl() -> ProcessStatus = 0;
+};
 
 //! Connects the core audio buses to the instrument or effect using the pin connector
-template<class ChildT, int numChannelsIn, int numChannelsOut, AudioDataLayout layout, typename SampleT, InplaceOption inplace, bool customWorkingBuffer>
+template<class ChildT, int numChannelsIn, int numChannelsOut, AudioDataLayout layout, typename SampleT, bool inplace, bool customWorkingBuffer>
 class AudioProcessorImpl
 {
 	static_assert(always_false_v<ChildT>, "ChildT must be either Instrument or Effect");
 };
 
 //! Instrument specialization
-template<int numChannelsIn, int numChannelsOut, AudioDataLayout layout, typename SampleT, InplaceOption inplace, bool customWorkingBuffer>
+template<int numChannelsIn, int numChannelsOut, AudioDataLayout layout, typename SampleT, bool inplace, bool customWorkingBuffer>
 class AudioProcessorImpl<Instrument, numChannelsIn, numChannelsOut, layout, SampleT, inplace, customWorkingBuffer>
 	: public Instrument
 	, public AudioProcessingMethod<Instrument,
-		typename GetAudioDataType<layout, SampleT>::type,
-		typename GetAudioDataType<layout, const SampleT>::type,
-		inplace>
+		typename AudioDataTypeSelector<layout, SampleT, numChannelsIn>::type,
+		typename AudioDataTypeSelector<layout, const SampleT, numChannelsOut>::type,
+		inplace, customWorkingBuffer>
 	, public std::conditional_t<customWorkingBuffer,
-		AudioPluginBufferInterface<layout, SampleT>,
-		AudioPluginBufferDefaultImpl<layout, SampleT, inplace == InplaceOption::Always>>
+		AudioPluginBufferInterfaceProvider<layout, SampleT, numChannelsIn, numChannelsOut>,
+		AudioPluginBufferDefaultImpl<layout, SampleT, numChannelsIn, numChannelsOut, inplace>>
 {
 public:
 	AudioProcessorImpl(const Plugin::Descriptor* desc, InstrumentTrack* parent = nullptr, const Plugin::Descriptor::SubPluginFeatures::Key* key = nullptr, Instrument::Flags flags = Instrument::Flag::NoFlags)
@@ -255,9 +160,11 @@ public:
 		, m_pinConnector{numChannelsIn, numChannelsOut, parent}
 	{
 		connect(Engine::audioEngine(), &AudioEngine::sampleRateChanged, [this]() {
-			this->resizeWorkingBuffers(m_pinConnector.in().channelCount(), m_pinConnector.out().channelCount());
+			this->bufferInterface()->updateBuffers(
+				m_pinConnector.in().channelCount(),
+				m_pinConnector.out().channelCount()
+			);
 		});
-		this->resizeWorkingBuffers(m_pinConnector.in().channelCount(), m_pinConnector.out().channelCount());
 	}
 
 	auto pinConnector() const -> const PluginPinConnector* final { return &m_pinConnector; }
@@ -265,81 +172,69 @@ public:
 protected:
 	void playImpl(SampleFrame* inOut) final
 	{
-		auto busConst = CoreAudioBus{{&inOut, 1}, Engine::audioEngine()->framesPerPeriod()};
-		auto busMut = CoreAudioBusMut{{&inOut, 1}, Engine::audioEngine()->framesPerPeriod()};
+		const auto bus = CoreAudioBusMut{&inOut, 1, Engine::audioEngine()->framesPerPeriod()};
+		auto bufferInterface = this->bufferInterface();
 
-		if constexpr (inplace == InplaceOption::Always)
+		if constexpr (inplace)
 		{
-			auto workingBuffer = this->getWorkingBuffer();
-			m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBuffer);
-			this->processImpl(workingBuffer);
-			m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBuffer), busMut);
-		}
-		else if constexpr (inplace == InplaceOption::Never)
-		{
-			auto workingBufferIn = this->getWorkingBufferIn();
-			auto workingBufferOut = this->getWorkingBufferOut();
-			m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBufferIn);
-			this->processImpl(constSpan(workingBufferIn), workingBufferOut);
-			m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBufferOut), busMut);
+			// Write core to plugin input buffer
+			const auto pluginInOut = bufferInterface->inputBuffer();
+			m_pinConnector.routeToPlugin<layout, SampleT, numChannelsIn>(bus, pluginInOut);
+
+			// Process
+			if constexpr (customWorkingBuffer) { this->processImpl(); }
+			else { this->processImpl(pluginInOut); }
+
+			// Write plugin output buffer to core
+			m_pinConnector.routeFromPlugin<layout, SampleT, numChannelsOut>(pluginInOut, bus);
 		}
 		else
 		{
-			if (m_inplace)
-			{
-				auto workingBuffer = this->getWorkingBufferIn();
-				m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBuffer);
-				this->processImpl(workingBuffer, workingBuffer);
-				m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBuffer), busMut);
-			}
-			else
-			{
-				auto workingBufferIn = this->getWorkingBufferIn();
-				auto workingBufferOut = this->getWorkingBufferOut();
-				m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBufferIn);
-				this->processImpl(constSpan(workingBufferIn), workingBufferOut);
-				m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBufferOut), busMut);
-			}
+			// Write core to plugin input buffer
+			const auto pluginIn = bufferInterface->inputBuffer();
+			const auto pluginOut = bufferInterface->outputBuffer();
+			m_pinConnector.routeToPlugin<layout, SampleT, numChannelsIn>(bus, pluginIn);
+
+			// Process
+			if constexpr (customWorkingBuffer) { this->processImpl(); }
+			else { this->processImpl(pluginIn, pluginOut); }
+
+			// Write plugin output buffer to core
+			m_pinConnector.routeFromPlugin<layout, SampleT, numChannelsOut>(pluginOut, bus);
 		}
 	}
 
 	void playNoteImpl(NotePlayHandle* notesToPlay, SampleFrame* inOut) final
 	{
-		auto busConst = CoreAudioBus{{&inOut, 1}, Engine::audioEngine()->framesPerPeriod()};
-		auto busMut = CoreAudioBusMut{{&inOut, 1}, Engine::audioEngine()->framesPerPeriod()};
+		const auto bus = CoreAudioBusMut{&inOut, 1, Engine::audioEngine()->framesPerPeriod()};
+		auto bufferInterface = this->bufferInterface();
 
-		if constexpr (inplace == InplaceOption::Always)
+		if constexpr (inplace)
 		{
-			auto workingBuffer = this->getWorkingBuffer();
-			m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBuffer);
-			this->processImpl(notesToPlay, workingBuffer);
-			m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBuffer), busMut);
-		}
-		else if constexpr (inplace == InplaceOption::Never)
-		{
-			auto workingBufferIn = this->getWorkingBufferIn();
-			auto workingBufferOut = this->getWorkingBufferOut();
-			m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBufferIn);
-			this->processImpl(notesToPlay, constSpan(workingBufferIn), workingBufferOut);
-			m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBufferOut), busMut);
+			// Write core to plugin input buffer
+			const auto pluginInOut = bufferInterface->inputBuffer();
+			m_pinConnector.routeToPlugin<layout, SampleT, numChannelsIn>(bus, pluginInOut);
+
+			// Process
+			if constexpr (customWorkingBuffer) { this->processImpl(notesToPlay); }
+			else { this->processImpl(notesToPlay, pluginInOut); }
+
+			// Write plugin output buffer to core
+			m_pinConnector.routeFromPlugin<layout, SampleT, numChannelsOut>(pluginInOut, bus);
 		}
 		else
 		{
-			if (m_inplace)
-			{
-				auto workingBuffer = this->getWorkingBufferIn();
-				m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBuffer);
-				this->processImpl(notesToPlay, workingBuffer, workingBuffer);
-				m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBuffer), busMut);
-			}
-			else
-			{
-				auto workingBufferIn = this->getWorkingBufferIn();
-				auto workingBufferOut = this->getWorkingBufferOut();
-				m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBufferIn);
-				this->processImpl(notesToPlay, constSpan(workingBufferIn), workingBufferOut);
-				m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBufferOut), busMut);
-			}
+			// Write core to plugin input buffer
+			const auto pluginIn = bufferInterface->inputBuffer();
+			const auto pluginOut = bufferInterface->outputBuffer();
+			m_pinConnector.routeToPlugin<layout, SampleT, numChannelsIn>(bus, pluginIn);
+
+			// Process
+			if constexpr (customWorkingBuffer) { this->processImpl(notesToPlay); }
+			else { this->processImpl(notesToPlay, pluginIn, pluginOut); }
+
+			// Write plugin output buffer to core
+			m_pinConnector.routeFromPlugin<layout, SampleT, numChannelsOut>(pluginOut, bus);
 		}
 	}
 
@@ -347,25 +242,19 @@ protected:
 
 private:
 	PluginPinConnector m_pinConnector;
-
-	/**
-	 * TODO: In future, can enable inplace processing at runtime for individual plugins
-	 * which advertise support for it
-	 */
-	bool m_inplace = false;
 };
 
 //! Effect specialization
-template<int numChannelsIn, int numChannelsOut, AudioDataLayout layout, typename SampleT, InplaceOption inplace, bool customWorkingBuffer>
+template<int numChannelsIn, int numChannelsOut, AudioDataLayout layout, typename SampleT, bool inplace, bool customWorkingBuffer>
 class AudioProcessorImpl<Effect, numChannelsIn, numChannelsOut, layout, SampleT, inplace, customWorkingBuffer>
 	: public Effect
 	, public AudioProcessingMethod<Effect,
-		typename GetAudioDataType<layout, SampleT>::type,
-		typename GetAudioDataType<layout, const SampleT>::type,
-		inplace>
+		typename AudioDataTypeSelector<layout, SampleT, numChannelsIn>::type,
+		typename AudioDataTypeSelector<layout, const SampleT, numChannelsOut>::type,
+		inplace, customWorkingBuffer>
 	, public std::conditional_t<customWorkingBuffer,
-		AudioPluginBufferInterface<layout, SampleT>,
-		AudioPluginBufferDefaultImpl<layout, SampleT, inplace == InplaceOption::Always>>
+		AudioPluginBufferInterfaceProvider<layout, SampleT, numChannelsIn, numChannelsOut>,
+		AudioPluginBufferDefaultImpl<layout, SampleT, numChannelsIn, numChannelsOut, inplace>>
 {
 public:
 	AudioProcessorImpl(const Plugin::Descriptor* desc, Model* parent = nullptr, const Plugin::Descriptor::SubPluginFeatures::Key* key = nullptr)
@@ -373,26 +262,14 @@ public:
 		, m_pinConnector{numChannelsIn, numChannelsOut, parent}
 	{
 		connect(Engine::audioEngine(), &AudioEngine::sampleRateChanged, [this]() {
-			this->resizeWorkingBuffers(m_pinConnector.in().channelCount(), m_pinConnector.out().channelCount());
+			this->bufferInterface()->updateBuffers(
+				m_pinConnector.in().channelCount(),
+				m_pinConnector.out().channelCount()
+			);
 		});
-		this->resizeWorkingBuffers(m_pinConnector.in().channelCount(), m_pinConnector.out().channelCount());
 	}
 
 	auto pinConnector() const -> const PluginPinConnector* final { return &m_pinConnector; }
-
-	//! Returns whether the effect uses inplace processing
-	auto isInplace(int channel) const -> bool
-	{
-		if constexpr (inplace == InplaceOption::Dynamic)
-		{
-			return m_inplace.at(channel);
-		}
-		else
-		{
-			(void)channel;
-			return static_cast<bool>(inplace);
-		}
-	}
 
 protected:
 	auto processAudioBufferImpl(CoreAudioDataMut inOut) -> bool final
@@ -404,29 +281,36 @@ protected:
 		}
 
 		SampleFrame* temp = inOut.data();
-		auto busConst = CoreAudioBus{{&temp, 1}, inOut.size()};
-		auto busMut = CoreAudioBusMut{{&temp, 1}, inOut.size()};
+		const auto bus = CoreAudioBusMut{&temp, 1, inOut.size()};
+		auto bufferInterface = this->bufferInterface();
 		ProcessStatus status;
 
-		if constexpr (inplace == InplaceOption::Always)
+		if constexpr (inplace)
 		{
-			auto workingBuffer = this->getWorkingBufferIn();
-			m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBuffer);
-			status = this->processImpl(workingBuffer);
-			m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBuffer), busMut);
-		}
-		else if constexpr (inplace == InplaceOption::Never)
-		{
-			auto workingBufferIn = this->getWorkingBufferIn();
-			auto workingBufferOut = this->getWorkingBufferOut();
-			m_pinConnector.routeToPlugin<layout, SampleT>(busConst, workingBufferIn);
-			status = this->processImpl(constSpan(workingBufferIn), workingBufferOut);
-			m_pinConnector.routeFromPlugin<layout, SampleT>(constSpan(workingBufferOut), busMut);
+			// Write core to plugin input buffer
+			const auto pluginInOut = bufferInterface->inputBuffer();
+			m_pinConnector.routeToPlugin<layout, SampleT, numChannelsIn>(bus, pluginInOut);
+
+			// Process
+			if constexpr (customWorkingBuffer) { status = this->processImpl(); }
+			else { status = this->processImpl(pluginInOut); }
+
+			// Write plugin output buffer to core; TODO: Apply wet/dry here
+			m_pinConnector.routeFromPlugin<layout, SampleT, numChannelsOut>(pluginInOut, bus);
 		}
 		else
 		{
-			// TODO: Inplace processing
-			assert(false);
+			// Write core to plugin input buffer
+			const auto pluginIn = bufferInterface->inputBuffer();
+			const auto pluginOut = bufferInterface->outputBuffer();
+			m_pinConnector.routeToPlugin<layout, SampleT, numChannelsIn>(bus, pluginIn);
+
+			// Process
+			if constexpr (customWorkingBuffer) { status = this->processImpl(); }
+			else { status = this->processImpl(pluginIn, pluginOut); }
+
+			// Write plugin output buffer to core; TODO: Apply wet/dry here
+			m_pinConnector.routeFromPlugin<layout, SampleT, numChannelsOut>(pluginOut, bus);
 		}
 
 		switch (status)
@@ -465,13 +349,6 @@ protected:
 
 private:
 	PluginPinConnector m_pinConnector;
-
-	/**
-	 * TODO: In future, can enable inplace processing at runtime for individual plugins
-	 * which advertise support for it.
-	 * The index represents the in/out channel index
-	 */
-	std::vector<bool> m_inplace;
 };
 
 
@@ -496,67 +373,36 @@ private:
  * TODO C++20: Use class type NTTP for better template parameter ergonomics
  *
  * @param ChildT Either `Instrument` or `Effect`
- * @param numChannelsIn The number of plugin input channels, or `DynamicChannelCount` if not known at compile time
- * @param numChannelsOut The number of plugin output channels, or `DynamicChannelCount` if not known at compile time
+ * @param numChannelsIn The number of plugin input channels, or `DynamicChannelCount` if unknown at compile time
+ * @param numChannelsOut The number of plugin output channels, or `DynamicChannelCount` if unknown at compile time
  * @param layout The audio data layout used by the plugin
  * @param SampleT The plugin's sample type - i.e. float, double, int32_t, `SampleFrame`, etc.
- * @param inplace Inplace processing options - dynamic (runtime), false, or true
- * @param customWorkingBuffer If true, plugin implementation will implement `AudioPluginBufferInterface`
+ * @param inplace In-place processing - true (always in-place) or false (dynamic, customizable in audio buffer impl)
+ * @param customWorkingBuffer If true, plugin implementation will provide an `AudioPluginBufferInterface`
  */
 template<class ChildT, int numChannelsIn, int numChannelsOut,
-	AudioDataLayout layout, typename SampleT, InplaceOption inplace, bool customWorkingBuffer>
+	AudioDataLayout layout, typename SampleT, bool inplace, bool customWorkingBuffer>
 class AudioPluginInterface
-	: public detail::AudioProcessorImpl<
-		ChildT,
-		numChannelsIn,
-		numChannelsOut,
-		layout,
-		SampleT,
-		inplace,
-		customWorkingBuffer
-	>
+	: public detail::AudioProcessorImpl<ChildT, numChannelsIn, numChannelsOut,
+		layout, SampleT, inplace, customWorkingBuffer>
 {
 	static_assert(!std::is_const_v<SampleT>);
 	static_assert(!std::is_same_v<SampleT, SampleFrame>
 		|| ((numChannelsIn == 0 || numChannelsIn == 2) && (numChannelsOut == 0 || numChannelsOut == 2)),
 		"Don't use SampleFrame if more than 2 processor channels are needed");
 
+	using Base = detail::AudioProcessorImpl<ChildT, numChannelsIn, numChannelsOut,
+		layout, SampleT, inplace, customWorkingBuffer>;
+
 public:
-	/*
-	AudioProcessor(const Plugin::Descriptor* desc, Model* parent = nullptr, const Plugin::Descriptor::SubPluginFeatures::Key* key = nullptr)
-		: AudioProcessorImpl{desc, parent, key}
-	{
-	}
-
-	AudioProcessor(const Plugin::Descriptor* desc, Model* parent, const Plugin::Descriptor::SubPluginFeatures::Key* key, Instrument::Flags flags)
-		: AudioProcessorImpl{desc, parent, key, flags}
-	{
-	}*/
-
-	using Base = detail::AudioProcessorImpl<ChildT,
-		numChannelsIn,
-		numChannelsOut,
-		layout,
-		SampleT,
-		inplace,
-		customWorkingBuffer>;
-
 	using Base::AudioProcessorImpl;
-
-	auto channelsIn() const -> int { return Base::pinConnector()->in().channelCount(); }
-	auto channelsOut() const -> int { return Base::pinConnector()->out().channelCount(); }
-
-	// ...
 };
 
 using DefaultInstrumentPluginInterface = AudioPluginInterface<Instrument, 0, 2,
-	AudioDataLayout::Interleaved, SampleFrame, InplaceOption::Always, false>;
-
-using MidiInstrumentPluginInterface = AudioPluginInterface<Instrument, 0, 2,
-	AudioDataLayout::Interleaved, SampleFrame, InplaceOption::Always, false>;
+	AudioDataLayout::Interleaved, SampleFrame, true, false>;
 
 using DefaultEffectPluginInterface = AudioPluginInterface<Effect, 2, 2,
-	AudioDataLayout::Interleaved, SampleFrame, InplaceOption::Always, false>;
+	AudioDataLayout::Interleaved, SampleFrame, true, false>;
 
 } // namespace lmms
 

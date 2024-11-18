@@ -80,13 +80,12 @@ VstEffect::VstEffect( Model * _parent,
 
 
 
-auto VstEffect::processImpl(SplitAudioData<const sample_t> in,
-	SplitAudioData<sample_t> out) -> ProcessStatus
+auto VstEffect::processImpl() -> ProcessStatus
 {
 	assert(m_plugin != nullptr);
 	if (m_pluginMutex.tryLock(Engine::getSong()->isExporting() ? -1 : 0))
 	{
-		if (!m_plugin->process(in, out))
+		if (!m_plugin->process())
 		{
 			m_pluginMutex.unlock();
 			return ProcessStatus::Sleep;
@@ -105,33 +104,6 @@ auto VstEffect::processImpl(SplitAudioData<const sample_t> in,
 	}*/
 
 	return ProcessStatus::ContinueIfNotQuiet;
-}
-
-
-
-
-auto VstEffect::getWorkingBufferIn() -> SplitAudioData<sample_t>
-{
-	assert(m_plugin != nullptr);
-	return static_cast<SplitAudioData<sample_t>>(m_plugin->getWorkingBufferIn());
-}
-
-
-
-
-auto VstEffect::getWorkingBufferOut() -> SplitAudioData<sample_t>
-{
-	assert(m_plugin != nullptr);
-	return static_cast<SplitAudioData<sample_t>>(m_plugin->getWorkingBufferOut());
-}
-
-
-
-
-void VstEffect::resizeWorkingBuffers(int channelsIn, int channelsOut)
-{
-	assert(m_plugin != nullptr);
-	m_plugin->resizeWorkingBuffers(channelsIn, channelsOut);
 }
 
 

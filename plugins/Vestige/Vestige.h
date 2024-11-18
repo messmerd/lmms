@@ -57,27 +57,29 @@ class VestigeInstrumentView;
 
 
 // TODO: Dynamic channel count
-class VestigeInstrument : public MidiInstrumentPluginInterface
+class VestigeInstrument
+	: public AudioPluginInterface<Instrument,
+		DynamicChannelCount, DynamicChannelCount,
+		AudioDataLayout::Split, float,
+		false, true>
 {
 	Q_OBJECT
 public:
 	VestigeInstrument( InstrumentTrack * _instrument_track );
-	virtual ~VestigeInstrument();
+	~VestigeInstrument() override;
 
-	void processImpl(CoreAudioDataMut out) override;
+	void processImpl() override;
 
-	virtual void saveSettings( QDomDocument & _doc, QDomElement & _parent );
-	virtual void loadSettings( const QDomElement & _this );
+	void saveSettings(QDomDocument& _doc, QDomElement& _parent) override;
+	void loadSettings(const QDomElement& _this) override;
 
-	virtual QString nodeName() const;
+	QString nodeName() const override;
 
-	virtual void loadFile( const QString & _file );
+	void loadFile( const QString & _file ) override;
 
-	virtual bool handleMidiEvent( const MidiEvent& event, const TimePos& time, f_cnt_t offset = 0 );
+	bool handleMidiEvent( const MidiEvent& event, const TimePos& time, f_cnt_t offset = 0 ) override;
 
-	virtual gui::PluginView* instantiateView( QWidget * _parent );
-
-	PluginPinConnector* pinConnector();
+	gui::PluginView* instantiateView( QWidget * _parent ) override;
 
 protected slots:
 	void setParameter( lmms::Model * action );
