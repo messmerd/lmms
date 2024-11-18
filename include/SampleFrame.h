@@ -254,6 +254,9 @@ struct AudioBus
 {
 	static_assert(std::is_same_v<std::remove_const_t<T>, SampleFrame>);
 
+	AudioBus() = default;
+	AudioBus(const AudioBus&) = default;
+
 	AudioBus(T* const* bus, ch_cnt_t channelPairs, f_cnt_t frames)
 		: bus{bus}
 		, channelPairs{channelPairs}
@@ -262,7 +265,7 @@ struct AudioBus
 	}
 
 	template<typename U = T, std::enable_if_t<std::is_const_v<U>, bool> = true>
-	AudioBus(const AudioBus<std::remove_const_t<T>>& other)
+	AudioBus(const AudioBus<std::remove_const_t<U>>& other)
 		: bus{other.bus}
 		, channelPairs{other.channelPairs}
 		, frames{other.frames}

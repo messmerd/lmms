@@ -105,13 +105,14 @@ class SplitAudioData
 {
 public:
 	SplitAudioData() = default;
+	SplitAudioData(const SplitAudioData&) = default;
 
 	/**
 	 * `data` is a 2D array of channels to buffers:
 	 *  data[channels][frames]
 	 * Each buffer contains `frames` frames.
 	 */
-	SplitAudioData(SplitSampleType<SampleT>** data, pi_ch_t channels, f_cnt_t frames)
+	SplitAudioData(SplitSampleType<SampleT>* const* data, pi_ch_t channels, f_cnt_t frames)
 		: m_data{data}
 		, m_channels{channels}
 		, m_frames{frames}
@@ -122,9 +123,9 @@ public:
 	//! Contruct const from mutable
 	template<typename T = SampleT, std::enable_if_t<std::is_const_v<T>, bool> = true>
 	SplitAudioData(const SplitAudioData<std::remove_const_t<T>, channelCount>& other)
-		: m_data{other.m_data}
-		, m_channels{other.m_channels}
-		, m_frames{other.m_frames}
+		: m_data{other.data()}
+		, m_channels{other.channels()}
+		, m_frames{other.frames()}
 	{
 	}
 
@@ -167,8 +168,10 @@ public:
 	 */
 	auto sourceBuffer() const -> SplitSampleType<SampleT>* { return m_data[0]; }
 
+	auto data() const -> SplitSampleType<SampleT>* const* { return m_data; }
+
 private:
-	SplitSampleType<SampleT>** m_data = nullptr;
+	SplitSampleType<SampleT>* const* m_data = nullptr;
 	pi_ch_t m_channels = 0;
 	f_cnt_t m_frames = 0;
 };

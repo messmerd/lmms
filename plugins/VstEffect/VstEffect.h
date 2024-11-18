@@ -28,7 +28,6 @@
 #include <QMutex>
 #include <QSharedPointer>
 
-#include "AudioPluginBuffer.h"
 #include "AudioPluginInterface.h"
 #include "VstEffectControls.h"
 #include "VstPlugin.h"

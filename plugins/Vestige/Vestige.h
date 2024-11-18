@@ -32,7 +32,7 @@
 
 #include "AudioPluginInterface.h"
 #include "InstrumentView.h"
-
+#include "VstPlugin.h"
 
 class QPixmap;
 class QPushButton;
@@ -43,8 +43,6 @@ namespace lmms
 {
 
 class FloatModel;
-class PluginPinConnector;
-class VstPlugin;
 
 namespace gui
 {
@@ -56,7 +54,6 @@ class VestigeInstrumentView;
 } // namespace gui
 
 
-// TODO: Dynamic channel count
 class VestigeInstrument
 	: public AudioPluginInterface<Instrument,
 		DynamicChannelCount, DynamicChannelCount,
@@ -88,6 +85,12 @@ protected slots:
 
 private:
 	void closePlugin();
+
+	auto bufferInterface() -> VstPlugin* override
+	{
+		assert(m_plugin != nullptr);
+		return m_plugin;
+	}
 
 
 	VstPlugin * m_plugin;

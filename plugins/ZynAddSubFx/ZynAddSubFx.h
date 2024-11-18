@@ -77,7 +77,7 @@ private:
 
 // TODO: Is it always 0 inputs, 2 outputs?
 class ZynAddSubFxInstrument
-	: public AudioPluginInterface<Instrument, 0, 2, AudioDataLayout::Split, float, true, true>
+	: public AudioPluginInterface<Instrument, 0, 2, AudioDataLayout::Split, float, false, true>
 {
 	Q_OBJECT
 public:

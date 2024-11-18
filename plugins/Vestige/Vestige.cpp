@@ -399,7 +399,7 @@ void VestigeInstrument::loadFile( const QString & _file )
 
 void VestigeInstrument::processImpl()
 {
-	if (!m_pluginMutex.tryLock(Engine::getSong()->isExporting() ? -1 : 0)) {return;}
+	if (!m_pluginMutex.tryLock(Engine::getSong()->isExporting() ? -1 : 0)) { return; }
 
 	if (m_plugin == nullptr)
 	{

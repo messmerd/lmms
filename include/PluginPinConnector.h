@@ -127,11 +127,11 @@ public:
 	 * `out`    : plugin input channels in Split form (Interleaved is not needed or implemented yet)
 	 */
 	template<AudioDataLayout layout, typename SampleT, int channelCountIn>
-	void routeToPlugin(CoreAudioBus in,
-		typename detail::AudioDataTypeSelector<layout, SampleT, channelCountIn>::type out) const
-	{
-		routeToPluginImpl<layout, SampleT, channelCountIn>(in, out);
-	}
+	void routeToPlugin(CoreAudioBus in, SplitAudioData<SampleT, channelCountIn> out) const;
+
+	//! Overload for SampleFrame-based plugins
+	template<AudioDataLayout layout, typename SampleT, int channelCountIn>
+	void routeToPlugin(CoreAudioBus in, CoreAudioDataMut out) const;
 
 
 	/*
@@ -145,11 +145,11 @@ public:
 	 *            `inOut.frames` provides the number of frames in each `in`/`inOut` audio buffer
 	 */
 	template<AudioDataLayout layout, typename SampleT, int channelCountOut>
-	void routeFromPlugin(typename detail::AudioDataTypeSelector<layout, const SampleT, channelCountOut>::type in,
-		CoreAudioBusMut inOut) const
-	{
-		routeToPluginImpl<layout, SampleT, channelCountOut>(in, inOut);
-	}
+	void routeFromPlugin(SplitAudioData<const SampleT, channelCountOut> in, CoreAudioBusMut inOut) const;
+
+	//! Overload for SampleFrame-based plugins
+	template<AudioDataLayout layout, typename SampleT, int channelCountOut>
+	void routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut) const;
 
 
 	/**
@@ -158,12 +158,12 @@ public:
 	 * These methods function the same as those above, but mix the plugin output with the track channel
 	 */
 	template<AudioDataLayout layout, typename SampleT, int channelCountOut>
-	void routeFromPlugin(SplitAudioData<SampleT, channelCountOut> in, CoreAudioBusMut inOut,
+	void routeFromPlugin(SplitAudioData<const SampleT, channelCountOut> in, CoreAudioBusMut inOut,
 		float wet, float dry) const;
 
 	//! Overload for SampleFrame-based plugins
 	template<AudioDataLayout layout, typename SampleT, int channelCountOut>
-	void routeFromPlugin(CoreAudioDataMut in, CoreAudioBusMut inOut, float wet, float dry) const;
+	void routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut, float wet, float dry) const;
 
 
 	/**
@@ -183,19 +183,6 @@ public slots:
 	void updateRoutedChannels(unsigned int trackChannel);
 
 private:
-	template<AudioDataLayout layout, typename SampleT, int channelCountIn>
-	void routeToPluginImpl(CoreAudioBus in, SplitAudioData<SampleT, channelCountIn> out) const;
-
-	template<AudioDataLayout layout, typename SampleT, int channelCountIn>
-	void routeToPluginImpl(CoreAudioBus in, CoreAudioDataMut out) const;
-
-	template<AudioDataLayout layout, typename SampleT, int channelCountOut>
-	void routeFromPluginImpl(SplitAudioData<SampleT, channelCountOut> in, CoreAudioBusMut inOut) const;
-
-	template<AudioDataLayout layout, typename SampleT, int channelCountOut>
-	void routeFromPluginImpl(CoreAudioDataMut in, CoreAudioBusMut inOut) const;
-
-
 	void updateAllRoutedChannels();
 
 	Matrix m_in;  //!< LMMS --> Plugin
@@ -222,7 +209,7 @@ private:
 // Out-of-class definitions
 
 template<AudioDataLayout layout, typename SampleT, int channelCountIn>
-inline void PluginPinConnector::routeToPluginImpl(CoreAudioBus in, SplitAudioData<SampleT, channelCountIn> out) const
+inline void PluginPinConnector::routeToPlugin(CoreAudioBus in, SplitAudioData<SampleT, channelCountIn> out) const
 {
 	static_assert(layout == AudioDataLayout::Split, "Only split data is implemented so far");
 
@@ -302,7 +289,7 @@ inline void PluginPinConnector::routeToPluginImpl(CoreAudioBus in, SplitAudioDat
 }
 
 template<AudioDataLayout layout, typename SampleT, int channelCountIn>
-inline void PluginPinConnector::routeToPluginImpl(CoreAudioBus in, CoreAudioDataMut out) const
+inline void PluginPinConnector::routeToPlugin(CoreAudioBus in, CoreAudioDataMut out) const
 {
 	static_assert(layout == AudioDataLayout::Interleaved);
 
@@ -444,7 +431,7 @@ inline void PluginPinConnector::routeToPluginImpl(CoreAudioBus in, CoreAudioData
 }
 
 template<AudioDataLayout layout, typename SampleT, int channelCountOut>
-inline void PluginPinConnector::routeFromPluginImpl(SplitAudioData<SampleT, channelCountOut> in,
+inline void PluginPinConnector::routeFromPlugin(SplitAudioData<const SampleT, channelCountOut> in,
 	CoreAudioBusMut inOut) const
 {
 	static_assert(layout == AudioDataLayout::Split, "Only split data is implemented so far");
@@ -595,7 +582,7 @@ inline void PluginPinConnector::routeFromPluginImpl(SplitAudioData<SampleT, chan
 }
 
 template<AudioDataLayout layout, typename SampleT, int channelCountOut>
-inline void PluginPinConnector::routeFromPluginImpl(CoreAudioDataMut in, CoreAudioBusMut inOut) const
+inline void PluginPinConnector::routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut) const
 {
 	static_assert(layout == AudioDataLayout::Interleaved);
 
@@ -694,6 +681,20 @@ inline void PluginPinConnector::routeFromPluginImpl(CoreAudioDataMut in, CoreAud
 		}
 	}
 }
+
+template<AudioDataLayout layout, typename SampleT, int channelCountOut>
+inline void PluginPinConnector::routeFromPlugin(SplitAudioData<const SampleT, channelCountOut> in, CoreAudioBusMut inOut,
+	float wet, float dry) const
+{
+	// TODO
+}
+
+template<AudioDataLayout layout, typename SampleT, int channelCountOut>
+inline void PluginPinConnector::routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut, float wet, float dry) const
+{
+	// TODO
+}
+
 
 } // namespace lmms
 
