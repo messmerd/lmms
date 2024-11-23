@@ -84,6 +84,7 @@ template<AudioDataLayout layout, typename SampleT, int numChannelsIn, int numCha
 class AudioPluginBufferInterface
 {
 public:
+	virtual ~AudioPluginBufferInterface() = default;
 	virtual auto inputBuffer() -> typename detail::AudioDataTypeSelector<layout, SampleT, numChannelsIn>::type = 0;
 	virtual auto outputBuffer() -> typename detail::AudioDataTypeSelector<layout, SampleT, numChannelsOut>::type = 0;
 	virtual void updateBuffers(int channelsIn, int channelsOut) = 0;
@@ -128,6 +129,8 @@ public:
 	{
 		updateBuffers(numChannelsIn, numChannelsOut);
 	}
+
+	~AudioPluginBufferDefaultImpl() override = default;
 
 	auto inputBuffer() -> SplitAudioData<SampleT, numChannelsIn> final
 	{
@@ -206,6 +209,8 @@ public:
 	{
 		updateBuffers(numChannelsIn, numChannelsOut);
 	}
+
+	~AudioPluginBufferDefaultImpl() override = default;
 
 	auto inputBuffer() -> CoreAudioDataMut final
 	{
