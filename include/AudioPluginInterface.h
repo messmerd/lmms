@@ -192,33 +192,34 @@ protected:
 	{
 		const auto bus = CoreAudioBusMut{&inOut, 1, Engine::audioEngine()->framesPerPeriod()};
 		auto bufferInterface = this->bufferInterface();
+		auto router = m_pinConnector.getRouter<config.layout, SampleT, config.inputs, config.outputs>();
 
 		if constexpr (config.inplace)
 		{
 			// Write core to plugin input buffer
 			const auto pluginInOut = bufferInterface->inputBuffer();
-			m_pinConnector.routeToPlugin<config.layout, SampleT, config.inputs>(bus, pluginInOut);
+			router.routeToPlugin(bus, pluginInOut);
 
 			// Process
 			if constexpr (config.customBuffer) { this->processImpl(); }
 			else { this->processImpl(pluginInOut); }
 
 			// Write plugin output buffer to core
-			m_pinConnector.routeFromPlugin<config.layout, SampleT, config.outputs>(pluginInOut, bus);
+			router.routeFromPlugin(pluginInOut, bus);
 		}
 		else
 		{
 			// Write core to plugin input buffer
 			const auto pluginIn = bufferInterface->inputBuffer();
 			const auto pluginOut = bufferInterface->outputBuffer();
-			m_pinConnector.routeToPlugin<config.layout, SampleT, config.inputs>(bus, pluginIn);
+			router.routeToPlugin(bus, pluginIn);
 
 			// Process
 			if constexpr (config.customBuffer) { this->processImpl(); }
 			else { this->processImpl(pluginIn, pluginOut); }
 
 			// Write plugin output buffer to core
-			m_pinConnector.routeFromPlugin<config.layout, SampleT, config.outputs>(pluginOut, bus);
+			router.routeFromPlugin(pluginOut, bus);
 		}
 	}
 
@@ -226,33 +227,34 @@ protected:
 	{
 		const auto bus = CoreAudioBusMut{&inOut, 1, Engine::audioEngine()->framesPerPeriod()};
 		auto bufferInterface = this->bufferInterface();
+		auto router = m_pinConnector.getRouter<config.layout, SampleT, config.inputs, config.outputs>();
 
 		if constexpr (config.inplace)
 		{
 			// Write core to plugin input buffer
 			const auto pluginInOut = bufferInterface->inputBuffer();
-			m_pinConnector.routeToPlugin<config.layout, SampleT, config.inputs>(bus, pluginInOut);
+			router.routeToPlugin(bus, pluginInOut);
 
 			// Process
 			if constexpr (config.customBuffer) { this->processImpl(notesToPlay); }
 			else { this->processImpl(notesToPlay, pluginInOut); }
 
 			// Write plugin output buffer to core
-			m_pinConnector.routeFromPlugin<config.layout, SampleT, config.outputs>(pluginInOut, bus);
+			router.routeFromPlugin(pluginInOut, bus);
 		}
 		else
 		{
 			// Write core to plugin input buffer
 			const auto pluginIn = bufferInterface->inputBuffer();
 			const auto pluginOut = bufferInterface->outputBuffer();
-			m_pinConnector.routeToPlugin<config.layout, SampleT, config.inputs>(bus, pluginIn);
+			router.routeToPlugin(bus, pluginIn);
 
 			// Process
 			if constexpr (config.customBuffer) { this->processImpl(notesToPlay); }
 			else { this->processImpl(notesToPlay, pluginIn, pluginOut); }
 
 			// Write plugin output buffer to core
-			m_pinConnector.routeFromPlugin<config.layout, SampleT, config.outputs>(pluginOut, bus);
+			router.routeFromPlugin(pluginOut, bus);
 		}
 	}
 
@@ -301,34 +303,36 @@ protected:
 		SampleFrame* temp = inOut.data();
 		const auto bus = CoreAudioBusMut{&temp, 1, inOut.size()};
 		auto bufferInterface = this->bufferInterface();
+		auto router = m_pinConnector.getRouter<config.layout, SampleT, config.inputs, config.outputs>();
+
 		ProcessStatus status;
 
 		if constexpr (config.inplace)
 		{
 			// Write core to plugin input buffer
 			const auto pluginInOut = bufferInterface->inputBuffer();
-			m_pinConnector.routeToPlugin<config.layout, SampleT, config.inputs>(bus, pluginInOut);
+			router.routeToPlugin(bus, pluginInOut);
 
 			// Process
 			if constexpr (config.customBuffer) { status = this->processImpl(); }
 			else { status = this->processImpl(pluginInOut); }
 
 			// Write plugin output buffer to core; TODO: Apply wet/dry here
-			m_pinConnector.routeFromPlugin<config.layout, SampleT, config.outputs>(pluginInOut, bus);
+			router.routeFromPlugin(pluginInOut, bus);
 		}
 		else
 		{
 			// Write core to plugin input buffer
 			const auto pluginIn = bufferInterface->inputBuffer();
 			const auto pluginOut = bufferInterface->outputBuffer();
-			m_pinConnector.routeToPlugin<config.layout, SampleT, config.inputs>(bus, pluginIn);
+			router.routeToPlugin(bus, pluginIn);
 
 			// Process
 			if constexpr (config.customBuffer) { status = this->processImpl(); }
 			else { status = this->processImpl(pluginIn, pluginOut); }
 
 			// Write plugin output buffer to core; TODO: Apply wet/dry here
-			m_pinConnector.routeFromPlugin<config.layout, SampleT, config.outputs>(pluginOut, bus);
+			router.routeFromPlugin(pluginOut, bus);
 		}
 
 		switch (status)
