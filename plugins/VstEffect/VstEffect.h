@@ -38,7 +38,7 @@ namespace lmms
 
 class VstEffect
 	: public AudioPluginInterface<Effect, float,
-		{ .layout = AudioDataLayout::Split, .customBuffer = true }>
+		PluginConfig{ .layout = AudioDataLayout::Split, .customBuffer = true }>
 {
 public:
 	VstEffect( Model * _parent,
@@ -54,7 +54,8 @@ public:
 
 
 private:
-	auto bufferInterface() -> VstPlugin* override
+	auto bufferInterface() -> AudioPluginBufferInterface<AudioDataLayout::Split, float,
+		DynamicChannelCount, DynamicChannelCount>* override
 	{
 		assert(m_plugin != nullptr);
 		return m_plugin.get();

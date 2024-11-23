@@ -56,7 +56,7 @@ class VestigeInstrumentView;
 
 class VestigeInstrument
 	: public AudioPluginInterface<Instrument, float,
-		{ .layout = AudioDataLayout::Split, .customBuffer = true }>
+		PluginConfig{ .layout = AudioDataLayout::Split, .customBuffer = true }>
 {
 	Q_OBJECT
 public:
@@ -84,7 +84,8 @@ protected slots:
 private:
 	void closePlugin();
 
-	auto bufferInterface() -> VstPlugin* override
+	auto bufferInterface() -> AudioPluginBufferInterface<AudioDataLayout::Split, float,
+		DynamicChannelCount, DynamicChannelCount>* override
 	{
 		assert(m_plugin != nullptr);
 		return m_plugin;
