@@ -55,10 +55,8 @@ class VestigeInstrumentView;
 
 
 class VestigeInstrument
-	: public AudioPluginInterface<Instrument,
-		DynamicChannelCount, DynamicChannelCount,
-		AudioDataLayout::Split, float,
-		false, true>
+	: public AudioPluginInterface<Instrument, float,
+		{ .layout = AudioDataLayout::Split, .customBuffer = true }>
 {
 	Q_OBJECT
 public:

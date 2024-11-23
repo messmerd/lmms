@@ -37,10 +37,8 @@ namespace lmms
 
 
 class VstEffect
-	: public AudioPluginInterface<Effect,
-		DynamicChannelCount, DynamicChannelCount,
-		AudioDataLayout::Split, float,
-		false, true>
+	: public AudioPluginInterface<Effect, float,
+		{ .layout = AudioDataLayout::Split, .customBuffer = true }>
 {
 public:
 	VstEffect( Model * _parent,
