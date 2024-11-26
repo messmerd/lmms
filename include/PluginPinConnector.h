@@ -32,7 +32,6 @@
 #include <vector>
 
 #include "AudioData.h"
-#include "AudioPluginBuffer.h"
 #include "AutomatableModel.h"
 #include "lmms_basics.h"
 #include "lmms_export.h"
@@ -40,6 +39,10 @@
 #include "SerializingObject.h"
 
 class QWidget;
+
+#ifdef LMMS_TESTING
+class PluginPinConnectorTest;
+#endif
 
 namespace lmms
 {
@@ -68,6 +71,7 @@ public:
 	{
 	public:
 		auto pins() const -> const PinMap& { return m_pins; }
+		auto pins(ch_cnt_t trackChannel) const -> const std::vector<BoolModel*>& { return m_pins[trackChannel]; }
 
 		auto channelCount() const -> int { return m_channelCount; }
 
@@ -204,6 +208,10 @@ public:
 
 	static constexpr std::size_t MaxTrackChannels = 256; // TODO: Move somewhere else
 
+#ifdef LMMS_TESTING
+	friend class ::PluginPinConnectorTest;
+#endif
+
 public slots:
 	void setTrackChannelCount(int count);
 	void updateRoutedChannels(unsigned int trackChannel);
@@ -327,116 +335,114 @@ inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelC
 	const auto inOutSizeConstrained = m_pc->m_trackChannelsUpperBound / 2;
 	assert(inOutSizeConstrained <= inOut.channelPairs);
 
-	for (ch_cnt_t outChannelPairIdx = 0; outChannelPairIdx < inOutSizeConstrained; ++outChannelPairIdx)
-	{
-		SampleFrame* outPtr = inOut.bus[outChannelPairIdx]; // L/R track channel pair
-		const auto outChannel = static_cast<ch_cnt_t>(outChannelPairIdx * 2);
+	/*
+	 * Routes plugin audio to track channel pair and normalizes the result. For track channels
+	 * without any plugin audio routed to it, the track channel is unmodified for "bypass"
+	 * behavior.
+	 */
+	const auto routeNx2 = [&](SampleFrame* outPtr, ch_cnt_t outChannel, auto routedChannels) {
+		constexpr std::uint8_t rc = routedChannels();
 
-		/*
-		 * Routes plugin audio to track channel pair and normalizes the result. For track channels
-		 * without any plugin audio routed to it, the track channel is unmodified for "bypass"
-		 * behavior.
-		 *
-		 * TODO C++20: Use explicit non-type template parameter instead of `routedChannels` auto parameter
-		 */
-		const auto routeNx2 = [&](SampleFrame* outPtr, ch_cnt_t outChannel, auto routedChannels) {
-			constexpr std::uint8_t rc = routedChannels();
+		if constexpr (rc == 0b00)
+		{
+			// Both track channels bypassed - nothing to do
+			return;
+		}
 
-			if constexpr (rc == 0b00)
+		// We know at this point that we are writing to at least one of the output channels
+		// rather than bypassing, so it is safe to set output buffer of those channels
+		// to zero prior to accumulation
+
+		for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+		{
+			if constexpr ((rc & 0b10) != 0)
 			{
-				// Both track channels bypassed - nothing to do
-				return;
+				outPtr[frame].leftRef() = 0.f;
+			}
+			if constexpr ((rc & 0b01) != 0)
+			{
+				outPtr[frame].rightRef() = 0.f;
+			}
+		}
+
+		// Counters for # of in channels routed to the current pair of out channels
+		ch_cnt_t numRoutedL = 0;
+		ch_cnt_t numRoutedR = 0;
+
+		for (pi_ch_t inChannel = 0; inChannel < in.channels(); ++inChannel)
+		{
+			if constexpr (rc == 0b10)
+			{
+				if (!m_pc->m_out.enabled(outChannel, inChannel)) { continue; }
+				++numRoutedL;
 			}
 
-			// We know at this point that we are writing to at least one of the output channels
-			// rather than bypassing, so it is safe to set output buffer of those channels
-			// to zero prior to accumulation
+			if constexpr (rc == 0b01)
+			{
+				if (!m_pc->m_out.enabled(outChannel + 1, inChannel)) { continue; }
+				++numRoutedR;
+			}
 
+			if constexpr (rc == 0b11)
+			{
+				if (!m_pc->m_out.enabled(outChannel, inChannel)
+					&& !m_pc->m_out.enabled(outChannel + 1, inChannel)) { continue; }
+				++numRoutedL;
+				++numRoutedR;
+			}
+
+			const SampleType<layout, const SampleT>* inPtr = in.buffer(inChannel);
 			for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 			{
 				if constexpr ((rc & 0b10) != 0)
 				{
-					outPtr[frame].leftRef() = 0.f;
+					outPtr[frame].leftRef() += inPtr[frame];
 				}
 				if constexpr ((rc & 0b01) != 0)
 				{
-					outPtr[frame].rightRef() = 0.f;
+					outPtr[frame].rightRef() += inPtr[frame];
 				}
 			}
+		}
 
-			// Counters for # of in channels routed to the current pair of out channels
-			ch_cnt_t numRoutedL = 0;
-			ch_cnt_t numRoutedR = 0;
+		// If num routed is 0 or 1, either no plugin channels were routed to the output
+		// and the output stays zeroed, or only one channel was routed and normalization is not needed
 
-			for (pi_ch_t inChannel = 0; inChannel < in.channels(); ++inChannel)
+		if (numRoutedL > 1)
+		{
+			if (numRoutedR > 1)
 			{
-				if constexpr (rc == 0b10)
-				{
-					if (!m_pc->m_out.enabled(outChannel, inChannel)) { continue; }
-					++numRoutedL;
-				}
-
-				if constexpr (rc == 0b01)
-				{
-					if (!m_pc->m_out.enabled(outChannel + 1, inChannel)) { continue; }
-					++numRoutedR;
-				}
-
-				if constexpr (rc == 0b11)
-				{
-					if (!m_pc->m_out.enabled(outChannel, inChannel)
-						&& !m_pc->m_out.enabled(outChannel + 1, inChannel)) { continue; }
-					++numRoutedL;
-					++numRoutedR;
-				}
-
-				const SampleType<layout, const SampleT>* inPtr = in.buffer(inChannel);
+				// Normalize output - both channels
 				for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 				{
-					if constexpr ((rc & 0b10) != 0)
-					{
-						outPtr[frame].leftRef() += inPtr[frame];
-					}
-					if constexpr ((rc & 0b01) != 0)
-					{
-						outPtr[frame].rightRef() += inPtr[frame];
-					}
-				}
-			}
-
-			// If num routed is 0 or 1, either no plugin channels were routed to the output
-			// and the output stays zeroed, or only one channel was routed and normalization is not needed
-
-			if (numRoutedL > 1)
-			{
-				if (numRoutedR > 1)
-				{
-					// Normalize output - both channels
-					for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
-					{
-						outPtr[frame].leftRef() /= numRoutedL;
-						outPtr[frame].rightRef() /= numRoutedR;
-					}
-				}
-				else
-				{
-					// Normalize output - left channel
-					for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
-					{
-						outPtr[frame].leftRef() /= numRoutedL;
-					}
-				}
-			}
-			else if (numRoutedR > 1)
-			{
-				// Normalize output - right channel
-				for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
-				{
+					outPtr[frame].leftRef() /= numRoutedL;
 					outPtr[frame].rightRef() /= numRoutedR;
 				}
 			}
-		};
+			else
+			{
+				// Normalize output - left channel
+				for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+				{
+					outPtr[frame].leftRef() /= numRoutedL;
+				}
+			}
+		}
+		else if (numRoutedR > 1)
+		{
+			// Normalize output - right channel
+			for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+			{
+				outPtr[frame].rightRef() /= numRoutedR;
+			}
+		}
+	};
 
+
+	for (ch_cnt_t outChannelPairIdx = 0; outChannelPairIdx < inOutSizeConstrained; ++outChannelPairIdx)
+	{
+		SampleFrame* outPtr = inOut.bus[outChannelPairIdx]; // L/R track channel pair
+		const auto outChannel = static_cast<ch_cnt_t>(outChannelPairIdx * 2);
 
 		const std::uint8_t routedChannels =
 				(static_cast<std::uint8_t>(m_pc->m_routedChannels[outChannel]) << 1u)
@@ -501,10 +507,8 @@ inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, chan
 	 * of the 16 total routing combinations of an input `SampleFrame*` to an
 	 * output `SampleFrame*`. The purpose is to eliminate all branching within
 	 * the inner for-loop in hopes of better performance.
-	 *
-	 * TODO C++20: Use explicit non-type template parameter instead of `enabledPins` auto parameter
 	 */
-	auto route2x2 = [&](const sample_t* inPtr, auto enabledPins) {
+	auto route2x2 = [&, samples, outPtr](const sample_t* inPtr, auto enabledPins) {
 		constexpr auto epL =  static_cast<std::uint8_t>(enabledPins() >> 2); // for L out channel
 		constexpr auto epR = static_cast<std::uint8_t>(enabledPins() & 0b0011); // for R out channel
 
@@ -628,13 +632,11 @@ inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, chan
 	assert(inOutSizeConstrained <= inOut.channelPairs);
 
 	/*
-	* This is essentially a function template with specializations for each
-	* of the 16 total routing combinations of an input `SampleFrame*` to an
-	* output `SampleFrame*`. The purpose is to eliminate all branching within
-	* the inner for-loop in hopes of better performance.
-	*
-	* TODO C++20: Use explicit non-type template parameter instead of `enabledPins` auto parameter
-	*/
+	 * This is essentially a function template with specializations for each
+	 * of the 16 total routing combinations of an input `SampleFrame*` to an
+	 * output `SampleFrame*`. The purpose is to eliminate all branching within
+	 * the inner for-loop in hopes of better performance.
+	 */
 	auto route2x2 = [samples = inOut.frames * 2, inPtr = in.data()->data()](sample_t* outPtr, auto enabledPins) {
 		constexpr auto epL =  static_cast<std::uint8_t>(enabledPins() >> 2); // for L out channel
 		constexpr auto epR = static_cast<std::uint8_t>(enabledPins() & 0b0011); // for R out channel
