@@ -42,10 +42,11 @@ namespace lmms {
 
 namespace {
 
+/*
 void zeroBuffer(CoreAudioDataMut buffer)
 {
 	zeroSampleFrames(buffer.data(), buffer.size());
-}
+}*/
 
 template<typename SampleT, int extent>
 void zeroBuffer(SplitAudioData<SampleT, extent> buffer)
@@ -118,6 +119,7 @@ void compareBuffers(CoreAudioBus actual, CoreAudioBus expected)
 	}
 }
 
+/*
 void compareBuffers(CoreAudioData actual, CoreAudioData expected)
 {
 	QCOMPARE(actual.size(), expected.size());
@@ -126,7 +128,7 @@ void compareBuffers(CoreAudioData actual, CoreAudioData expected)
 		QCOMPARE(actual[frame].left(), expected[frame].left());
 		QCOMPARE(actual[frame].right(), expected[frame].right());
 	}
-}
+}*/
 
 template<typename SampleT, int extent>
 void compareBuffers(SplitAudioData<SampleT, extent> actual, SplitAudioData<SampleT, extent> expected)
@@ -154,6 +156,20 @@ class PluginPinConnectorTest : public QObject
 
 public:
 	static constexpr lmms::f_cnt_t MaxFrames = lmms::DEFAULT_BUFFER_SIZE;
+
+private:
+	std::vector<lmms::SampleFrame> m_coreBuffer;
+	lmms::SampleFrame* m_coreBufferPtr = nullptr;
+
+	auto getCoreBus() -> lmms::CoreAudioBusMut
+	{
+		m_coreBuffer.resize(MaxFrames);
+		m_coreBufferPtr = m_coreBuffer.data();
+
+		std::fill_n(m_coreBuffer.data(), m_coreBuffer.size(), lmms::SampleFrame{});
+
+		return lmms::CoreAudioBusMut{&m_coreBufferPtr, 1, MaxFrames};
+	}
 
 private slots:
 	void initTestCase()
@@ -316,26 +332,23 @@ private slots:
 		QCOMPARE(pc.m_routedChannels[1], true);
 	}
 
-	//! Verifies correct routing for 2x2 non-interleaved (split) plugin
-	void DefaultRouting_Split2x2()
+	//! Verifies correct default routing for 1x1 non-interleaved (split) plugin
+	void Routing_Split1x1_Default()
 	{
 		using namespace lmms;
 
 		// Setup
 		auto model = Model{nullptr};
-		auto pc = PluginPinConnector{2, 2, &model};
-
-		auto coreBuffer = std::vector<SampleFrame>(MaxFrames);
-		auto coreBufferPtr = coreBuffer.data();
-		auto coreBus = CoreAudioBusMut{&coreBufferPtr, 1, MaxFrames};
+		auto pc = PluginPinConnector{1, 1, &model};
+		auto coreBus = getCoreBus();
 		SampleFrame* trackChannels = coreBus.bus[0]; // channels 0/1
-		zeroBuffer(coreBus);
 
-		auto bufferSplit2x2 = AudioPluginBufferDefaultImpl<AudioDataLayout::Split, float, 2, 2, false>{};
-		zeroBuffer(bufferSplit2x2.inputBuffer());
-		zeroBuffer(bufferSplit2x2.outputBuffer());
-
-		auto router = pc.getRouter<AudioDataLayout::Split, float, 2, 2>();
+		// Downmix stereo to mono plugin input, upmix mono plugin output to stereo
+		// In    Out
+		//  _     _
+		// |X|   |X|
+		// |X|   |X|
+		//  -     -
 
 		// Data on frames 0, 1, and 33
 		trackChannels[0].setLeft(123.f);
@@ -345,17 +358,72 @@ private slots:
 		trackChannels[33].setLeft(789.f);
 		trackChannels[33].setRight(987.f);
 
-		// Make a copy for later
-		auto coreBufferCopy = std::vector<SampleFrame>(MaxFrames);
-		auto coreBufferPtrCopy = coreBufferCopy.data();
-		auto coreBusCopy = CoreAudioBusMut{&coreBufferPtrCopy, 1, MaxFrames};
-		transformBuffer(coreBus, coreBusCopy, [](auto s) { return s; }); // copy
+		// Plugin input and output buffers
+		auto bufferSplit1x1 = AudioPluginBufferDefaultImpl<AudioDataLayout::Split, float, 1, 1, false>{};
+		auto ins = bufferSplit1x1.inputBuffer();
+		auto outs = bufferSplit1x1.outputBuffer();
+
+		// Route to plugin
+		auto router = pc.getRouter<AudioDataLayout::Split, float, 1, 1>();
+		router.routeToPlugin(coreBus, ins);
+
+		// Check that plugin inputs have data on frames 0, 1, and 33 (should be mixed down to mono)
+		QCOMPARE(ins.buffer(0)[0], (123.f + 321.f) / 2);
+		QCOMPARE(ins.buffer(0)[1], (456.f + 654.f) / 2);
+		QCOMPARE(ins.buffer(0)[33], (789.f + 987.f) / 2);
+
+		// Do work of processImpl - in this case it doubles the amplitude
+		transformBuffer(ins, outs, [](auto s) { return s * 2; });
+
+		// Construct buffer with the expected core bus result
+		auto coreBufferExpected = std::vector<SampleFrame>(MaxFrames);
+		auto coreBufferPtrExpected = coreBufferExpected.data();
+		auto coreBusExpected = CoreAudioBusMut{&coreBufferPtrExpected, 1, MaxFrames};
+		coreBusExpected.bus[0][0] = SampleFrame{123.f + 321.f, 123.f + 321.f};
+		coreBusExpected.bus[0][1] = SampleFrame{456.f + 654.f, 456.f + 654.f};
+		coreBusExpected.bus[0][33] = SampleFrame{789.f + 987.f, 789.f + 987.f};
+
+		// Route from plugin back to Core
+		router.routeFromPlugin(outs, coreBus);
+
+		// Check that result is mono mix with doubled amplitude
+		QCOMPARE(coreBus.bus[0][0].left(), 123.f + 321.f);
+		QCOMPARE(coreBus.bus[0][0].right(), 123.f + 321.f);
+		QCOMPARE(coreBus.bus[0][1].left(), 456.f + 654.f);
+		QCOMPARE(coreBus.bus[0][1].right(), 456.f + 654.f);
+		QCOMPARE(coreBus.bus[0][33].left(), 789.f + 987.f);
+		QCOMPARE(coreBus.bus[0][33].right(), 789.f + 987.f);
+
+		// Test the rest of the buffer
+		compareBuffers(coreBus, coreBusExpected);
+	}
+
+	//! Verifies correct default routing for 2x2 non-interleaved (split) plugin
+	void Routing_Split2x2_Default()
+	{
+		using namespace lmms;
+
+		// Setup
+		auto model = Model{nullptr};
+		auto pc = PluginPinConnector{2, 2, &model};
+		auto coreBus = getCoreBus();
+		SampleFrame* trackChannels = coreBus.bus[0]; // channels 0/1
+
+		// Data on frames 0, 1, and 33
+		trackChannels[0].setLeft(123.f);
+		trackChannels[0].setRight(321.f);
+		trackChannels[1].setLeft(456.f);
+		trackChannels[1].setRight(654.f);
+		trackChannels[33].setLeft(789.f);
+		trackChannels[33].setRight(987.f);
 
 		// Plugin input and output buffers
+		auto bufferSplit2x2 = AudioPluginBufferDefaultImpl<AudioDataLayout::Split, float, 2, 2, false>{};
 		auto ins = bufferSplit2x2.inputBuffer();
 		auto outs = bufferSplit2x2.outputBuffer();
 
-		// Route to plugin, default connections
+		// Route to plugin
+		auto router = pc.getRouter<AudioDataLayout::Split, float, 2, 2>();
 		router.routeToPlugin(coreBus, ins);
 
 		// Check that plugin inputs have data on frames 0, 1, and 33
@@ -368,7 +436,12 @@ private slots:
 
 		// Do work of processImpl - in this case it doubles the amplitude
 		transformBuffer(ins, outs, [](auto s) { return s * 2; });
-		transformBuffer(coreBusCopy, coreBusCopy, [](auto s) { return s * 2; });
+
+		// Construct buffer with the expected core bus result
+		auto coreBufferExpected = std::vector<SampleFrame>(MaxFrames);
+		auto coreBufferPtrExpected = coreBufferExpected.data();
+		auto coreBusExpected = CoreAudioBusMut{&coreBufferPtrExpected, 1, MaxFrames};
+		transformBuffer(coreBus, coreBusExpected, [](auto s) { return s * 2; });
 
 		// Sanity check for transformBuffer
 		QCOMPARE(outs.buffer(0)[0], 123.f * 2);
@@ -378,14 +451,81 @@ private slots:
 		QCOMPARE(outs.buffer(0)[33], 789.f * 2);
 		QCOMPARE(outs.buffer(1)[33], 987.f * 2);
 
+		// Zero core bus just to be sure what the plugin output is
+		lmms::zeroBuffer(coreBus);
+
+		// Route from plugin back to Core
+		router.routeFromPlugin(outs, coreBus);
+
+		// Should be double the original
+		QCOMPARE(coreBus.bus[0][0].left(), 123.f * 2);
+		QCOMPARE(coreBus.bus[0][0].right(), 321.f * 2);
+		QCOMPARE(coreBus.bus[0][1].left(), 456.f * 2);
+		QCOMPARE(coreBus.bus[0][1].right(), 654.f * 2);
+		QCOMPARE(coreBus.bus[0][33].left(), 789.f * 2);
+		QCOMPARE(coreBus.bus[0][33].right(), 987.f * 2);
+
+		// Test the rest of the buffer
+		compareBuffers(coreBus, coreBusExpected);
+	}
+
+	//! Verifies correct partially-bypassed routing for 2x2 non-interleaved (split) plugin
+	void Routing_Split2x2_Bypass()
+	{
+		using namespace lmms;
+
+		// Setup
+		auto model = Model{nullptr};
+		auto pc = PluginPinConnector{2, 2, &model};
+		auto coreBus = getCoreBus();
+		SampleFrame* trackChannels = coreBus.bus[0]; // channels 0/1
+
+		// Default input connections, disable right output channel
 		// In    Out
 		//  ___   ___
 		// |X| | |X| |
 		// | |X| | | |
 		//  ---   ---
-
-		// Disable right channel output
 		pc.out().pins(1)[1]->setValue(false);
+
+		// Data on frames 0, 1, and 33
+		trackChannels[0].setLeft(123.f);
+		trackChannels[0].setRight(321.f);
+		trackChannels[1].setLeft(456.f);
+		trackChannels[1].setRight(654.f);
+		trackChannels[33].setLeft(789.f);
+		trackChannels[33].setRight(987.f);
+
+		// Plugin input and output buffers
+		auto bufferSplit2x2 = AudioPluginBufferDefaultImpl<AudioDataLayout::Split, float, 2, 2, false>{};
+		auto ins = bufferSplit2x2.inputBuffer();
+		auto outs = bufferSplit2x2.outputBuffer();
+
+		// Route to plugin
+		auto router = pc.getRouter<AudioDataLayout::Split, float, 2, 2>();
+		router.routeToPlugin(coreBus, ins);
+
+		// Check that plugin inputs have data on frames 0, 1, and 33
+		QCOMPARE(ins.buffer(0)[0], 123.f);
+		QCOMPARE(ins.buffer(1)[0], 321.f);
+		QCOMPARE(ins.buffer(0)[1], 456.f);
+		QCOMPARE(ins.buffer(1)[1], 654.f);
+		QCOMPARE(ins.buffer(0)[33], 789.f);
+		QCOMPARE(ins.buffer(1)[33], 987.f);
+
+		// Do work of processImpl - in this case it doubles the amplitude
+		transformBuffer(ins, outs, [](auto s) { return s * 2; });
+
+		// Construct buffer with the expected core bus result
+		auto coreBufferExpected = std::vector<SampleFrame>(MaxFrames);
+		auto coreBufferPtrExpected = coreBufferExpected.data();
+		auto coreBusExpected = CoreAudioBusMut{&coreBufferPtrExpected, 1, MaxFrames};
+		for (f_cnt_t frame = 0; frame < coreBus.frames; ++frame)
+		{
+			SampleFrame& sf = coreBusExpected.bus[0][frame];
+			sf.leftRef() = coreBus.bus[0][frame].left() * 2; // left channel:  doubled output from plugin
+			sf.rightRef() = coreBus.bus[0][frame].right();   // right channel: bypassed
+		}
 
 		// Route from plugin back to Core
 		router.routeFromPlugin(outs, coreBus);
@@ -399,20 +539,61 @@ private slots:
 		QCOMPARE(coreBus.bus[0][33].left(), 789.f * 2);
 		QCOMPARE(coreBus.bus[0][33].right(), 987.f);
 
-		// In    Out
-		//  ___   ___
-		// |X| | |X| |
-		// | |X| | |X|
-		//  ---   ---
+		// Test the rest of the buffer
+		compareBuffers(coreBus, coreBusExpected);
+	}
 
-		// Re-enable right channel output
-		pc.out().pins(1)[1]->setValue(true);
+	//! Verifies correct default routing for 2x2 SampleFrame-based plugin
+	void Routing_SampleFrame2x2_Default()
+	{
+		using namespace lmms;
 
-		// Clear buffer before routing and reading from it again,
-		// just to be sure we aren't reading the old values
-		zeroBuffer(coreBus);
+		// Setup
+		auto model = Model{nullptr};
+		auto pc = PluginPinConnector{2, 2, &model};
+		auto coreBus = getCoreBus();
+		SampleFrame* trackChannels = coreBus.bus[0]; // channels 0/1
 
-		// Again, route from plugin back to Core
+		// Data on frames 0, 1, and 33
+		trackChannels[0].setLeft(123.f);
+		trackChannels[0].setRight(321.f);
+		trackChannels[1].setLeft(456.f);
+		trackChannels[1].setRight(654.f);
+		trackChannels[33].setLeft(789.f);
+		trackChannels[33].setRight(987.f);
+
+		// Plugin input and output buffers
+		auto pluginBuffers = AudioPluginBufferDefaultImpl<AudioDataLayout::Interleaved, SampleFrame, 2, 2, true>{};
+		auto ins = pluginBuffers.inputBuffer();
+		auto outs = pluginBuffers.outputBuffer();
+
+		QCOMPARE(ins.data(), outs.data()); // in-place processing - should use same buffer for inputs and outputs
+
+		// Route to plugin
+		auto router = pc.getRouter<AudioDataLayout::Interleaved, SampleFrame, 2, 2>();
+		router.routeToPlugin(coreBus, ins);
+
+		// Check that plugin inputs have data on frames 0, 1, and 33
+		QCOMPARE(ins[0].left(), 123.f);
+		QCOMPARE(ins[0].right(), 321.f);
+		QCOMPARE(ins[1].left(), 456.f);
+		QCOMPARE(ins[1].right(), 654.f);
+		QCOMPARE(ins[33].left(), 789.f);
+		QCOMPARE(ins[33].right(), 987.f);
+
+		// Do work of processImpl - in this case it doubles the amplitude
+		transformBuffer(ins, outs, [](auto s) { return s * 2; });
+
+		// Construct buffer with the expected core bus result
+		auto coreBufferExpected = std::vector<SampleFrame>(MaxFrames);
+		auto coreBufferPtrExpected = coreBufferExpected.data();
+		auto coreBusExpected = CoreAudioBusMut{&coreBufferPtrExpected, 1, MaxFrames};
+		transformBuffer(coreBus, coreBusExpected, [](auto s) { return s * 2; });
+
+		// Zero core bus just to be sure what the plugin output is
+		lmms::zeroBuffer(coreBus);
+
+		// Route from plugin back to Core
 		router.routeFromPlugin(outs, coreBus);
 
 		// Should be double the original
@@ -424,7 +605,7 @@ private slots:
 		QCOMPARE(coreBus.bus[0][33].right(), 987.f * 2);
 
 		// Test the rest of the buffer
-		compareBuffers(coreBus, coreBusCopy);
+		compareBuffers(coreBus, coreBusExpected);
 	}
 };
 
