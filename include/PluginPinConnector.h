@@ -26,6 +26,7 @@
 #ifndef LMMS_PLUGIN_PIN_CONNECTOR_H
 #define LMMS_PLUGIN_PIN_CONNECTOR_H
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
@@ -255,7 +256,7 @@ inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelC
 	const auto inSizeConstrained = m_pc->m_trackChannelsUpperBound / 2;
 	assert(inSizeConstrained <= in.channelPairs);
 
-	// Zero the output buffer
+	// Zero the output buffer - TODO: std::memcpy?
 	std::fill_n(out.sourceBuffer(), out.channels() * out.frames(), SampleT{});
 	//std::memset(out.sourceBuffer(), 0, out.channels() * out.frames() * sizeof(SampleT));
 
@@ -350,18 +351,26 @@ inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelC
 		}
 
 		// We know at this point that we are writing to at least one of the output channels
-		// rather than bypassing, so it is safe to set output buffer of those channels
+		// rather than bypassing, so it is safe to set the output buffer of those channels
 		// to zero prior to accumulation
 
-		for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+		if constexpr (rc == 0b11)
 		{
-			if constexpr ((rc & 0b10) != 0)
+			// TODO: std::memcpy?
+			std::fill_n(outPtr, inOut.frames, SampleFrame{});
+		}
+		else
+		{
+			for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 			{
-				outPtr[frame].leftRef() = 0.f;
-			}
-			if constexpr ((rc & 0b01) != 0)
-			{
-				outPtr[frame].rightRef() = 0.f;
+				if constexpr ((rc & 0b10) != 0)
+				{
+					outPtr[frame].leftRef() = 0.f;
+				}
+				if constexpr ((rc & 0b01) != 0)
+				{
+					outPtr[frame].rightRef() = 0.f;
+				}
 			}
 		}
 
@@ -371,34 +380,58 @@ inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelC
 
 		for (pi_ch_t inChannel = 0; inChannel < in.channels(); ++inChannel)
 		{
-			if constexpr (rc == 0b10)
-			{
-				if (!m_pc->m_out.enabled(outChannel, inChannel)) { continue; }
-				++numRoutedL;
-			}
-
-			if constexpr (rc == 0b01)
-			{
-				if (!m_pc->m_out.enabled(outChannel + 1, inChannel)) { continue; }
-				++numRoutedR;
-			}
+			const SampleType<layout, const SampleT>* inPtr = in.buffer(inChannel);
 
 			if constexpr (rc == 0b11)
 			{
-				if (!m_pc->m_out.enabled(outChannel, inChannel)
-					&& !m_pc->m_out.enabled(outChannel + 1, inChannel)) { continue; }
-				++numRoutedL;
-				++numRoutedR;
+				// This input channel could be routed to either left, right, both, or neither output channels
+				if (m_pc->m_out.enabled(outChannel, inChannel))
+				{
+					++numRoutedL;
+					if (m_pc->m_out.enabled(outChannel + 1, inChannel))
+					{
+						++numRoutedR;
+						for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+						{
+							outPtr[frame].leftRef() += inPtr[frame];
+							outPtr[frame].rightRef() += inPtr[frame];
+						}
+					}
+					else
+					{
+						for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+						{
+							outPtr[frame].leftRef() += inPtr[frame];
+						}
+					}
+				}
+				else if (m_pc->m_out.enabled(outChannel + 1, inChannel))
+				{
+					++numRoutedR;
+					for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+					{
+						outPtr[frame].rightRef() += inPtr[frame];
+					}
+				}
 			}
-
-			const SampleType<layout, const SampleT>* inPtr = in.buffer(inChannel);
-			for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+			else if constexpr (rc == 0b10)
 			{
-				if constexpr ((rc & 0b10) != 0)
+				// This input channel may or may not be routed to the left output channel
+				if (!m_pc->m_out.enabled(outChannel, inChannel)) { continue; }
+
+				++numRoutedL;
+				for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 				{
 					outPtr[frame].leftRef() += inPtr[frame];
 				}
-				if constexpr ((rc & 0b01) != 0)
+			}
+			else if constexpr (rc == 0b01)
+			{
+				// This input channel may or may not be routed to the right output channel
+				if (!m_pc->m_out.enabled(outChannel + 1, inChannel)) { continue; }
+
+				++numRoutedR;
+				for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 				{
 					outPtr[frame].rightRef() += inPtr[frame];
 				}
@@ -492,7 +525,7 @@ inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, chan
 	const auto inSizeConstrained = m_pc->m_trackChannelsUpperBound / 2;
 	assert(inSizeConstrained <= in.channelPairs);
 
-	// Zero the output buffer
+	// Zero the output buffer - TODO: std::memcpy?
 	std::fill(out.begin(), out.end(), SampleFrame{});
 
 	// Counters for # of in channels routed to the current pair of out channels

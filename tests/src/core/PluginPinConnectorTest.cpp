@@ -346,10 +346,10 @@ private slots:
 		trackChannels[33].setRight(987.f);
 
 		// Make a copy for later
-		auto coreBufferOriginal = std::vector<SampleFrame>(MaxFrames);
-		auto coreBufferPtrOriginal = coreBufferOriginal.data();
-		auto coreBusOriginal = CoreAudioBusMut{&coreBufferPtrOriginal, 1, MaxFrames};
-		transformBuffer(coreBus, coreBusOriginal, [](auto s) { return s; }); // copy
+		auto coreBufferCopy = std::vector<SampleFrame>(MaxFrames);
+		auto coreBufferPtrCopy = coreBufferCopy.data();
+		auto coreBusCopy = CoreAudioBusMut{&coreBufferPtrCopy, 1, MaxFrames};
+		transformBuffer(coreBus, coreBusCopy, [](auto s) { return s; }); // copy
 
 		// Plugin input and output buffers
 		auto ins = bufferSplit2x2.inputBuffer();
@@ -368,6 +368,7 @@ private slots:
 
 		// Do work of processImpl - in this case it doubles the amplitude
 		transformBuffer(ins, outs, [](auto s) { return s * 2; });
+		transformBuffer(coreBusCopy, coreBusCopy, [](auto s) { return s * 2; });
 
 		// Sanity check for transformBuffer
 		QCOMPARE(outs.buffer(0)[0], 123.f * 2);
@@ -414,16 +415,16 @@ private slots:
 		// Again, route from plugin back to Core
 		router.routeFromPlugin(outs, coreBus);
 
-		// Should be the same as the beginning (no channels bypassed)
-		QCOMPARE(coreBus.bus[0][0].left(), 123.f);
-		QCOMPARE(coreBus.bus[0][0].right(), 321.f);
-		QCOMPARE(coreBus.bus[0][1].left(), 456.f);
-		QCOMPARE(coreBus.bus[0][1].right(), 654.f);
-		QCOMPARE(coreBus.bus[0][33].left(), 789.f);
-		QCOMPARE(coreBus.bus[0][33].right(), 987.f);
+		// Should be double the original
+		QCOMPARE(coreBus.bus[0][0].left(), 123.f * 2);
+		QCOMPARE(coreBus.bus[0][0].right(), 321.f * 2);
+		QCOMPARE(coreBus.bus[0][1].left(), 456.f * 2);
+		QCOMPARE(coreBus.bus[0][1].right(), 654.f * 2);
+		QCOMPARE(coreBus.bus[0][33].left(), 789.f * 2);
+		QCOMPARE(coreBus.bus[0][33].right(), 987.f * 2);
 
 		// Test the rest of the buffer
-		compareBuffers(coreBus, coreBusOriginal);
+		compareBuffers(coreBus, coreBusCopy);
 	}
 };
 
