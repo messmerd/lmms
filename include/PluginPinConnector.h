@@ -119,8 +119,6 @@ public:
 	void setPluginChannelCountIn(int inCount);
 	void setPluginChannelCountOut(int outCount);
 
-	void setDefaultConnections();
-
 
 	/*
 	 * Pin connector router
@@ -226,6 +224,8 @@ private:
 	//! TODO: Move this somewhere else; Will be >= 2 once there is support for adding new track channels
 	static constexpr std::size_t s_totalTrackChannels = DEFAULT_CHANNELS;
 
+	// TODO: When full routing is added, get LMMS channel counts from bus or router class
+
 	//! This value is <= to the total number of track channels (currently always 2)
 	unsigned int m_trackChannelsUpperBound = DEFAULT_CHANNELS; // TODO: Need to recalculate when pins are set/unset
 
@@ -236,8 +236,6 @@ private:
 	 * This means m_routedChannels[i] == true iif m_out.enabled(i, x) == true for any plugin channel x.
 	 */
 	std::vector<bool> m_routedChannels; // TODO: Need to calculate when pins are set/unset
-
-	// TODO: When full routing is added, get LMMS channel counts from bus or router class
 };
 
 

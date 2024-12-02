@@ -57,7 +57,6 @@ private:
 	auto bufferInterface() -> AudioPluginBufferInterface<AudioDataLayout::Split, float,
 		DynamicChannelCount, DynamicChannelCount>* override
 	{
-		assert(m_plugin != nullptr);
 		return m_plugin.get();
 	}
 

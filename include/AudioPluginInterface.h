@@ -175,10 +175,12 @@ class AudioProcessorImpl<Instrument, SampleT, config>
 public:
 	AudioProcessorImpl(const Plugin::Descriptor* desc, InstrumentTrack* parent = nullptr, const Plugin::Descriptor::SubPluginFeatures::Key* key = nullptr, Instrument::Flags flags = Instrument::Flag::NoFlags)
 		: Instrument{desc, parent, key, flags}
-		, m_pinConnector{config.inputs, config.outputs, parent}
+		, m_pinConnector{config.inputs, config.outputs, this}
 	{
 		connect(Engine::audioEngine(), &AudioEngine::sampleRateChanged, [this]() {
-			this->bufferInterface()->updateBuffers(
+			auto iface = this->bufferInterface();
+			if (!iface) { return; }
+			iface->updateBuffers(
 				m_pinConnector.in().channelCount(),
 				m_pinConnector.out().channelCount()
 			);
@@ -192,6 +194,12 @@ protected:
 	{
 		const auto bus = CoreAudioBusMut{&inOut, 1, Engine::audioEngine()->framesPerPeriod()};
 		auto bufferInterface = this->bufferInterface();
+		if (!bufferInterface)
+		{
+			// Plugin is not running
+			return;
+		}
+
 		auto router = m_pinConnector.getRouter<config.layout, SampleT, config.inputs, config.outputs>();
 
 		if constexpr (config.inplace)
@@ -227,6 +235,12 @@ protected:
 	{
 		const auto bus = CoreAudioBusMut{&inOut, 1, Engine::audioEngine()->framesPerPeriod()};
 		auto bufferInterface = this->bufferInterface();
+		if (!bufferInterface)
+		{
+			// Plugin is not running
+			return;
+		}
+
 		auto router = m_pinConnector.getRouter<config.layout, SampleT, config.inputs, config.outputs>();
 
 		if constexpr (config.inplace)
@@ -279,10 +293,12 @@ class AudioProcessorImpl<Effect, SampleT, config>
 public:
 	AudioProcessorImpl(const Plugin::Descriptor* desc, Model* parent = nullptr, const Plugin::Descriptor::SubPluginFeatures::Key* key = nullptr)
 		: Effect{desc, parent, key}
-		, m_pinConnector{config.inputs, config.outputs, parent}
+		, m_pinConnector{config.inputs, config.outputs, this}
 	{
 		connect(Engine::audioEngine(), &AudioEngine::sampleRateChanged, [this]() {
-			this->bufferInterface()->updateBuffers(
+			auto iface = this->bufferInterface();
+			if (!iface) { return; }
+			iface->updateBuffers(
 				m_pinConnector.in().channelCount(),
 				m_pinConnector.out().channelCount()
 			);

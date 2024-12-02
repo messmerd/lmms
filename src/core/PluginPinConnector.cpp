@@ -79,15 +79,8 @@ void PluginPinConnector::setPluginChannelCounts(int inCount, int outCount)
 		return;
 	}
 
-	const bool initialSetup = in().channelCount() == 0 && out().channelCount() == 0;
-
 	m_in.setPluginChannelCount(this, inCount, QString::fromUtf16(u"Pin in [%1 \U0001F82E %2]"));
 	m_out.setPluginChannelCount(this, outCount, QString::fromUtf16(u"Pin out [%2 \U0001F82E %1]"));
-
-	if (initialSetup)
-	{
-		setDefaultConnections();
-	}
 
 	emit propertiesChanged();
 }
@@ -100,15 +93,6 @@ void PluginPinConnector::setPluginChannelCountIn(int inCount)
 void PluginPinConnector::setPluginChannelCountOut(int outCount)
 {
 	setPluginChannelCounts(in().channelCount(), outCount);
-}
-
-void PluginPinConnector::setDefaultConnections()
-{
-	// Assumes pin maps are cleared
-	// TODO: Take into account channel groups?
-
-	m_in.setDefaultConnections();
-	m_out.setDefaultConnections();
 }
 
 void PluginPinConnector::saveSettings(QDomDocument& doc, QDomElement& elem)
@@ -247,7 +231,7 @@ void PluginPinConnector::Matrix::setTrackChannelCount(PluginPinConnector* parent
 	}
 	else if (oldSize < count)
 	{
-		auto parentModel = dynamic_cast<Model*>(parent->parent());
+		auto parentModel = parent->parentModel();
 		assert(parentModel != nullptr);
 
 		const bool isOutMatrix = this == &parent->out();
@@ -263,9 +247,9 @@ void PluginPinConnector::Matrix::setTrackChannelCount(PluginPinConnector* parent
 				BoolModel* model = channels.emplace_back(new BoolModel{false, parentModel, name});
 				if (isOutMatrix)
 				{
-					connect(model, &BoolModel::dataChanged, [=]() { parent->updateRoutedChannels(tcIdx); });
+					parentModel->connect(model, &BoolModel::dataChanged, [=]() { parent->updateRoutedChannels(tcIdx); });
 				}
-				connect(model, &BoolModel::dataChanged, parent, &PluginPinConnector::dataChanged);
+				parentModel->connect(model, &BoolModel::dataChanged, parent, &PluginPinConnector::dataChanged);
 			}
 		}
 	}
@@ -274,8 +258,10 @@ void PluginPinConnector::Matrix::setTrackChannelCount(PluginPinConnector* parent
 void PluginPinConnector::Matrix::setPluginChannelCount(PluginPinConnector* parent, int count,
 	const QString& nameFormat)
 {
-	auto parentModel = dynamic_cast<Model*>(parent->parent());
+	auto parentModel = parent->parentModel();
 	assert(parentModel != nullptr);
+
+	const bool initialSetup = m_channelCount == 0;
 
 	if (channelCount() < count)
 	{
@@ -291,9 +277,9 @@ void PluginPinConnector::Matrix::setPluginChannelCount(PluginPinConnector* paren
 				BoolModel* model = pluginChannels.emplace_back(new BoolModel{false, parentModel, name});
 				if (isOutMatrix)
 				{
-					connect(model, &BoolModel::dataChanged, [=]() { parent->updateRoutedChannels(tcIdx); });
+					parentModel->connect(model, &BoolModel::dataChanged, [=]() { parent->updateRoutedChannels(tcIdx); });
 				}
-				connect(model, &BoolModel::dataChanged, parent, &PluginPinConnector::dataChanged);
+				parentModel->connect(model, &BoolModel::dataChanged, parent, &PluginPinConnector::dataChanged);
 			}
 		}
 	}
@@ -310,6 +296,11 @@ void PluginPinConnector::Matrix::setPluginChannelCount(PluginPinConnector* paren
 	}
 
 	m_channelCount = count;
+
+	if (initialSetup)
+	{
+		setDefaultConnections();
+	}
 }
 
 void PluginPinConnector::Matrix::setDefaultConnections()
