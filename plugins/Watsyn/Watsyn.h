@@ -132,14 +132,14 @@ private:
 	float m_B2wave [WAVELEN];
 };
 
-class WatsynInstrument : public DefaultInstrumentPluginInterface
+class WatsynInstrument : public Instrument
 {
 	Q_OBJECT
 public:
 	WatsynInstrument( InstrumentTrack * _instrument_track );
 	~WatsynInstrument() override = default;
 
-	void processImpl(NotePlayHandle* _n, CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* _n, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

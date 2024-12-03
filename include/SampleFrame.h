@@ -229,11 +229,10 @@ inline void copyFromSampleFrames(InterleavedSampleType<float>* target, const Sam
 }
 
 
-/**
- * A non-owning 2-channel buffer
- */
-
+//! A non-owning 2-channel buffer
 using CoreAudioData = Span<const SampleFrame>;
+
+//! Mutable CoreAudioData
 using CoreAudioDataMut = Span<SampleFrame>;
 
 

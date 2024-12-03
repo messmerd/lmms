@@ -32,6 +32,7 @@
 #include "AutomatableModel.h"
 #include "InstrumentView.h"
 #include "Graph.h"
+#include "SampleFrame.h"
 
 namespace lmms
 {
@@ -47,7 +48,7 @@ class Knob;
 }
 
 
-class FreeBoyInstrument : public DefaultInstrumentPluginInterface
+class FreeBoyInstrument : public Instrument
 {
 	Q_OBJECT
 public:
@@ -55,7 +56,7 @@ public:
 	FreeBoyInstrument( InstrumentTrack * _instrument_track );
 	~FreeBoyInstrument() override = default;
 
-	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData(NotePlayHandle* nph) override;
 
 	void saveSettings( QDomDocument & _doc, QDomElement & _parent ) override;

@@ -26,7 +26,9 @@
 
 #include <cmath>
 
+#include "AudioEngine.h"
 #include "DummyInstrument.h"
+#include "Engine.h"
 #include "InstrumentTrack.h"
 #include "lmms_basics.h"
 #include "lmms_constants.h"

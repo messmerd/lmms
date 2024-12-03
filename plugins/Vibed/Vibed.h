@@ -50,14 +50,14 @@ class LedCheckBox;
 class VibedView;
 }
 
-class Vibed : public DefaultInstrumentPluginInterface
+class Vibed : public Instrument
 {
 	Q_OBJECT
 public:
 	Vibed(InstrumentTrack* instrumentTrack);
 	~Vibed() override = default;
 
-	void processImpl(NotePlayHandle* n, CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* n, CoreAudioDataMut out) override;
 	void deleteNotePluginData(NotePlayHandle* n) override;
 
 	void saveSettings(QDomDocument& doc, QDomElement& elem) override;

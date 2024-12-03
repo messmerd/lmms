@@ -31,6 +31,7 @@
 #include "AutomatableModel.h"
 #include "InstrumentView.h"
 #include "Graph.h"
+#include "SampleFrame.h"
 
 namespace lmms
 {
@@ -67,14 +68,14 @@ private:
 	
 } ;
 
-class BitInvader : public DefaultInstrumentPluginInterface
+class BitInvader : public Instrument
 {
 	Q_OBJECT
 public:
 	BitInvader(InstrumentTrack * _instrument_track );
 	~BitInvader() override = default;
 
-	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

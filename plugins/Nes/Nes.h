@@ -31,6 +31,7 @@
 #include "InstrumentView.h"
 #include "AutomatableModel.h"
 #include "PixmapButton.h"
+#include "SampleFrame.h"
 
 
 #define makeknob( name, x, y, hint, unit, oname ) 		\
@@ -197,14 +198,14 @@ private:
 };
 
 
-class NesInstrument : public DefaultInstrumentPluginInterface
+class NesInstrument : public Instrument
 {
 	Q_OBJECT
 public:
 	NesInstrument( InstrumentTrack * instrumentTrack );
 	~NesInstrument() override = default;
 
-	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * n ) override;
 
 

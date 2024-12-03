@@ -320,7 +320,6 @@ inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelC
 	}
 }
 
-
 template<AudioDataLayout layout, typename SampleT, int channelCountIn, int channelCountOut>
 inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelCountOut>::routeFromPlugin(
 	SplitAudioData<const SampleT, channelCountOut> in, CoreAudioBusMut inOut) const
@@ -713,6 +712,7 @@ inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, chan
 	for (ch_cnt_t outChannelPairIdx = 0; outChannelPairIdx < inOutSizeConstrained; ++outChannelPairIdx)
 	{
 		sample_t* outPtr = inOut.bus[outChannelPairIdx]->data(); // L/R track channel pair
+		assert(outPtr != nullptr);
 
 		const ch_cnt_t outChannel = outChannelPairIdx * 2;
 		const std::uint8_t enabledPins =

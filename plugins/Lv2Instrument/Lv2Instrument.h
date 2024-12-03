@@ -49,7 +49,7 @@ class Lv2InsView;
 }
 
 // TODO: Modify Lv2 implementation to support a variable number of audio input/output ports
-class Lv2Instrument : public DefaultInstrumentPluginInterface, public Lv2ControlBase
+class Lv2Instrument : public DefaultMidiInstrumentPluginInterface, public Lv2ControlBase
 {
 	Q_OBJECT
 signals:

@@ -97,7 +97,7 @@ private:
 };
 
 Vibed::Vibed(InstrumentTrack* instrumentTrack) :
-	AudioPluginInterface(&vibedstrings_plugin_descriptor, instrumentTrack, nullptr, Flag::IsNotBendable)
+	Instrument(&vibedstrings_plugin_descriptor, instrumentTrack, nullptr, Flag::IsNotBendable)
 {
 	for (int harm = 0; harm < s_stringCount; ++harm)
 	{
@@ -201,7 +201,7 @@ QString Vibed::nodeName() const
 	return vibedstrings_plugin_descriptor.name;
 }
 
-void Vibed::processImpl(NotePlayHandle* n, CoreAudioDataMut out)
+void Vibed::playNoteImpl(NotePlayHandle* n, CoreAudioDataMut out)
 {
 	if (!n->m_pluginData)
 	{

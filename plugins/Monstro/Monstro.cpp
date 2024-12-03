@@ -863,7 +863,7 @@ inline sample_t MonstroSynth::calcSlope( int slope, sample_t s )
 
 
 MonstroInstrument::MonstroInstrument( InstrumentTrack * _instrument_track ) :
-		AudioPluginInterface(&monstro_plugin_descriptor, _instrument_track),
+		Instrument(&monstro_plugin_descriptor, _instrument_track),
 
 		m_osc1Vol(33.f, 0.f, 200.f, 0.1f, this, tr("Osc 1 volume")),
 		m_osc1Pan(0.f, -100.f, 100.f, 0.1f, this, tr("Osc 1 panning")),
@@ -1061,7 +1061,7 @@ MonstroInstrument::MonstroInstrument( InstrumentTrack * _instrument_track ) :
 }
 
 
-void MonstroInstrument::processImpl(NotePlayHandle* nph, CoreAudioDataMut out)
+void MonstroInstrument::playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out)
 {
 	const fpp_t frames = nph->framesLeftForCurrentPeriod();
 	const f_cnt_t offset = nph->noteOffset();

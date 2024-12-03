@@ -30,6 +30,7 @@
 #include "AudioPluginInterface.h"
 #include "InstrumentView.h"
 #include "AutomatableModel.h"
+#include "SampleFrame.h"
 
 class QPixmap;
 
@@ -117,14 +118,14 @@ private slots:
 } ;
 
 
-class OrganicInstrument : public DefaultInstrumentPluginInterface
+class OrganicInstrument : public Instrument
 {
 	Q_OBJECT
 public:
 	OrganicInstrument( InstrumentTrack * _instrument_track );
 	~OrganicInstrument() override;
 
-	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

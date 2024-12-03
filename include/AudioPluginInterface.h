@@ -87,7 +87,8 @@ class AudioProcessingMethod<Instrument, BufferT, ConstBufferT, false, false>
 {
 protected:
 	//! The main audio processing method for NotePlayHandle-based Instruments
-	virtual void processImpl(NotePlayHandle* nph, ConstBufferT in, BufferT out) {}
+	//! NOTE: NotePlayHandle-based instruments are currently unsupported
+	//virtual void processImpl(NotePlayHandle* nph, ConstBufferT in, BufferT out) {}
 
 	//! The main audio processing method for MIDI-based Instruments
 	virtual void processImpl(ConstBufferT in, BufferT out) {}
@@ -99,7 +100,8 @@ class AudioProcessingMethod<Instrument, BufferT, ConstBufferT, true, false>
 {
 protected:
 	//! The main audio processing method for NotePlayHandle-based Instruments
-	virtual void processImpl(NotePlayHandle* nph, BufferT inOut) {}
+	//! NOTE: NotePlayHandle-based instruments are currently unsupported
+	//virtual void processImpl(NotePlayHandle* nph, BufferT inOut) {}
 
 	//! The main audio processing method for MIDI-based Instruments
 	virtual void processImpl(BufferT inOut) {}
@@ -113,8 +115,9 @@ protected:
 	/**
 	 * The main audio processing method for NotePlayHandle-based Instruments.
 	 * The implementation knows how to provide the working buffers.
+	 * NOTE: NotePlayHandle-based instruments are currently unsupported
 	 */
-	virtual void processImpl(NotePlayHandle* nph) {}
+	//virtual void processImpl(NotePlayHandle* nph) {}
 
 	/**
 	 * The main audio processing method for MIDI-based Instruments.
@@ -190,9 +193,10 @@ public:
 	auto pinConnector() const -> const PluginPinConnector* final { return &m_pinConnector; }
 
 protected:
-	void playImpl(SampleFrame* inOut) final
+	void playImpl(CoreAudioDataMut inOut) final
 	{
-		const auto bus = CoreAudioBusMut{&inOut, 1, Engine::audioEngine()->framesPerPeriod()};
+		SampleFrame* temp = inOut.data();
+		const auto bus = CoreAudioBusMut{&temp, 1, Engine::audioEngine()->framesPerPeriod()};
 		auto bufferInterface = this->bufferInterface();
 		if (!bufferInterface)
 		{
@@ -231,45 +235,17 @@ protected:
 		}
 	}
 
-	void playNoteImpl(NotePlayHandle* notesToPlay, SampleFrame* inOut) final
+	void playNoteImpl(NotePlayHandle* notesToPlay, CoreAudioDataMut inOut) final
 	{
-		const auto bus = CoreAudioBusMut{&inOut, 1, Engine::audioEngine()->framesPerPeriod()};
-		auto bufferInterface = this->bufferInterface();
-		if (!bufferInterface)
-		{
-			// Plugin is not running
-			return;
-		}
-
-		auto router = m_pinConnector.getRouter<config.layout, SampleT, config.inputs, config.outputs>();
-
-		if constexpr (config.inplace)
-		{
-			// Write core to plugin input buffer
-			const auto pluginInOut = bufferInterface->inputBuffer();
-			router.routeToPlugin(bus, pluginInOut);
-
-			// Process
-			if constexpr (config.customBuffer) { this->processImpl(notesToPlay); }
-			else { this->processImpl(notesToPlay, pluginInOut); }
-
-			// Write plugin output buffer to core
-			router.routeFromPlugin(pluginInOut, bus);
-		}
-		else
-		{
-			// Write core to plugin input buffer
-			const auto pluginIn = bufferInterface->inputBuffer();
-			const auto pluginOut = bufferInterface->outputBuffer();
-			router.routeToPlugin(bus, pluginIn);
-
-			// Process
-			if constexpr (config.customBuffer) { this->processImpl(notesToPlay); }
-			else { this->processImpl(notesToPlay, pluginIn, pluginOut); }
-
-			// Write plugin output buffer to core
-			router.routeFromPlugin(pluginOut, bus);
-		}
+		/**
+		 * NOTE: Only MIDI-based instruments are currently supported by AudioPluginInterface.
+		 * NotePlayHandle-based instruments use buffers from their play handles, and more work
+		 * would be needed to integrate that system with the AudioPluginBufferInterface system
+		 * used by AudioPluginInterface. AudioPluginBufferInterface is also not thread-safe.
+		 *
+		 * The `Instrument::playNote()` method is still called for MIDI-based instruments when
+		 * notes are played, so this method is a no-op.
+		 */
 	}
 
 	auto pinConnector() -> PluginPinConnector* { return &m_pinConnector; }
@@ -427,8 +403,8 @@ public:
 	using Base::AudioProcessorImpl;
 };
 
-
-using DefaultInstrumentPluginInterface = AudioPluginInterface<Instrument, SampleFrame,
+// NOTE: NotePlayHandle-based instruments are not supported yet
+using DefaultMidiInstrumentPluginInterface = AudioPluginInterface<Instrument, SampleFrame,
 	PluginConfig{ .layout = AudioDataLayout::Interleaved, .inputs = 0, .outputs = 2, .inplace = true }>;
 
 using DefaultEffectPluginInterface = AudioPluginInterface<Effect, SampleFrame,

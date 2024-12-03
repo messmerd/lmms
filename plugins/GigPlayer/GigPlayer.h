@@ -38,6 +38,7 @@
 #include "Knob.h"
 #include "LcdSpinBox.h"
 #include "LedCheckBox.h"
+#include "SampleFrame.h"
 #include "gig.h"
 
 
@@ -231,7 +232,6 @@ public:
 
 
 
-// TODO: Refactor so AudioPluginInterface can be used
 class GigInstrument : public Instrument
 {
 	Q_OBJECT
@@ -243,10 +243,8 @@ public:
 	GigInstrument( InstrumentTrack * _instrument_track );
 	~GigInstrument() override;
 
-	void playImpl( SampleFrame* _working_buffer ) override;
-
-	void playNoteImpl( NotePlayHandle * _n,
-						SampleFrame* _working_buffer ) override;
+	void playImpl(CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* _n, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

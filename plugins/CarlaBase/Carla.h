@@ -165,7 +165,8 @@ private:
 
 // -------------------------------------------------------------------
 
-class CARLABASE_EXPORT CarlaInstrument : public DefaultInstrumentPluginInterface
+// TODO: Add support for a variable number of audio input/output ports
+class CARLABASE_EXPORT CarlaInstrument : public DefaultMidiInstrumentPluginInterface
 {
     Q_OBJECT
 

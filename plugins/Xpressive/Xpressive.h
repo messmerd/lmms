@@ -61,13 +61,13 @@ class XpressiveView;
 
 
 
-class Xpressive : public DefaultInstrumentPluginInterface
+class Xpressive : public Instrument
 {
 	Q_OBJECT
 public:
 	Xpressive(InstrumentTrack* instrument_track );
 
-	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle* nph ) override;
 
 

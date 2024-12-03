@@ -33,7 +33,6 @@
 #include "AudioEngine.h"
 #include "Engine.h"
 #include "SampleFrame.h"
-#include "ArrayVector.h"
 #include "lmms_basics.h"
 
 namespace lmms
@@ -44,7 +43,7 @@ namespace detail
 
 /**
  * Metafunction to select the appropriate non-owning audio buffer view
- * given the layout and the sample type
+ * given the layout, sample type, and channel count
  */
 template<AudioDataLayout layout, typename SampleT, int numChannels>
 struct AudioDataTypeSelector
@@ -169,9 +168,11 @@ public:
 
 		std::size_t idx = 0;
 		f_cnt_t pos = 0;
-		for (; idx < channels; ++idx, pos += m_frames)
+		while (idx < channels)
 		{
 			m_accessBuffer[idx] = m_sourceBuffer.data() + pos;
+			++idx;
+			pos += m_frames;
 		}
 
 		m_channelsIn = channelsIn;

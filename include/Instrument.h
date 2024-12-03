@@ -27,15 +27,14 @@
 #define LMMS_INSTRUMENT_H
 
 #include <QString>
+#include <cmath>
 
 #include "Flags.h"
+#include "SampleFrame.h"
 #include "lmms_export.h"
 #include "lmms_basics.h"
 #include "Plugin.h"
 #include "TimePos.h"
-
-#include <cmath>
-
 
 namespace lmms
 {
@@ -45,7 +44,6 @@ class InstrumentTrack;
 class MidiEvent;
 class NotePlayHandle;
 class PluginPinConnector;
-class SampleFrame;
 class Track;
 
 
@@ -71,14 +69,14 @@ public:
 	// if the plugin doesn't play each note, it can create an instrument-
 	// play-handle and re-implement this method, so that it mixes its
 	// output buffer only once per audio engine period
-	void play(SampleFrame* workingBuffer)
+	void play(CoreAudioDataMut out)
 	{
-		playImpl(workingBuffer);
+		playImpl(out);
 	}
 
-	void playNote(NotePlayHandle* notesToPlay, SampleFrame* workingBuffer)
+	void playNote(NotePlayHandle* notesToPlay, CoreAudioDataMut out)
 	{
-		playNoteImpl(notesToPlay, workingBuffer);
+		playNoteImpl(notesToPlay, out);
 	}
 
 	// --------------------------------------------------------------------
@@ -172,11 +170,11 @@ public:
 
 
 protected:
-	//! To be implemented by AudioPluginInterface
-	virtual void playImpl(SampleFrame* workingBuffer) = 0;
+	//! To be implemented by AudioPluginInterface or plugin implementation
+	virtual void playImpl(CoreAudioDataMut out) {}
 
-	//! To be implemented by AudioPluginInterface
-	virtual void playNoteImpl(NotePlayHandle* notesToPlay, SampleFrame* workingBuffer) = 0;
+	//! To be implemented by AudioPluginInterface or plugin implementation
+	virtual void playNoteImpl(NotePlayHandle* notesToPlay, CoreAudioDataMut out) {}
 
 	// fade in to prevent clicks
 	void applyFadeIn(SampleFrame* buf, NotePlayHandle * n);

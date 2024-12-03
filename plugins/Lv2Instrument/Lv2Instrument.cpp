@@ -189,12 +189,10 @@ void Lv2Instrument::processImpl(CoreAudioDataMut out)
 {
 	copyModelsFromLmms();
 
-	fpp_t fpp = Engine::audioEngine()->framesPerPeriod();
-
-	run(fpp);
+	run(out.size());
 
 	copyModelsToLmms();
-	copyBuffersToLmms(out.data(), fpp);
+	copyBuffersToLmms(out.data(), out.size());
 }
 
 

@@ -36,6 +36,7 @@
 #include "DspEffectLibrary.h"
 #include "InstrumentView.h"
 #include "NotePlayHandle.h"
+#include "SampleFrame.h"
 #include <QMutex>
 
 namespace lmms
@@ -145,7 +146,6 @@ public:
 };
 
 
-// TODO: Refactor so AudioPluginInterface can be used
 class Lb302Synth : public Instrument
 {
 	Q_OBJECT
@@ -153,9 +153,8 @@ public:
 	Lb302Synth( InstrumentTrack * _instrument_track );
 	~Lb302Synth() override;
 
-	void playImpl( SampleFrame* _working_buffer ) override;
-	void playNoteImpl( NotePlayHandle * _n,
-						SampleFrame* _working_buffer ) override;
+	void playImpl(CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* _n, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

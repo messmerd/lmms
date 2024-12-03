@@ -29,6 +29,7 @@
 #include "AudioPluginInterface.h"
 #include "AutomatableModel.h"
 #include "InstrumentView.h"
+#include "SampleFrame.h"
 #include "TempoSyncKnobModel.h"
 
 
@@ -48,14 +49,14 @@ class KickerInstrumentView;
 }
 
 
-class KickerInstrument : public DefaultInstrumentPluginInterface
+class KickerInstrument : public Instrument
 {
 	Q_OBJECT
 public:
 	KickerInstrument( InstrumentTrack * _instrument_track );
 	~KickerInstrument() override = default;
 
-	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 	void saveSettings(QDomDocument& doc, QDomElement& elem) override;

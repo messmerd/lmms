@@ -31,6 +31,7 @@
 #include "Sample.h"
 #include "SampleBuffer.h"
 #include "AutomatableModel.h"
+#include "SampleFrame.h"
 
 namespace lmms
 {
@@ -52,14 +53,14 @@ class PatmanView;
 #define MODES_CLAMPED	( 1 << 7 )
 
 
-class PatmanInstrument : public DefaultInstrumentPluginInterface
+class PatmanInstrument : public Instrument
 {
 	Q_OBJECT
 public:
 	PatmanInstrument( InstrumentTrack * _track );
 	~PatmanInstrument() override;
 
-	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

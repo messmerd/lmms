@@ -29,6 +29,7 @@
  */
 
 // Need to include this first to ensure we get M_PI in MinGW with C++11
+#include "SampleFrame.h"
 #define _USE_MATH_DEFINES
 #include <cmath>
 
@@ -729,7 +730,7 @@ void Lb302Synth::initSlide()
 }
 
 
-void Lb302Synth::playNoteImpl( NotePlayHandle * _n, SampleFrame* _working_buffer )
+void Lb302Synth::playNoteImpl(NotePlayHandle* _n, CoreAudioDataMut)
 {
 	if( _n->isMasterNote() || ( _n->hasParent() && _n->isReleased() ) )
 	{
@@ -788,7 +789,7 @@ void Lb302Synth::processNote( NotePlayHandle * _n )
 
 
 
-void Lb302Synth::playImpl( SampleFrame* _working_buffer )
+void Lb302Synth::playImpl(CoreAudioDataMut out)
 {
 	m_notesMutex.lock();
 	while( ! m_notes.isEmpty() )
@@ -796,10 +797,8 @@ void Lb302Synth::playImpl( SampleFrame* _working_buffer )
 		processNote( m_notes.takeFirst() );
 	};
 	m_notesMutex.unlock();
-	
-	const fpp_t frames = Engine::audioEngine()->framesPerPeriod();
 
-	process( _working_buffer, frames );
+	process(out.data(), out.size());
 //	release_frame = 0; //removed for issue # 1432
 }
 

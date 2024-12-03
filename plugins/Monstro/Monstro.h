@@ -32,6 +32,7 @@
 #include "ComboBoxModel.h"
 #include "InstrumentView.h"
 #include "AutomatableModel.h"
+#include "SampleFrame.h"
 #include "TempoSyncKnob.h"
 #include "PixmapButton.h"
 #include "Oscillator.h"
@@ -317,7 +318,7 @@ private:
 	std::vector<float> m_env[2];
 };
 
-class MonstroInstrument : public DefaultInstrumentPluginInterface
+class MonstroInstrument : public Instrument
 {
 	Q_OBJECT
 
@@ -356,7 +357,7 @@ public:
 	MonstroInstrument( InstrumentTrack * _instrument_track );
 	~MonstroInstrument() override = default;
 
-	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 	void saveSettings( QDomDocument & _doc,

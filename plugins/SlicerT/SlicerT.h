@@ -61,7 +61,7 @@ private:
 	SRC_STATE* m_resamplingState;
 };
 
-class SlicerT : public DefaultInstrumentPluginInterface
+class SlicerT : public Instrument
 {
 	Q_OBJECT
 
@@ -75,7 +75,7 @@ signals:
 public:
 	SlicerT(InstrumentTrack* instrumentTrack);
 
-	void processImpl(NotePlayHandle* handle, CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* handle, CoreAudioDataMut out) override;
 	void deleteNotePluginData(NotePlayHandle* handle) override;
 
 	void saveSettings(QDomDocument& document, QDomElement& element) override;

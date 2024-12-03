@@ -38,13 +38,13 @@
 namespace lmms
 {
 
-class AudioFileProcessor : public DefaultInstrumentPluginInterface
+class AudioFileProcessor : public Instrument
 {
 	Q_OBJECT
 public:
 	AudioFileProcessor( InstrumentTrack * _instrument_track );
 
-	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 	void saveSettings(QDomDocument& doc, QDomElement& elem) override;

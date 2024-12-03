@@ -181,14 +181,14 @@ protected:
 
 
 
-class MalletsInstrument : public DefaultInstrumentPluginInterface
+class MalletsInstrument : public Instrument
 {
 	Q_OBJECT
 public:
 	MalletsInstrument( InstrumentTrack * _instrument_track );
 	~MalletsInstrument() override = default;
 
-	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

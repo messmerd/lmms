@@ -79,7 +79,7 @@ private:
 	friend class gui::SidInstrumentView;
 } ;
 
-class SidInstrument : public DefaultInstrumentPluginInterface
+class SidInstrument : public Instrument
 {
 	Q_OBJECT
 public:
@@ -101,7 +101,7 @@ public:
 	SidInstrument( InstrumentTrack * _instrument_track );
 	~SidInstrument() override = default;
 
-	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

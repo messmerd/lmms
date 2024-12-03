@@ -104,14 +104,14 @@ private slots:
 
 
 
-class TripleOscillator : public DefaultInstrumentPluginInterface
+class TripleOscillator : public Instrument
 {
 	Q_OBJECT
 public:
 	TripleOscillator( InstrumentTrack * _track );
 	~TripleOscillator() override = default;
 
-	void processImpl(NotePlayHandle* _n, CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* _n, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

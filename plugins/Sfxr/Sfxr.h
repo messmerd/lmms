@@ -172,14 +172,14 @@ public:
 	}
 };
 
-class SfxrInstrument : public DefaultInstrumentPluginInterface
+class SfxrInstrument : public Instrument
 {
 	Q_OBJECT
 public:
 	SfxrInstrument(InstrumentTrack * _instrument_track );
 	~SfxrInstrument() override = default;
 
-	void processImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 	void saveSettings( QDomDocument & _doc,

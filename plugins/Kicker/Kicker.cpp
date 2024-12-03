@@ -64,7 +64,7 @@ Plugin::Descriptor PLUGIN_EXPORT kicker_plugin_descriptor =
 
 
 KickerInstrument::KickerInstrument( InstrumentTrack * _instrument_track ) :
-	AudioPluginInterface(&kicker_plugin_descriptor, _instrument_track, nullptr, Flag::IsNotBendable),
+	Instrument(&kicker_plugin_descriptor, _instrument_track, nullptr, Flag::IsNotBendable),
 	m_startFreqModel( 150.0f, 5.0f, 1000.0f, 1.0f, this, tr( "Start frequency" ) ),
 	m_endFreqModel( 40.0f, 5.0f, 1000.0f, 1.0f, this, tr( "End frequency" ) ),
 	m_decayModel( 440.0f, 5.0f, 5000.0f, 1.0f, 5000.0f, this, tr( "Length" ) ),
@@ -155,7 +155,7 @@ QString KickerInstrument::nodeName() const
 using DistFX = DspEffectLibrary::Distortion;
 using SweepOsc = KickerOsc<DspEffectLibrary::MonoToStereoAdaptor<DistFX>>;
 
-void KickerInstrument::processImpl(NotePlayHandle* nph, CoreAudioDataMut out)
+void KickerInstrument::playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out)
 {
 	const fpp_t frames = nph->framesLeftForCurrentPeriod();
 	const f_cnt_t offset = nph->noteOffset();
