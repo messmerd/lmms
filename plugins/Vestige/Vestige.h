@@ -30,9 +30,9 @@
 #include <QMdiSubWindow>
 #include <QMutex>
 
-#include "Instrument.h"
+#include "AudioPluginInterface.h"
 #include "InstrumentView.h"
-
+#include "VstPlugin.h"
 
 class QPixmap;
 class QPushButton;
@@ -43,8 +43,6 @@ namespace lmms
 {
 
 class FloatModel;
-class PluginPinConnector;
-class VstPlugin;
 
 namespace gui
 {
@@ -56,27 +54,27 @@ class VestigeInstrumentView;
 } // namespace gui
 
 
-class VestigeInstrument : public Instrument
+class VestigeInstrument
+	: public AudioPluginInterface<Instrument, float,
+		PluginConfig{ .layout = AudioDataLayout::Split, .customBuffer = true }>
 {
 	Q_OBJECT
 public:
 	VestigeInstrument( InstrumentTrack * _instrument_track );
-	virtual ~VestigeInstrument();
+	~VestigeInstrument() override;
 
-	virtual void play( SampleFrame* _working_buffer );
+	void processImpl() override;
 
-	virtual void saveSettings( QDomDocument & _doc, QDomElement & _parent );
-	virtual void loadSettings( const QDomElement & _this );
+	void saveSettings(QDomDocument& _doc, QDomElement& _parent) override;
+	void loadSettings(const QDomElement& _this) override;
 
-	virtual QString nodeName() const;
+	QString nodeName() const override;
 
-	virtual void loadFile( const QString & _file );
+	void loadFile( const QString & _file ) override;
 
-	virtual bool handleMidiEvent( const MidiEvent& event, const TimePos& time, f_cnt_t offset = 0 );
+	bool handleMidiEvent( const MidiEvent& event, const TimePos& time, f_cnt_t offset = 0 ) override;
 
-	virtual gui::PluginView* instantiateView( QWidget * _parent );
-
-	PluginPinConnector* pinConnector();
+	gui::PluginView* instantiateView( QWidget * _parent ) override;
 
 protected slots:
 	void setParameter( lmms::Model * action );
@@ -85,6 +83,12 @@ protected slots:
 
 private:
 	void closePlugin();
+
+	auto bufferInterface() -> AudioPluginBufferInterface<AudioDataLayout::Split, float,
+		DynamicChannelCount, DynamicChannelCount>* override
+	{
+		return m_plugin;
+	}
 
 
 	VstPlugin * m_plugin;

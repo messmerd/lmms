@@ -32,12 +32,13 @@
 #include <QMutexLocker>
 #include <samplerate.h>
 
-#include "Instrument.h"
+#include "AudioPluginInterface.h"
 #include "PixmapButton.h"
 #include "InstrumentView.h"
 #include "Knob.h"
 #include "LcdSpinBox.h"
 #include "LedCheckBox.h"
+#include "SampleFrame.h"
 #include "gig.h"
 
 
@@ -231,7 +232,6 @@ public:
 
 
 
-
 class GigInstrument : public Instrument
 {
 	Q_OBJECT
@@ -243,10 +243,8 @@ public:
 	GigInstrument( InstrumentTrack * _instrument_track );
 	~GigInstrument() override;
 
-	void play( SampleFrame* _working_buffer ) override;
-
-	void playNote( NotePlayHandle * _n,
-						SampleFrame* _working_buffer ) override;
+	void playImpl(CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* _n, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

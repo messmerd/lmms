@@ -32,9 +32,10 @@
 #include <QMutex>
 #include <samplerate.h>
 
-#include "Instrument.h"
+#include "AudioPluginInterface.h"
 #include "InstrumentView.h"
 #include "LcdSpinBox.h"
+#include "SampleFrame.h"
 
 class QLabel;
 
@@ -65,10 +66,8 @@ public:
 	Sf2Instrument( InstrumentTrack * _instrument_track );
 	~Sf2Instrument() override;
 
-	void play( SampleFrame* _working_buffer ) override;
-
-	void playNote( NotePlayHandle * _n,
-						SampleFrame* _working_buffer ) override;
+	void playImpl(CoreAudioDataMut out) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

@@ -27,10 +27,11 @@
 
 #include <cmath>
 
-#include "Instrument.h"
+#include "AudioPluginInterface.h"
 #include "InstrumentView.h"
 #include "AutomatableModel.h"
 #include "PixmapButton.h"
+#include "SampleFrame.h"
 
 
 #define makeknob( name, x, y, hint, unit, oname ) 		\
@@ -203,9 +204,8 @@ class NesInstrument : public Instrument
 public:
 	NesInstrument( InstrumentTrack * instrumentTrack );
 	~NesInstrument() override = default;
-	
-	void playNote( NotePlayHandle * n,
-						SampleFrame* workingBuffer ) override;
+
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * n ) override;
 
 
