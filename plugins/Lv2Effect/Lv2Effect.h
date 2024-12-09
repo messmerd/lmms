@@ -31,8 +31,17 @@
 namespace lmms
 {
 
+using DefaultEffectPluginInterfaceWithWetDryFix = AudioPluginInterface<Effect, SampleFrame,
+	PluginConfig {
+		.layout = AudioDataLayout::Interleaved,
+		.inputs = 2,
+		.outputs = 2,
+		.inplace = true,
+		.fixNegativeWetDryLevel = true
+	}>;
+
 // TODO: Modify Lv2 implementation to support a variable number of audio input/output ports
-class Lv2Effect : public DefaultEffectPluginInterface
+class Lv2Effect : public DefaultEffectPluginInterfaceWithWetDryFix
 {
 	Q_OBJECT
 
@@ -51,7 +60,6 @@ public:
 
 private:
 	Lv2FxControls m_controls;
-	std::vector<SampleFrame> m_tmpOutputSmps;
 };
 
 

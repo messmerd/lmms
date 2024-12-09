@@ -60,8 +60,7 @@ Plugin::Descriptor PLUGIN_EXPORT lv2effect_plugin_descriptor =
 
 Lv2Effect::Lv2Effect(Model* parent, const Descriptor::SubPluginFeatures::Key *key) :
 	AudioPluginInterface(&lv2effect_plugin_descriptor, parent, key),
-	m_controls(this, key->attributes["uri"]),
-	m_tmpOutputSmps(Engine::audioEngine()->framesPerPeriod())
+	m_controls(this, key->attributes["uri"])
 {
 }
 
@@ -70,8 +69,6 @@ Lv2Effect::Lv2Effect(Model* parent, const Descriptor::SubPluginFeatures::Key *ke
 
 ProcessStatus Lv2Effect::processImpl(CoreAudioDataMut inOut)
 {
-	Q_ASSERT(inOut.size() <= static_cast<fpp_t>(m_tmpOutputSmps.size()));
-
 	m_controls.copyBuffersFromLmms(inOut.data(), inOut.size());
 	m_controls.copyModelsFromLmms();
 
@@ -80,16 +77,7 @@ ProcessStatus Lv2Effect::processImpl(CoreAudioDataMut inOut)
 //	m_pluginMutex.unlock();
 
 	m_controls.copyModelsToLmms();
-	m_controls.copyBuffersToLmms(m_tmpOutputSmps.data(), inOut.size());
-
-	bool corrupt = wetLevel() < 0; // #3261 - if w < 0, bash w := 0, d := 1
-	const float d = corrupt ? 1 : dryLevel();
-	const float w = corrupt ? 0 : wetLevel();
-	for (fpp_t f = 0; f < inOut.size(); ++f)
-	{
-		inOut[f][0] = d * inOut[f][0] + w * m_tmpOutputSmps[f][0];
-		inOut[f][1] = d * inOut[f][1] + w * m_tmpOutputSmps[f][1];
-	}
+	m_controls.copyBuffersToLmms(inOut.data(), inOut.size());
 
 	return ProcessStatus::ContinueIfNotQuiet;
 }
