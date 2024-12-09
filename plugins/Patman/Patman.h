@@ -26,11 +26,12 @@
 #ifndef PATMAN_H
 #define PATMAN_H
 
-#include "Instrument.h"
+#include "AudioPluginInterface.h"
 #include "InstrumentView.h"
 #include "Sample.h"
 #include "SampleBuffer.h"
 #include "AutomatableModel.h"
+#include "SampleFrame.h"
 
 namespace lmms
 {
@@ -59,8 +60,7 @@ public:
 	PatmanInstrument( InstrumentTrack * _track );
 	~PatmanInstrument() override;
 
-	void playNote( NotePlayHandle * _n,
-						SampleFrame* _working_buffer ) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

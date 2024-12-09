@@ -27,9 +27,10 @@
 
 #include <QString>
 
-#include "Instrument.h"
+#include "AudioPluginInterface.h"
 #include "InstrumentView.h"
 #include "AutomatableModel.h"
+#include "SampleFrame.h"
 
 class QPixmap;
 
@@ -124,8 +125,7 @@ public:
 	OrganicInstrument( InstrumentTrack * _instrument_track );
 	~OrganicInstrument() override;
 
-	void playNote( NotePlayHandle * _n,
-						SampleFrame* _working_buffer ) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

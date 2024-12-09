@@ -27,10 +27,11 @@
 #ifndef BIT_INVADER_H
 #define BIT_INVADER_H
 
+#include "AudioPluginInterface.h"
 #include "AutomatableModel.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "Graph.h"
+#include "SampleFrame.h"
 
 namespace lmms
 {
@@ -74,8 +75,7 @@ public:
 	BitInvader(InstrumentTrack * _instrument_track );
 	~BitInvader() override = default;
 
-	void playNote( NotePlayHandle * _n,
-						SampleFrame* _working_buffer ) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

@@ -50,7 +50,7 @@ Plugin::Descriptor PLUGIN_EXPORT dispersion_plugin_descriptor =
 
 
 DispersionEffect::DispersionEffect(Model* parent, const Descriptor::SubPluginFeatures::Key* key) :
-	Effect(&dispersion_plugin_descriptor, parent, key),
+	AudioPluginInterface(&dispersion_plugin_descriptor, parent, key),
 	m_dispersionControls(this),
 	m_sampleRate(Engine::audioEngine()->outputSampleRate()),
 	m_amountVal(0)
@@ -58,11 +58,8 @@ DispersionEffect::DispersionEffect(Model* parent, const Descriptor::SubPluginFea
 }
 
 
-Effect::ProcessStatus DispersionEffect::processImpl(SampleFrame* buf, const fpp_t frames)
+ProcessStatus DispersionEffect::processImpl(CoreAudioDataMut inOut)
 {
-	const float d = dryLevel();
-	const float w = wetLevel();
-	
 	const int amount = m_dispersionControls.m_amountModel.value();
 	const float freq = m_dispersionControls.m_freqModel.value();
 	const float reso = m_dispersionControls.m_resoModel.value();
@@ -96,11 +93,12 @@ Effect::ProcessStatus DispersionEffect::processImpl(SampleFrame* buf, const fpp_
 		m_feedbackVal[0] = m_feedbackVal[1] = 0;
 	}
 
-	for (fpp_t f = 0; f < frames; ++f)
+	for (SampleFrame& s : inOut)
 	{
-		std::array<sample_t, 2> s = { buf[f][0] + m_feedbackVal[0], buf[f][1] + m_feedbackVal[1] };
+		s[0] += m_feedbackVal[0];
+		s[1] += m_feedbackVal[1];
 		
-		runDispersionAP(m_amountVal, apCoeff1, apCoeff2, s);
+		runDispersionAP(m_amountVal, apCoeff1, apCoeff2, s.data());
 		m_feedbackVal[0] = s[0] * feedback;
 		m_feedbackVal[1] = s[1] * feedback;
 		
@@ -113,16 +111,13 @@ Effect::ProcessStatus DispersionEffect::processImpl(SampleFrame* buf, const fpp_
 				s[i] -= m_integrator[i];
 			}
 		}
-
-		buf[f][0] = d * buf[f][0] + w * s[0];
-		buf[f][1] = d * buf[f][1] + w * s[1];
 	}
 
 	return ProcessStatus::ContinueIfNotQuiet;
 }
 
 
-void DispersionEffect::runDispersionAP(const int filtNum, const float apCoeff1, const float apCoeff2, std::array<sample_t, 2> &put)
+void DispersionEffect::runDispersionAP(const int filtNum, const float apCoeff1, const float apCoeff2, sample_t* put)
 {
 	for (int i = 0; i < filtNum * 2; ++i)
 	{

@@ -25,14 +25,23 @@
 #ifndef LV2_EFFECT_H
 #define LV2_EFFECT_H
 
-#include "Effect.h"
+#include "AudioPluginInterface.h"
 #include "Lv2FxControls.h"
 
 namespace lmms
 {
 
+using DefaultEffectPluginInterfaceWithWetDryFix = AudioPluginInterface<Effect, SampleFrame,
+	PluginConfig {
+		.layout = AudioDataLayout::Interleaved,
+		.inputs = 2,
+		.outputs = 2,
+		.inplace = true,
+		.fixNegativeWetDryLevel = true
+	}>;
 
-class Lv2Effect : public Effect
+// TODO: Modify Lv2 implementation to support a variable number of audio input/output ports
+class Lv2Effect : public DefaultEffectPluginInterfaceWithWetDryFix
 {
 	Q_OBJECT
 
@@ -42,7 +51,7 @@ public:
 	*/
 	Lv2Effect(Model* parent, const Descriptor::SubPluginFeatures::Key* _key);
 
-	ProcessStatus processImpl(SampleFrame* buf, const fpp_t frames) override;
+	ProcessStatus processImpl(CoreAudioDataMut inOut) override;
 
 	EffectControls* controls() override { return &m_controls; }
 
@@ -51,7 +60,6 @@ public:
 
 private:
 	Lv2FxControls m_controls;
-	std::vector<SampleFrame> m_tmpOutputSmps;
 };
 
 

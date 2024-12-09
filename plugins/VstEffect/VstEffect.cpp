@@ -26,6 +26,7 @@
 #include "VstEffect.h"
 
 #include "GuiApplication.h"
+#include "PluginPinConnector.h"
 #include "Song.h"
 #include "TextFloat.h"
 #include "VstPlugin.h"
@@ -60,7 +61,7 @@ Plugin::Descriptor PLUGIN_EXPORT vsteffect_plugin_descriptor =
 
 VstEffect::VstEffect( Model * _parent,
 			const Descriptor::SubPluginFeatures::Key * _key ) :
-	Effect( &vsteffect_plugin_descriptor, _parent, _key ),
+	AudioPluginInterface(&vsteffect_plugin_descriptor, _parent, _key),
 	m_pluginMutex(),
 	m_key( *_key ),
 	m_vstControls( this )
@@ -79,24 +80,17 @@ VstEffect::VstEffect( Model * _parent,
 
 
 
-Effect::ProcessStatus VstEffect::processImpl(SampleFrame* buf, const fpp_t frames)
+auto VstEffect::processImpl() -> ProcessStatus
 {
 	assert(m_plugin != nullptr);
-	static thread_local auto tempBuf = std::array<SampleFrame, MAXIMUM_BUFFER_SIZE>();
-
-	std::memcpy(tempBuf.data(), buf, sizeof(SampleFrame) * frames);
 	if (m_pluginMutex.tryLock(Engine::getSong()->isExporting() ? -1 : 0))
 	{
-		m_plugin->process(tempBuf.data(), tempBuf.data());
+		if (!m_plugin->process())
+		{
+			m_pluginMutex.unlock();
+			return ProcessStatus::Sleep;
+		}
 		m_pluginMutex.unlock();
-	}
-
-	const float w = wetLevel();
-	const float d = dryLevel();
-	for (fpp_t f = 0; f < frames; ++f)
-	{
-		buf[f][0] = w * tempBuf[f][0] + d * buf[f][0];
-		buf[f][1] = w * tempBuf[f][1] + d * buf[f][1];
 	}
 
 	return ProcessStatus::ContinueIfNotQuiet;
@@ -117,7 +111,7 @@ bool VstEffect::openPlugin(const QString& plugin)
 	}
 
 	QMutexLocker ml( &m_pluginMutex ); Q_UNUSED( ml );
-	m_plugin = QSharedPointer<VstPlugin>(new VstPlugin{plugin, this});
+	m_plugin = QSharedPointer<VstPlugin>(new VstPlugin{plugin, pinConnector(), this});
 	if( m_plugin->failed() )
 	{
 		m_plugin.clear();

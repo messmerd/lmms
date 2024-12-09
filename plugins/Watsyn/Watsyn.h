@@ -26,7 +26,7 @@
 #ifndef WATSYN_H
 #define WATSYN_H
 
-#include "Instrument.h"
+#include "AudioPluginInterface.h"
 #include "InstrumentView.h"
 #include "Graph.h"
 #include "AutomatableModel.h"
@@ -139,8 +139,7 @@ public:
 	WatsynInstrument( InstrumentTrack * _instrument_track );
 	~WatsynInstrument() override = default;
 
-	void playNote( NotePlayHandle * _n,
-						SampleFrame* _working_buffer ) override;
+	void playNoteImpl(NotePlayHandle* _n, CoreAudioDataMut out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 

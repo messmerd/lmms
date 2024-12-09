@@ -41,6 +41,7 @@
 #include "NotePlayHandle.h"
 #include "PathUtil.h"
 #include "PixmapButton.h"
+#include "SampleFrame.h"
 #include "Song.h"
 #include "fluidsynthshims.h"
 
@@ -122,7 +123,7 @@ struct Sf2PluginData
 
 
 Sf2Instrument::Sf2Instrument( InstrumentTrack * _instrument_track ) :
-	Instrument(_instrument_track, &sf2player_plugin_descriptor, nullptr, Flag::IsSingleStreamed),
+	Instrument(&sf2player_plugin_descriptor, _instrument_track, nullptr, Flag::IsSingleStreamed),
 	m_srcState( nullptr ),
 	m_synth(nullptr),
 	m_font( nullptr ),
@@ -661,7 +662,7 @@ void Sf2Instrument::reloadSynth()
 
 
 
-void Sf2Instrument::playNote( NotePlayHandle * _n, SampleFrame* )
+void Sf2Instrument::playNoteImpl(NotePlayHandle* _n, CoreAudioDataMut)
 {
 	if( _n->isMasterNote() || ( _n->hasParent() && _n->isReleased() ) )
 	{
@@ -796,10 +797,8 @@ void Sf2Instrument::noteOff( Sf2PluginData * n )
 }
 
 
-void Sf2Instrument::play( SampleFrame* _working_buffer )
+void Sf2Instrument::playImpl(CoreAudioDataMut out)
 {
-	const fpp_t frames = Engine::audioEngine()->framesPerPeriod();
-
 	// set midi pitch for this period
 	const int currentMidiPitch = instrumentTrack()->midiPitch();
 	if( m_lastMidiPitch != currentMidiPitch )
@@ -821,7 +820,7 @@ void Sf2Instrument::play( SampleFrame* _working_buffer )
 	// if we have no new noteons/noteoffs, just render a period and call it a day
 	if( m_playingNotes.isEmpty() )
 	{
-		renderFrames( frames, _working_buffer );
+		renderFrames(out.size(), out.data());
 		return;
 	}
 
@@ -848,7 +847,7 @@ void Sf2Instrument::play( SampleFrame* _working_buffer )
 		auto currentData = static_cast<Sf2PluginData*>(currentNote->m_pluginData);
 		if( currentData->offset > currentFrame )
 		{
-			renderFrames( currentData->offset - currentFrame, _working_buffer + currentFrame );
+			renderFrames(currentData->offset - currentFrame, out.data() + currentFrame);
 			currentFrame = currentData->offset;
 		}
 		if( currentData->isNew )
@@ -875,9 +874,9 @@ void Sf2Instrument::play( SampleFrame* _working_buffer )
 		}
 	}
 
-	if( currentFrame < frames )
+	if (currentFrame < out.size())
 	{
-		renderFrames( frames - currentFrame, _working_buffer + currentFrame );
+		renderFrames(out.size() - currentFrame, out.data() + currentFrame);
 	}
 }
 

@@ -60,7 +60,7 @@ const double DNF_LOG = -1.0;
 
 DynProcEffect::DynProcEffect( Model * _parent,
 			const Descriptor::SubPluginFeatures::Key * _key ) :
-	Effect( &dynamicsprocessor_plugin_descriptor, _parent, _key ),
+	AudioPluginInterface(&dynamicsprocessor_plugin_descriptor, _parent, _key),
 	m_dpControls( this )
 {
 	m_currentPeak[0] = m_currentPeak[1] = DYN_NOISE_FLOOR;
@@ -91,7 +91,7 @@ inline void DynProcEffect::calcRelease()
 }
 
 
-Effect::ProcessStatus DynProcEffect::processImpl(SampleFrame* buf, const fpp_t frames)
+ProcessStatus DynProcEffect::processImpl(CoreAudioDataMut inOut)
 {
 	//qDebug( "%f %f", m_currentPeak[0], m_currentPeak[1] );
 
@@ -99,9 +99,6 @@ Effect::ProcessStatus DynProcEffect::processImpl(SampleFrame* buf, const fpp_t f
 	int i = 0;
 
 	auto sm_peak = std::array{0.0f, 0.0f};
-
-	const float d = dryLevel();
-	const float w = wetLevel();
 
 	const int stereoMode = m_dpControls.m_stereomodeModel.value();
 	const float inputGain = m_dpControls.m_inputModel.value();
@@ -132,10 +129,8 @@ Effect::ProcessStatus DynProcEffect::processImpl(SampleFrame* buf, const fpp_t f
 		}
 	}
 
-	for (fpp_t f = 0; f < frames; ++f)
+	for (SampleFrame& s : inOut)
 	{
-		auto s = std::array{buf[f][0], buf[f][1]};
-
 // apply input gain
 		s[0] *= inputGain;
 		s[1] *= inputGain;
@@ -200,10 +195,6 @@ Effect::ProcessStatus DynProcEffect::processImpl(SampleFrame* buf, const fpp_t f
 // apply output gain
 		s[0] *= outputGain;
 		s[1] *= outputGain;
-
-// mix wet/dry signals
-		buf[f][0] = d * buf[f][0] + w * s[0];
-		buf[f][1] = d * buf[f][1] + w * s[1];
 	}
 
 	return ProcessStatus::ContinueIfNotQuiet;
