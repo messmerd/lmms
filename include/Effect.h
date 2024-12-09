@@ -231,6 +231,8 @@ private:
 					SampleFrame* _dst_buf, sample_rate_t _dst_sr,
 					const f_cnt_t _frames );
 
+	SampleFrame* m_wetDryBuffer = nullptr;
+
 	ch_cnt_t m_processors;
 
 	bool m_okay;

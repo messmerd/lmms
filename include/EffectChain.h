@@ -68,6 +68,8 @@ public:
 
 	void clear();
 
+private slots:
+	void updateWetDryBuffer();
 
 private:
 	using EffectList = std::vector<Effect*>;
@@ -75,6 +77,8 @@ private:
 
 	BoolModel m_enabledModel;
 
+	//! Used when mixing wet/dry in pin connector
+	std::vector<SampleFrame> m_wetDryBuffer;
 
 	friend class gui::EffectRackView;
 

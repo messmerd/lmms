@@ -71,7 +71,6 @@ class NotePlayHandle;
 
 // TODO: Make AudioPluginBuffer and `processImpl` usage by AudioPluginInterface identical
 //       regardless of inplace status? Implementation of buffer would implement potential optimizations.
-// TODO: Statically-known channel counts optimization?
 
 
 namespace detail
@@ -91,7 +90,7 @@ protected:
 	//virtual void processImpl(NotePlayHandle* nph, ConstBufferT in, BufferT out) {}
 
 	//! The main audio processing method for MIDI-based Instruments
-	virtual void processImpl(ConstBufferT in, BufferT out) {}
+	virtual void processImpl(ConstBufferT in, BufferT out) = 0;
 };
 
 //! Instrument specialization (in-place)
@@ -104,7 +103,7 @@ protected:
 	//virtual void processImpl(NotePlayHandle* nph, BufferT inOut) {}
 
 	//! The main audio processing method for MIDI-based Instruments
-	virtual void processImpl(BufferT inOut) {}
+	virtual void processImpl(BufferT inOut) = 0;
 };
 
 //! Instrument specialization (custom working buffers)
@@ -123,7 +122,7 @@ protected:
 	 * The main audio processing method for MIDI-based Instruments.
 	 * The implementation knows how to provide the working buffers.
 	 */
-	virtual void processImpl() {}
+	virtual void processImpl() = 0;
 };
 
 //! Effect specialization
@@ -295,7 +294,9 @@ protected:
 		SampleFrame* temp = inOut.data();
 		const auto bus = CoreAudioBusMut{&temp, 1, inOut.size()};
 		auto bufferInterface = this->bufferInterface();
-		auto router = m_pinConnector.getRouter<config.layout, SampleT, config.inputs, config.outputs>();
+
+		auto router = m_pinConnector.getRouter<config.layout, SampleT, config.inputs, config.outputs>(
+			this->m_wetDryBuffer, wetLevel(), dryLevel());
 
 		ProcessStatus status;
 
@@ -309,7 +310,7 @@ protected:
 			if constexpr (config.customBuffer) { status = this->processImpl(); }
 			else { status = this->processImpl(pluginInOut); }
 
-			// Write plugin output buffer to core; TODO: Apply wet/dry here
+			// Write plugin output buffer to core
 			router.routeFromPlugin(pluginInOut, bus);
 		}
 		else
@@ -323,7 +324,7 @@ protected:
 			if constexpr (config.customBuffer) { status = this->processImpl(); }
 			else { status = this->processImpl(pluginIn, pluginOut); }
 
-			// Write plugin output buffer to core; TODO: Apply wet/dry here
+			// Write plugin output buffer to core
 			router.routeFromPlugin(pluginOut, bus);
 		}
 
