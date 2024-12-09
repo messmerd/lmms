@@ -84,8 +84,6 @@ DelayEffect::~DelayEffect()
 ProcessStatus DelayEffect::processImpl(CoreAudioDataMut inOut)
 {
 	const float sr = Engine::audioEngine()->outputSampleRate();
-	const float d = dryLevel();
-	const float w = wetLevel();
 
 	SampleFrame peak;
 	float length = m_delayControls.m_delayTimeModel.value();
@@ -112,8 +110,6 @@ ProcessStatus DelayEffect::processImpl(CoreAudioDataMut inOut)
 
 	for (SampleFrame& currentFrame : inOut)
 	{
-		const auto dryS = currentFrame;
-
 		// Prepare delay for current sample
 		m_delay->setFeedback( *feedbackPtr );
 		m_lfo->setFrequency( *lfoTimePtr );
@@ -126,9 +122,6 @@ ProcessStatus DelayEffect::processImpl(CoreAudioDataMut inOut)
 
 		// Calculate peak of wet signal
 		peak = peak.absMax(currentFrame);
-
-		// Dry/wet mix
-		currentFrame = dryS * d + currentFrame * w;
 
 		lengthPtr += lengthInc;
 		amplitudePtr += amplitudeInc;

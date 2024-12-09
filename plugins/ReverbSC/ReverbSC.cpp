@@ -77,9 +77,6 @@ ReverbSCEffect::~ReverbSCEffect()
 
 ProcessStatus ReverbSCEffect::processImpl(CoreAudioDataMut inOut)
 {
-	const float d = dryLevel();
-	const float w = wetLevel();
-
 	SPFLOAT tmpL, tmpR;
 	SPFLOAT dcblkL, dcblkR;
 
@@ -90,7 +87,7 @@ ProcessStatus ReverbSCEffect::processImpl(CoreAudioDataMut inOut)
 
 	for (fpp_t f = 0; f < inOut.size(); ++f)
 	{
-		auto s = std::array{inOut[f][0], inOut[f][1]};
+		SampleFrame& s = inOut[f];
 
 		const auto inGain
 			= (SPFLOAT)DB2LIN((inGainBuf ? inGainBuf->values()[f] : m_reverbSCControls.m_inputGainModel.value()));
@@ -111,8 +108,8 @@ ProcessStatus ReverbSCEffect::processImpl(CoreAudioDataMut inOut)
 		sp_revsc_compute(sp, revsc, &s[0], &s[1], &tmpL, &tmpR);
 		sp_dcblock_compute(sp, dcblk[0], &tmpL, &dcblkL);
 		sp_dcblock_compute(sp, dcblk[1], &tmpR, &dcblkR);
-		inOut[f][0] = d * inOut[f][0] + w * dcblkL * outGain;
-		inOut[f][1] = d * inOut[f][1] + w * dcblkR * outGain;
+		s[0] = dcblkL * outGain;
+		s[1] = dcblkR * outGain;
 	}
 
 	return ProcessStatus::ContinueIfNotQuiet;

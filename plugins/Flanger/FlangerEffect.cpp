@@ -87,8 +87,6 @@ FlangerEffect::~FlangerEffect()
 
 ProcessStatus FlangerEffect::processImpl(CoreAudioDataMut inOut)
 {
-	const float d = dryLevel();
-	const float w = wetLevel();
 	const float length = m_flangerControls.m_delayTimeModel.value() * Engine::audioEngine()->outputSampleRate();
 	const float noise = m_flangerControls.m_whiteNoiseAmountModel.value();
 	float amplitude = m_flangerControls.m_lfoAmountModel.value() * Engine::audioEngine()->outputSampleRate();
@@ -97,7 +95,7 @@ ProcessStatus FlangerEffect::processImpl(CoreAudioDataMut inOut)
 	m_lfo->setOffset( m_flangerControls.m_lfoPhaseModel.value() / 180 * D_PI );
 	m_lDelay->setFeedback( m_flangerControls.m_feedbackModel.value() );
 	m_rDelay->setFeedback( m_flangerControls.m_feedbackModel.value() );
-	auto dryS = std::array<sample_t, 2>{};
+
 	for (SampleFrame& frame : inOut)
 	{
 		float leftLfo;
@@ -105,8 +103,7 @@ ProcessStatus FlangerEffect::processImpl(CoreAudioDataMut inOut)
 
 		frame[0] += (fastRandf(2.0f) - 1.0f) * noise;
 		frame[1] += (fastRandf(2.0f) - 1.0f) * noise;
-		dryS[0] = frame[0];
-		dryS[1] = frame[1];
+
 		m_lfo->tick(&leftLfo, &rightLfo);
 		m_lDelay->setLength( ( float )length + amplitude * (leftLfo+1.0)  );
 		m_rDelay->setLength( ( float )length + amplitude * (rightLfo+1.0)  );
@@ -119,9 +116,6 @@ ProcessStatus FlangerEffect::processImpl(CoreAudioDataMut inOut)
 			m_lDelay->tick(&frame[0]);
 			m_rDelay->tick(&frame[1]);
 		}
-
-		frame[0] = (d * dryS[0]) + (w * frame[0]);
-		frame[1] = (d * dryS[1]) + (w * frame[1]);
 	}
 
 	return ProcessStatus::ContinueIfNotQuiet;

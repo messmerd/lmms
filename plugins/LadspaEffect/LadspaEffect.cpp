@@ -219,8 +219,7 @@ ProcessStatus LadspaEffect::processImpl(CoreAudioDataMut inOut)
 
 	// Copy the LADSPA output buffers to the LMMS buffer.
 	channel = 0;
-	const float d = dryLevel();
-	const float w = wetLevel();
+	// TODO: Migrate away from multi-processor and always use single processor
 	for( ch_cnt_t proc = 0; proc < processorCount(); ++proc )
 	{
 		for( int port = 0; port < m_portCount; ++port )
@@ -235,7 +234,8 @@ ProcessStatus LadspaEffect::processImpl(CoreAudioDataMut inOut)
 				case BufferRate::ChannelOut:
 					for (fpp_t frame = 0; frame < outFrames; ++frame)
 					{
-						inOut[frame][channel] = d * inOut[frame][channel] + w * pp->buffer[frame];
+						// TODO: Use a custom AudioPluginBuffer to eliminate this extra copying
+						inOut[frame][channel] = pp->buffer[frame];
 					}
 					++channel;
 					break;

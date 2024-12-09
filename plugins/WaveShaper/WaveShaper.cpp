@@ -71,8 +71,6 @@ ProcessStatus WaveShaperEffect::processImpl(CoreAudioDataMut inOut)
 // variables for effect
 	int i = 0;
 
-	const float d = dryLevel();
-	const float w = wetLevel();
 	float input = m_wsControls.m_inputModel.value();
 	float output = m_wsControls.m_outputModel.value();
 	const float * samples = m_wsControls.m_wavegraphModel.samples();
@@ -87,10 +85,8 @@ ProcessStatus WaveShaperEffect::processImpl(CoreAudioDataMut inOut)
 	const float *inputPtr = inputBuffer ? &( inputBuffer->values()[ 0 ] ) : &input;
 	const float *outputPtr = outputBufer ? &( outputBufer->values()[ 0 ] ) : &output;
 
-	for (SampleFrame& frame : inOut)
+	for (SampleFrame& s : inOut)
 	{
-		auto s = std::array{frame[0], frame[1]};
-
 // apply input gain
 		s[0] *= *inputPtr;
 		s[1] *= *inputPtr;
@@ -129,10 +125,6 @@ ProcessStatus WaveShaperEffect::processImpl(CoreAudioDataMut inOut)
 // apply output gain
 		s[0] *= *outputPtr;
 		s[1] *= *outputPtr;
-
-// mix wet/dry signals
-		frame[0] = d * frame[0] + w * s[0];
-		frame[1] = d * frame[1] + w * s[1];
 
 		outputPtr += outputInc;
 		inputPtr += inputInc;

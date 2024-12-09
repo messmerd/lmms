@@ -100,9 +100,6 @@ ProcessStatus DynProcEffect::processImpl(CoreAudioDataMut inOut)
 
 	auto sm_peak = std::array{0.0f, 0.0f};
 
-	const float d = dryLevel();
-	const float w = wetLevel();
-
 	const int stereoMode = m_dpControls.m_stereomodeModel.value();
 	const float inputGain = m_dpControls.m_inputModel.value();
 	const float outputGain = m_dpControls.m_outputModel.value();
@@ -132,10 +129,8 @@ ProcessStatus DynProcEffect::processImpl(CoreAudioDataMut inOut)
 		}
 	}
 
-	for (SampleFrame& frame : inOut)
+	for (SampleFrame& s : inOut)
 	{
-		auto s = std::array{frame[0], frame[1]};
-
 // apply input gain
 		s[0] *= inputGain;
 		s[1] *= inputGain;
@@ -200,10 +195,6 @@ ProcessStatus DynProcEffect::processImpl(CoreAudioDataMut inOut)
 // apply output gain
 		s[0] *= outputGain;
 		s[1] *= outputGain;
-
-// mix wet/dry signals
-		frame[0] = d * frame[0] + w * s[0];
-		frame[1] = d * frame[1] + w * s[1];
 	}
 
 	return ProcessStatus::ContinueIfNotQuiet;

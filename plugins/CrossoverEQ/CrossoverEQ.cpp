@@ -184,14 +184,10 @@ ProcessStatus CrossoverEQEffect::processImpl(CoreAudioDataMut inOut)
 			m_work[f][1] += m_hp4.update( m_tmp2[f][1], 1 ) * m_gain4;
 		}
 	}
-	
-	const float d = dryLevel();
-	const float w = wetLevel();
 
 	for (auto f = std::size_t{0}; f < inOut.size(); ++f)
 	{
-		inOut[f][0] = d * inOut[f][0] + w * m_work[f][0];
-		inOut[f][1] = d * inOut[f][1] + w * m_work[f][1];
+		inOut[f] = m_work[f];
 	}
 
 	return ProcessStatus::ContinueIfNotQuiet;

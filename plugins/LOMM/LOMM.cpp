@@ -116,9 +116,6 @@ ProcessStatus LOMMEffect::processImpl(CoreAudioDataMut inOut)
 	}
 	m_needsUpdate = false;
 
-	const float d = dryLevel();
-	const float w = wetLevel();
-	
 	const float depth = m_lommControls.m_depthModel.value();
 	const float time = m_lommControls.m_timeModel.value();
 	const float inVol = dbfsToAmp(m_lommControls.m_inVolModel.value());
@@ -188,10 +185,8 @@ ProcessStatus LOMMEffect::processImpl(CoreAudioDataMut inOut)
 	const bool feedback = m_lommControls.m_feedbackModel.value() && !lookaheadEnable;
 	const bool lowSideUpwardSuppress = m_lommControls.m_lowSideUpwardSuppressModel.value() && midside;
 	
-	for (SampleFrame& frame : inOut)
+	for (SampleFrame& s : inOut)
 	{
-		std::array<sample_t, 2> s = {frame[0], frame[1]};
-		
 		// Convert left/right to mid/side.  Side channel is intentionally made
 		// to be 6 dB louder to bring it into volume ranges comparable to the mid channel.
 		if (midside)
@@ -414,9 +409,6 @@ ProcessStatus LOMMEffect::processImpl(CoreAudioDataMut inOut)
 		}
 		
 		if (--m_lookWrite < 0) { m_lookWrite = m_lookBufLength - 1; }
-
-		frame[0] = d * frame[0] + w * s[0];
-		frame[1] = d * frame[1] + w * s[1];
 	}
 
 	return ProcessStatus::ContinueIfNotQuiet;

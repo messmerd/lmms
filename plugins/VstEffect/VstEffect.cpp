@@ -93,16 +93,6 @@ auto VstEffect::processImpl() -> ProcessStatus
 		m_pluginMutex.unlock();
 	}
 
-	// TODO: Move to AudioPluginInterface:
-	/*
-	const float w = wetLevel();
-	const float d = dryLevel();
-	for (fpp_t f = 0; f < out.size(); ++f)
-	{
-		inOut[f][0] = w * tempBuf[f][0] + d * inOut[f][0];
-		inOut[f][1] = w * tempBuf[f][1] + d * inOut[f][1];
-	}*/
-
 	return ProcessStatus::ContinueIfNotQuiet;
 }
 
