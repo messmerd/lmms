@@ -224,14 +224,14 @@ protected:
 	*/
 	void checkGate(double outSum);
 
+	SampleFrame* m_wetDryBuffer = nullptr;
+
 private:
 	EffectChain * m_parent;
 	void resample( int _i, const SampleFrame* _src_buf,
 					sample_rate_t _src_sr,
 					SampleFrame* _dst_buf, sample_rate_t _dst_sr,
 					const f_cnt_t _frames );
-
-	SampleFrame* m_wetDryBuffer = nullptr;
 
 	ch_cnt_t m_processors;
 
