@@ -142,7 +142,7 @@ public:
 		return !m_flags.testFlag(Instrument::Flag::IsNotBendable);
 	}
 
-	//! Returns nullptr if the effect does not have a pin connector
+	//! Returns nullptr if the instrument does not have a pin connector
 	virtual auto pinConnector() const -> const PluginPinConnector*
 	{
 		return nullptr;

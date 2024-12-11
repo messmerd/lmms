@@ -142,8 +142,6 @@ public:
 	 *     `in`      : plugin output channel buffers
 	 *     `inOut`   : track channels from/to LMMS core
 	 *                 `inOut.frames` provides the number of frames in each `in`/`inOut` audio buffer
-	 *     `wet`     : for overload which additionally performs wet/dry mixing on non-bypassed outputs
-	 *     `dry`     : for overload which additionally performs wet/dry mixing on non-bypassed outputs
 	 */
 	template<AudioDataLayout layout, typename SampleT, int channelCountIn, int channelCountOut>
 	class Router;
@@ -158,11 +156,7 @@ public:
 		Router(PluginPinConnector& parent) : m_pc{&parent} {}
 
 		void routeToPlugin(CoreAudioBus in, SplitAudioData<SampleT, channelCountIn> out) const;
-
 		void routeFromPlugin(SplitAudioData<const SampleT, channelCountOut> in, CoreAudioBusMut inOut) const;
-
-		void routeFromPlugin(SplitAudioData<const SampleT, channelCountOut> in, CoreAudioBusMut inOut,
-			float wet, float dry) const;
 
 	private:
 		PluginPinConnector* m_pc;
@@ -178,10 +172,7 @@ public:
 		Router(PluginPinConnector& parent) : m_pc{&parent} {}
 
 		void routeToPlugin(CoreAudioBus in, CoreAudioDataMut out) const;
-
 		void routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut) const;
-
-		void routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut, float wet, float dry) const;
 
 	private:
 		PluginPinConnector* m_pc;
@@ -499,13 +490,6 @@ inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelC
 	}
 }
 
-template<AudioDataLayout layout, typename SampleT, int channelCountIn, int channelCountOut>
-inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelCountOut>::routeFromPlugin(
-	SplitAudioData<const SampleT, channelCountOut> in, CoreAudioBusMut inOut, float wet, float dry) const
-{
-	// TODO
-}
-
 // `SampleFrame` Router out-of-class definitions
 
 template<AudioDataLayout layout, int channelCountIn, int channelCountOut>
@@ -744,13 +728,6 @@ inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, chan
 				break;
 		}
 	}
-}
-
-template<AudioDataLayout layout, int channelCountIn, int channelCountOut>
-inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, channelCountOut>::routeFromPlugin(
-	CoreAudioData in, CoreAudioBusMut inOut, float wet, float dry) const
-{
-	// TODO
 }
 
 

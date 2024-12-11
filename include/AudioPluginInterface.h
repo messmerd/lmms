@@ -69,11 +69,6 @@ struct PluginConfig
 
 class NotePlayHandle;
 
-// TODO: Make AudioPluginBuffer and `processImpl` usage by AudioPluginInterface identical
-//       regardless of inplace status? Implementation of buffer would implement potential optimizations.
-// TODO: Statically-known channel counts optimization?
-
-
 namespace detail
 {
 
@@ -91,7 +86,7 @@ protected:
 	//virtual void processImpl(NotePlayHandle* nph, ConstBufferT in, BufferT out) {}
 
 	//! The main audio processing method for MIDI-based Instruments
-	virtual void processImpl(ConstBufferT in, BufferT out) {}
+	virtual void processImpl(ConstBufferT in, BufferT out) = 0;
 };
 
 //! Instrument specialization (in-place)
@@ -104,7 +99,7 @@ protected:
 	//virtual void processImpl(NotePlayHandle* nph, BufferT inOut) {}
 
 	//! The main audio processing method for MIDI-based Instruments
-	virtual void processImpl(BufferT inOut) {}
+	virtual void processImpl(BufferT inOut) = 0;
 };
 
 //! Instrument specialization (custom working buffers)
@@ -123,7 +118,7 @@ protected:
 	 * The main audio processing method for MIDI-based Instruments.
 	 * The implementation knows how to provide the working buffers.
 	 */
-	virtual void processImpl() {}
+	virtual void processImpl() = 0;
 };
 
 //! Effect specialization
@@ -131,7 +126,10 @@ template<typename BufferT, typename ConstBufferT>
 class AudioProcessingMethod<Effect, BufferT, ConstBufferT, false, false>
 {
 protected:
-	//! The main audio processing method for Effects. Runs when plugin is not asleep.
+	/**
+	 * The main audio processing method for Effects. Runs when plugin is not asleep.
+	 * The implementation is expected to perform wet/dry mixing for the first 2 channels.
+	 */
 	virtual auto processImpl(ConstBufferT in, BufferT out) -> ProcessStatus = 0;
 };
 
@@ -140,7 +138,10 @@ template<typename BufferT, typename ConstBufferT>
 class AudioProcessingMethod<Effect, BufferT, ConstBufferT, true, false>
 {
 protected:
-	//! The main audio processing method for inplace Effects. Runs when plugin is not asleep.
+	/**
+	 * The main audio processing method for inplace Effects. Runs when plugin is not asleep.
+	 * The implementation is expected to perform wet/dry mixing for the first 2 channels.
+	 */
 	virtual auto processImpl(BufferT inOut) -> ProcessStatus = 0;
 };
 
@@ -152,6 +153,7 @@ protected:
 	/**
 	 * The main audio processing method for Effects. Runs when plugin is not asleep.
 	 * The implementation knows how to provide the working buffers.
+	 * The implementation is expected to perform wet/dry mixing for the first 2 channels.
 	 */
 	virtual auto processImpl() -> ProcessStatus = 0;
 };
@@ -309,7 +311,7 @@ protected:
 			if constexpr (config.customBuffer) { status = this->processImpl(); }
 			else { status = this->processImpl(pluginInOut); }
 
-			// Write plugin output buffer to core; TODO: Apply wet/dry here
+			// Write plugin output buffer to core
 			router.routeFromPlugin(pluginInOut, bus);
 		}
 		else
@@ -323,7 +325,7 @@ protected:
 			if constexpr (config.customBuffer) { status = this->processImpl(); }
 			else { status = this->processImpl(pluginIn, pluginOut); }
 
-			// Write plugin output buffer to core; TODO: Apply wet/dry here
+			// Write plugin output buffer to core
 			router.routeFromPlugin(pluginOut, bus);
 		}
 
