@@ -45,51 +45,15 @@ class QWidget;
 class PluginPinConnectorTest;
 #endif
 
-namespace lmms {
+namespace lmms
+{
 
-namespace gui {
+namespace gui
+{
 
 class PluginPinConnectorView;
 
 } // namespace gui
-
-class PluginPinConnector;
-
-namespace detail {
-
-//! Base class for PluginPinConnector::Router
-template<bool wetDryEnabled = false>
-class RouterBase
-{
-public:
-	RouterBase(PluginPinConnector& parent)
-		: m_pc{&parent}
-	{
-	}
-protected:
-	PluginPinConnector* m_pc;
-};
-
-template<>
-class RouterBase<true>
-{
-public:
-	RouterBase(PluginPinConnector& parent, SampleFrame* wetDryBuffer, float wet, float dry)
-		: m_pc{&parent}
-		, m_wetDryBuffer{wetDryBuffer}
-		, m_wet{wet}
-		, m_dry{dry}
-	{
-		assert(wetDryBuffer != nullptr);
-	}
-protected:
-	PluginPinConnector* m_pc;
-	SampleFrame* m_wetDryBuffer;
-	float m_wet;
-	float m_dry;
-};
-
-} // namespace detail
 
 
 //! Configuration for audio channel routing in/out of plugin
@@ -178,56 +142,56 @@ public:
 	 *     `in`      : plugin output channel buffers
 	 *     `inOut`   : track channels from/to LMMS core
 	 *                 `inOut.frames` provides the number of frames in each `in`/`inOut` audio buffer
-	 *
-	 * The `wetDry` template parameter specifies whether wet/dry mixing should be performed
-	 *     on non-bypassed outputs. This is used by effect plugins.
+	 *     `wet`     : for overload which additionally performs wet/dry mixing on non-bypassed outputs
+	 *     `dry`     : for overload which additionally performs wet/dry mixing on non-bypassed outputs
 	 */
-	template<AudioDataLayout layout, typename SampleT, int channelCountIn, int channelCountOut, bool wetDry>
+	template<AudioDataLayout layout, typename SampleT, int channelCountIn, int channelCountOut>
 	class Router;
 
 	//! Non-`SampleFrame` routing
-	template<AudioDataLayout layout, typename SampleT, int channelCountIn, int channelCountOut, bool wetDry>
-	class Router : public detail::RouterBase<wetDry>
+	template<AudioDataLayout layout, typename SampleT, int channelCountIn, int channelCountOut>
+	class Router
 	{
 	public:
 		static_assert(layout == AudioDataLayout::Split, "Only split data is implemented so far");
 
-		using detail::RouterBase<wetDry>::RouterBase;
+		Router(PluginPinConnector& parent) : m_pc{&parent} {}
 
 		void routeToPlugin(CoreAudioBus in, SplitAudioData<SampleT, channelCountIn> out) const;
 
 		void routeFromPlugin(SplitAudioData<const SampleT, channelCountOut> in, CoreAudioBusMut inOut) const;
+
+		void routeFromPlugin(SplitAudioData<const SampleT, channelCountOut> in, CoreAudioBusMut inOut,
+			float wet, float dry) const;
+
+	private:
+		PluginPinConnector* m_pc;
 	};
 
 	//! `SampleFrame` routing
-	template<AudioDataLayout layout, int channelCountIn, int channelCountOut, bool wetDry>
-	class Router<layout, SampleFrame, channelCountIn, channelCountOut, wetDry>
-		: public detail::RouterBase<wetDry>
+	template<AudioDataLayout layout, int channelCountIn, int channelCountOut>
+	class Router<layout, SampleFrame, channelCountIn, channelCountOut>
 	{
 	public:
 		static_assert(layout == AudioDataLayout::Interleaved);
 
-		using detail::RouterBase<wetDry>::RouterBase;
+		Router(PluginPinConnector& parent) : m_pc{&parent} {}
 
 		void routeToPlugin(CoreAudioBus in, CoreAudioDataMut out) const;
 
 		void routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut) const;
+
+		void routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut, float wet, float dry) const;
+
+	private:
+		PluginPinConnector* m_pc;
 	};
 
 
 	template<AudioDataLayout layout, typename SampleT, int channelCountIn, int channelCountOut>
-	auto getRouter() -> Router<layout, SampleT, channelCountIn, channelCountOut, false>
+	auto getRouter() -> Router<layout, SampleT, channelCountIn, channelCountOut>
 	{
-		return Router<layout, SampleT, channelCountIn, channelCountOut, false>{*this};
-	}
-
-	template<AudioDataLayout layout, typename SampleT, int channelCountIn, int channelCountOut>
-	auto getRouter(SampleFrame* wetDryBuffer, float wet, float dry)
-		-> Router<layout, SampleT, channelCountIn, channelCountOut, true>
-	{
-		return Router<layout, SampleT, channelCountIn, channelCountOut, true> {
-			*this, wetDryBuffer, wet, dry
-		};
+		return Router<layout, SampleT, channelCountIn, channelCountOut>{*this};
 	}
 
 
@@ -277,21 +241,20 @@ private:
 
 // Non-`SampleFrame` Router out-of-class definitions
 
-template<AudioDataLayout layout, typename SampleT, int channelCountIn, int channelCountOut, bool wetDry>
-inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelCountOut, wetDry>::routeToPlugin(
+template<AudioDataLayout layout, typename SampleT, int channelCountIn, int channelCountOut>
+inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelCountOut>::routeToPlugin(
 	CoreAudioBus in, SplitAudioData<SampleT, channelCountIn> out) const
 {
 	if constexpr (channelCountIn == 0) { return; }
 
-	assert(this->m_pc->m_in.channelCount() != DynamicChannelCount);
-	if (this->m_pc->m_in.channelCount() == 0) { return; }
+	assert(m_pc->m_in.channelCount() != DynamicChannelCount);
+	if (m_pc->m_in.channelCount() == 0) { return; }
 
 	// Ignore all unused track channels for better performance
-	const auto inSizeConstrained = this->m_pc->m_trackChannelsUpperBound / 2;
+	const auto inSizeConstrained = m_pc->m_trackChannelsUpperBound / 2;
 	assert(inSizeConstrained <= in.channelPairs);
 
 	// Zero the output buffer - TODO: std::memcpy?
-	assert(out.sourceBuffer() != nullptr);
 	std::fill_n(out.sourceBuffer(), out.channels() * out.frames(), SampleT{});
 	//std::memset(out.sourceBuffer(), 0, out.channels() * out.frames() * sizeof(SampleT));
 
@@ -306,8 +269,8 @@ inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelC
 
 			const std::uint8_t inChannel = inChannelPairIdx * 2;
 			const std::uint8_t enabledPins =
-				(static_cast<std::uint8_t>(this->m_pc->m_in.enabled(inChannel, outChannel)) << 1u)
-				| static_cast<std::uint8_t>(this->m_pc->m_in.enabled(inChannel + 1, outChannel));
+				(static_cast<std::uint8_t>(m_pc->m_in.enabled(inChannel, outChannel)) << 1u)
+				| static_cast<std::uint8_t>(m_pc->m_in.enabled(inChannel + 1, outChannel));
 
 			switch (enabledPins)
 			{
@@ -357,17 +320,17 @@ inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelC
 	}
 }
 
-template<AudioDataLayout layout, typename SampleT, int channelCountIn, int channelCountOut, bool wetDry>
-inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelCountOut, wetDry>::routeFromPlugin(
+template<AudioDataLayout layout, typename SampleT, int channelCountIn, int channelCountOut>
+inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelCountOut>::routeFromPlugin(
 	SplitAudioData<const SampleT, channelCountOut> in, CoreAudioBusMut inOut) const
 {
 	if constexpr (channelCountOut == 0) { return; }
 
-	assert(this->m_pc->m_out.channelCount() != DynamicChannelCount);
-	if (this->m_pc->m_out.channelCount() == 0) { return; }
+	assert(m_pc->m_out.channelCount() != DynamicChannelCount);
+	if (m_pc->m_out.channelCount() == 0) { return; }
 
 	// Ignore all unused track channels for better performance
-	const auto inOutSizeConstrained = this->m_pc->m_trackChannelsUpperBound / 2;
+	const auto inOutSizeConstrained = m_pc->m_trackChannelsUpperBound / 2;
 	assert(inOutSizeConstrained <= inOut.channelPairs);
 
 	/*
@@ -386,20 +349,12 @@ inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelC
 
 		// We know at this point that we are writing to at least one of the output channels
 		// rather than bypassing, so it is safe to set the output buffer of those channels
-		// to zero prior to accumulation. If wet/dry mixing is to be performed, the wet/dry buffer
-		// is treated as the ouput buffer instead, and the actual output buffer is multiplied by
-		// the dry level rather than zeroed. Later this dry signal will be combined with the
-		// wet signal (`outPtrWet`) to produce the final output signal.
-
-		SampleFrame* outPtrWet;
-		if constexpr (wetDry) { outPtrWet = this->m_wetDryBuffer; }
-		else { outPtrWet = outPtr; }
+		// to zero prior to accumulation
 
 		if constexpr (rc == 0b11)
 		{
 			// TODO: std::memcpy?
-			std::fill_n(outPtrWet, inOut.frames, SampleFrame{});
-			if constexpr (wetDry) { std::fill_n(outPtr, inOut.frames, SampleFrame{}); }
+			std::fill_n(outPtr, inOut.frames, SampleFrame{});
 		}
 		else
 		{
@@ -407,13 +362,11 @@ inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelC
 			{
 				if constexpr ((rc & 0b10) != 0)
 				{
-					outPtrWet[frame].leftRef() = 0.f;
-					if constexpr (wetDry) { outPtr[frame].leftRef() *= this->m_dry; }
+					outPtr[frame].leftRef() = 0.f;
 				}
 				if constexpr ((rc & 0b01) != 0)
 				{
-					outPtrWet[frame].rightRef() = 0.f;
-					if constexpr (wetDry) { outPtr[frame].rightRef() *= this->m_dry; }
+					outPtr[frame].rightRef() = 0.f;
 				}
 			}
 		}
@@ -429,131 +382,88 @@ inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelC
 			if constexpr (rc == 0b11)
 			{
 				// This input channel could be routed to either left, right, both, or neither output channels
-				if (this->m_pc->m_out.enabled(outChannel, inChannel))
+				if (m_pc->m_out.enabled(outChannel, inChannel))
 				{
 					++numRoutedL;
-					if (this->m_pc->m_out.enabled(outChannel + 1, inChannel))
+					if (m_pc->m_out.enabled(outChannel + 1, inChannel))
 					{
 						++numRoutedR;
 						for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 						{
-							outPtrWet[frame].leftRef() += inPtr[frame];
-							outPtrWet[frame].rightRef() += inPtr[frame];
+							outPtr[frame].leftRef() += inPtr[frame];
+							outPtr[frame].rightRef() += inPtr[frame];
 						}
 					}
 					else
 					{
 						for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 						{
-							outPtrWet[frame].leftRef() += inPtr[frame];
+							outPtr[frame].leftRef() += inPtr[frame];
 						}
 					}
 				}
-				else if (this->m_pc->m_out.enabled(outChannel + 1, inChannel))
+				else if (m_pc->m_out.enabled(outChannel + 1, inChannel))
 				{
 					++numRoutedR;
 					for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 					{
-						outPtrWet[frame].rightRef() += inPtr[frame];
+						outPtr[frame].rightRef() += inPtr[frame];
 					}
 				}
 			}
 			else if constexpr (rc == 0b10)
 			{
 				// This input channel may or may not be routed to the left output channel
-				if (!this->m_pc->m_out.enabled(outChannel, inChannel)) { continue; }
+				if (!m_pc->m_out.enabled(outChannel, inChannel)) { continue; }
 
 				++numRoutedL;
 				for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 				{
-					outPtrWet[frame].leftRef() += inPtr[frame];
+					outPtr[frame].leftRef() += inPtr[frame];
 				}
 			}
 			else if constexpr (rc == 0b01)
 			{
 				// This input channel may or may not be routed to the right output channel
-				if (!this->m_pc->m_out.enabled(outChannel + 1, inChannel)) { continue; }
+				if (!m_pc->m_out.enabled(outChannel + 1, inChannel)) { continue; }
 
 				++numRoutedR;
 				for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 				{
-					outPtrWet[frame].rightRef() += inPtr[frame];
+					outPtr[frame].rightRef() += inPtr[frame];
 				}
 			}
 		}
 
-		// Lastly, normalize wet signal (divide accumulated plugin outputs with number of channels routed),
-		// and if wet/dry processing is being performed, multiply with the wet level and combine
-		// that with the dry signal.
+		// If num routed is 0 or 1, either no plugin channels were routed to the output
+		// and the output stays zeroed, or only one channel was routed and normalization is not needed
 
-		if constexpr (wetDry)
+		if (numRoutedL > 1)
 		{
-			// If num routed is not 0, we need to combine wet signal with dry signal in the real output.
-			// The equation is `out = in * dryLevel + (pluginOut / numRouted) * wetLevel`.
-			// Normalization is not needed when num routed == 1, but for simplicity's sake
-			// that optimization is not taken here.
-
-			if (numRoutedL != 0)
+			if (numRoutedR > 1)
 			{
-				if (numRoutedR != 0)
-				{
-					// Normalize wet signal (both channels) and combine with dry signal in output
-					for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
-					{
-						outPtr[frame].leftRef() += (outPtrWet[frame].left() / numRoutedL) * this->m_wet;
-						outPtr[frame].rightRef() += (outPtrWet[frame].right() / numRoutedR) * this->m_wet;
-					}
-				}
-				else
-				{
-					// Normalize wet signal (left channel) and combine with dry signal in output
-					for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
-					{
-						outPtr[frame].leftRef() += (outPtrWet[frame].left() / numRoutedL) * this->m_wet;
-					}
-				}
-			}
-			else if (numRoutedR != 0)
-			{
-				// Normalize wet signal (right channel) and combine with dry signal in output
+				// Normalize output - both channels
 				for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 				{
-					outPtr[frame].rightRef() += (outPtrWet[frame].right() / numRoutedR) * this->m_wet;
+					outPtr[frame].leftRef() /= numRoutedL;
+					outPtr[frame].rightRef() /= numRoutedR;
+				}
+			}
+			else
+			{
+				// Normalize output - left channel
+				for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
+				{
+					outPtr[frame].leftRef() /= numRoutedL;
 				}
 			}
 		}
-		else
+		else if (numRoutedR > 1)
 		{
-			// If num routed is 0 or 1, either no plugin channels were routed to the output
-			// and the output stays zeroed, or only one channel was routed and normalization is not needed
-
-			if (numRoutedL > 1)
+			// Normalize output - right channel
+			for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
 			{
-				if (numRoutedR > 1)
-				{
-					// Normalize output (both channels)
-					for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
-					{
-						outPtrWet[frame].leftRef() /= numRoutedL;
-						outPtrWet[frame].rightRef() /= numRoutedR;
-					}
-				}
-				else
-				{
-					// Normalize output (left channel)
-					for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
-					{
-						outPtrWet[frame].leftRef() /= numRoutedL;
-					}
-				}
-			}
-			else if (numRoutedR > 1)
-			{
-				// Normalize output (right channel)
-				for (f_cnt_t frame = 0; frame < inOut.frames; ++frame)
-				{
-					outPtrWet[frame].rightRef() /= numRoutedR;
-				}
+				outPtr[frame].rightRef() /= numRoutedR;
 			}
 		}
 	};
@@ -565,8 +475,8 @@ inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelC
 		const auto outChannel = static_cast<ch_cnt_t>(outChannelPairIdx * 2);
 
 		const std::uint8_t routedChannels =
-				(static_cast<std::uint8_t>(this->m_pc->m_routedChannels[outChannel]) << 1u)
-				| static_cast<std::uint8_t>(this->m_pc->m_routedChannels[outChannel + 1]);
+				(static_cast<std::uint8_t>(m_pc->m_routedChannels[outChannel]) << 1u)
+				| static_cast<std::uint8_t>(m_pc->m_routedChannels[outChannel + 1]);
 
 		switch (routedChannels)
 		{
@@ -589,24 +499,30 @@ inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelC
 	}
 }
 
+template<AudioDataLayout layout, typename SampleT, int channelCountIn, int channelCountOut>
+inline void PluginPinConnector::Router<layout, SampleT, channelCountIn, channelCountOut>::routeFromPlugin(
+	SplitAudioData<const SampleT, channelCountOut> in, CoreAudioBusMut inOut, float wet, float dry) const
+{
+	// TODO
+}
+
 // `SampleFrame` Router out-of-class definitions
 
-template<AudioDataLayout layout, int channelCountIn, int channelCountOut, bool wetDry>
-inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, channelCountOut, wetDry>::routeToPlugin(
+template<AudioDataLayout layout, int channelCountIn, int channelCountOut>
+inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, channelCountOut>::routeToPlugin(
 	CoreAudioBus in, CoreAudioDataMut out) const
 {
 	if constexpr (channelCountIn == 0) { return; }
 
-	assert(this->m_pc->m_in.channelCount() != DynamicChannelCount);
-	if (this->m_pc->m_in.channelCount() == 0) { return; }
-	assert(this->m_pc->m_in.channelCount() == 2); // SampleFrame routing only allows exactly 0 or 2 channels
+	assert(m_pc->m_in.channelCount() != DynamicChannelCount);
+	if (m_pc->m_in.channelCount() == 0) { return; }
+	assert(m_pc->m_in.channelCount() == 2); // SampleFrame routing only allows exactly 0 or 2 channels
 
 	// Ignore all unused track channels for better performance
-	const auto inSizeConstrained = this->m_pc->m_trackChannelsUpperBound / 2;
+	const auto inSizeConstrained = m_pc->m_trackChannelsUpperBound / 2;
 	assert(inSizeConstrained <= in.channelPairs);
 
 	// Zero the output buffer - TODO: std::memcpy?
-	assert(out.data() != nullptr);
 	std::fill(out.begin(), out.end(), SampleFrame{});
 
 	// Counters for # of in channels routed to the current pair of out channels
@@ -665,10 +581,10 @@ inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, chan
 
 		const std::uint8_t inChannel = inChannelPairIdx * 2;
 		const std::uint8_t enabledPins =
-			(static_cast<std::uint8_t>(this->m_pc->m_in.enabled(inChannel, 0)) << 3u)
-			| (static_cast<std::uint8_t>(this->m_pc->m_in.enabled(inChannel + 1, 0)) << 2u)
-			| (static_cast<std::uint8_t>(this->m_pc->m_in.enabled(inChannel, 1)) << 1u)
-			| static_cast<std::uint8_t>(this->m_pc->m_in.enabled(inChannel + 1, 1));
+			(static_cast<std::uint8_t>(m_pc->m_in.enabled(inChannel, 0)) << 3u)
+			| (static_cast<std::uint8_t>(m_pc->m_in.enabled(inChannel + 1, 0)) << 2u)
+			| (static_cast<std::uint8_t>(m_pc->m_in.enabled(inChannel, 1)) << 1u)
+			| static_cast<std::uint8_t>(m_pc->m_in.enabled(inChannel + 1, 1));
 
 		switch (enabledPins)
 		{
@@ -731,18 +647,18 @@ inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, chan
 	}
 }
 
-template<AudioDataLayout layout, int channelCountIn, int channelCountOut, bool wetDry>
-inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, channelCountOut, wetDry>::routeFromPlugin(
+template<AudioDataLayout layout, int channelCountIn, int channelCountOut>
+inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, channelCountOut>::routeFromPlugin(
 	CoreAudioData in, CoreAudioBusMut inOut) const
 {
 	if constexpr (channelCountOut == 0) { return; }
 
-	assert(this->m_pc->m_out.channelCount() != DynamicChannelCount);
-	if (this->m_pc->m_out.channelCount() == 0) { return; }
-	assert(this->m_pc->m_out.channelCount() == 2); // SampleFrame routing only allows exactly 0 or 2 channels
+	assert(m_pc->m_out.channelCount() != DynamicChannelCount);
+	if (m_pc->m_out.channelCount() == 0) { return; }
+	assert(m_pc->m_out.channelCount() == 2); // SampleFrame routing only allows exactly 0 or 2 channels
 
 	// Ignore all unused track channels for better performance
-	const auto inOutSizeConstrained = this->m_pc->m_trackChannelsUpperBound / 2;
+	const auto inOutSizeConstrained = m_pc->m_trackChannelsUpperBound / 2;
 	assert(inOutSizeConstrained <= inOut.channelPairs);
 
 	/*
@@ -751,7 +667,7 @@ inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, chan
 	 * output `SampleFrame*`. The purpose is to eliminate all branching within
 	 * the inner for-loop in hopes of better performance.
 	 */
-	auto route2x2 = [this, samples = inOut.frames * 2, inPtr = in.data()->data()](sample_t* outPtr, auto enabledPins) {
+	auto route2x2 = [samples = inOut.frames * 2, inPtr = in.data()->data()](sample_t* outPtr, auto enabledPins) {
 		constexpr auto epL =  static_cast<std::uint8_t>(enabledPins() >> 2); // for L out channel
 		constexpr auto epR = static_cast<std::uint8_t>(enabledPins() & 0b0011); // for R out channel
 
@@ -762,69 +678,32 @@ inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, chan
 
 		for (f_cnt_t sampleIdx = 0; sampleIdx < samples; sampleIdx += 2)
 		{
-			if constexpr (wetDry)
+			// Route to left output channel
+			if constexpr (epL == 0b11)
 			{
-				// Route to left output channel and perform wet/dry mixing
-				if constexpr (epL == 0b11)
-				{
-					outPtr[sampleIdx] = outPtr[sampleIdx] * this->m_dry
-						+ ((inPtr[sampleIdx] + inPtr[sampleIdx + 1]) / 2) * this->m_wet;
-				}
-				else if constexpr (epL == 0b01)
-				{
-					outPtr[sampleIdx] = outPtr[sampleIdx] * this->m_dry + inPtr[sampleIdx + 1] * this->m_wet;
-				}
-				else if constexpr (epL == 0b10)
-				{
-					outPtr[sampleIdx] = outPtr[sampleIdx] * this->m_dry + inPtr[sampleIdx] * this->m_wet;
-				}
-
-				// Route to right output channel and perform wet/dry mixing
-				if constexpr (epR == 0b11)
-				{
-					outPtr[sampleIdx + 1] = outPtr[sampleIdx + 1] * this->m_dry
-						+ ((inPtr[sampleIdx] + inPtr[sampleIdx + 1]) / 2) * this->m_wet;
-				}
-				else if constexpr (epR == 0b01)
-				{
-					outPtr[sampleIdx + 1] = outPtr[sampleIdx + 1] * this->m_dry + inPtr[sampleIdx + 1] * this->m_wet;
-				}
-				else if constexpr (epR == 0b10)
-				{
-					outPtr[sampleIdx + 1] = outPtr[sampleIdx + 1] * this->m_dry + inPtr[sampleIdx] * this->m_wet;
-				}
+				outPtr[sampleIdx] = (inPtr[sampleIdx] + inPtr[sampleIdx + 1]) / 2;
 			}
-			else
+			else if constexpr (epL == 0b01)
 			{
-				(void)this;
+				outPtr[sampleIdx] = inPtr[sampleIdx + 1];
+			}
+			else if constexpr (epL == 0b10)
+			{
+				outPtr[sampleIdx] = inPtr[sampleIdx];
+			}
 
-				// Route to left output channel
-				if constexpr (epL == 0b11)
-				{
-					outPtr[sampleIdx] = (inPtr[sampleIdx] + inPtr[sampleIdx + 1]) / 2;
-				}
-				else if constexpr (epL == 0b01)
-				{
-					outPtr[sampleIdx] = inPtr[sampleIdx + 1];
-				}
-				else if constexpr (epL == 0b10)
-				{
-					outPtr[sampleIdx] = inPtr[sampleIdx];
-				}
-
-				// Route to right output channel
-				if constexpr (epR == 0b11)
-				{
-					outPtr[sampleIdx + 1] = (inPtr[sampleIdx] + inPtr[sampleIdx + 1]) / 2;
-				}
-				else if constexpr (epR == 0b01)
-				{
-					outPtr[sampleIdx + 1] = inPtr[sampleIdx + 1];
-				}
-				else if constexpr (epR == 0b10)
-				{
-					outPtr[sampleIdx + 1] = inPtr[sampleIdx];
-				}
+			// Route to right output channel
+			if constexpr (epR == 0b11)
+			{
+				outPtr[sampleIdx + 1] = (inPtr[sampleIdx] + inPtr[sampleIdx + 1]) / 2;
+			}
+			else if constexpr (epR == 0b01)
+			{
+				outPtr[sampleIdx + 1] = inPtr[sampleIdx + 1];
+			}
+			else if constexpr (epR == 0b10)
+			{
+				outPtr[sampleIdx + 1] = inPtr[sampleIdx];
 			}
 		}
 	};
@@ -837,10 +716,10 @@ inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, chan
 
 		const ch_cnt_t outChannel = outChannelPairIdx * 2;
 		const std::uint8_t enabledPins =
-			(static_cast<std::uint8_t>(this->m_pc->m_out.enabled(outChannel, 0)) << 3u)
-			| (static_cast<std::uint8_t>(this->m_pc->m_out.enabled(outChannel, 1)) << 2u)
-			| (static_cast<std::uint8_t>(this->m_pc->m_out.enabled(outChannel + 1, 0)) << 1u)
-			| static_cast<std::uint8_t>(this->m_pc->m_out.enabled(outChannel + 1, 1));
+			(static_cast<std::uint8_t>(m_pc->m_out.enabled(outChannel, 0)) << 3u)
+			| (static_cast<std::uint8_t>(m_pc->m_out.enabled(outChannel, 1)) << 2u)
+			| (static_cast<std::uint8_t>(m_pc->m_out.enabled(outChannel + 1, 0)) << 1u)
+			| static_cast<std::uint8_t>(m_pc->m_out.enabled(outChannel + 1, 1));
 
 		switch (enabledPins)
 		{
@@ -865,6 +744,13 @@ inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, chan
 				break;
 		}
 	}
+}
+
+template<AudioDataLayout layout, int channelCountIn, int channelCountOut>
+inline void PluginPinConnector::Router<layout, SampleFrame, channelCountIn, channelCountOut>::routeFromPlugin(
+	CoreAudioData in, CoreAudioBusMut inOut, float wet, float dry) const
+{
+	// TODO
 }
 
 

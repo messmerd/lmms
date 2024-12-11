@@ -27,10 +27,8 @@
 #include <QDomElement>
 #include <cassert>
 
-#include "AudioEngine.h"
 #include "EffectChain.h"
 #include "Effect.h"
-#include "Engine.h"
 #include "DummyEffect.h"
 #include "MixHelpers.h"
 
@@ -43,8 +41,6 @@ EffectChain::EffectChain( Model * _parent ) :
 	SerializingObject(),
 	m_enabledModel( false, nullptr, tr( "Effects enabled" ) )
 {
-	connect(Engine::audioEngine(), &AudioEngine::sampleRateChanged, this, &EffectChain::updateWetDryBuffer);
-	updateWetDryBuffer();
 }
 
 
@@ -127,7 +123,6 @@ void EffectChain::appendEffect( Effect * _effect )
 {
 	Engine::audioEngine()->requestChangeInModel();
 	m_effects.push_back(_effect);
-	_effect->m_wetDryBuffer = m_wetDryBuffer.data();
 	Engine::audioEngine()->doneChangeInModel();
 
 	m_enabledModel.setValue( true );
@@ -148,8 +143,6 @@ void EffectChain::removeEffect( Effect * _effect )
 		Engine::audioEngine()->doneChangeInModel();
 		return;
 	}
-
-	_effect->m_wetDryBuffer = nullptr;
 	m_effects.erase( found );
 
 	Engine::audioEngine()->doneChangeInModel();
@@ -248,12 +241,6 @@ void EffectChain::clear()
 	Engine::audioEngine()->doneChangeInModel();
 
 	m_enabledModel.setValue( false );
-}
-
-
-void EffectChain::updateWetDryBuffer()
-{
-	m_wetDryBuffer.resize(Engine::audioEngine()->outputSampleRate());
 }
 
 
