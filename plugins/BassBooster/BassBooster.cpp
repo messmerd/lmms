@@ -83,11 +83,20 @@ ProcessStatus BassBoosterEffect::processImpl(CoreAudioDataMut inOut)
 	const float const_gain = m_bbControls.m_gainModel.value();
 	const ValueBuffer *gainBuffer = m_bbControls.m_gainModel.valueBuffer();
 
+	const float d = dryLevel();
+	const float w = wetLevel();
+
 	for (fpp_t f = 0; f < inOut.size(); ++f)
 	{
+		auto& currentFrame = inOut[f];
+
 		// Process copy of current sample frame
 		m_bbFX.setGain(gainBuffer ? gainBuffer->value(f) : const_gain);
-		m_bbFX.nextSample(inOut[f]);
+		auto s = currentFrame;
+		m_bbFX.nextSample(s);
+
+		// Dry/wet mix
+		currentFrame = currentFrame * d + s * w;
 	}
 
 	return ProcessStatus::ContinueIfNotQuiet;

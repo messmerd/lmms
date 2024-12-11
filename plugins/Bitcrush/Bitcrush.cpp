@@ -217,6 +217,8 @@ ProcessStatus BitcrushEffect::processImpl(CoreAudioDataMut inOut)
 
 	// now downsample and write it back to main buffer
 
+	const float d = dryLevel();
+	const float w = wetLevel();
 	for (auto f = std::size_t{0}; f < inOut.size(); ++f)
 	{
 		float lsum = 0.0f;
@@ -226,8 +228,8 @@ ProcessStatus BitcrushEffect::processImpl(CoreAudioDataMut inOut)
 			lsum += m_buffer[f * OS_RATE + o][0] * OS_RESAMPLE[o];
 			rsum += m_buffer[f * OS_RATE + o][1] * OS_RESAMPLE[o];
 		}
-		inOut[f][0] = qBound( -m_outClip, lsum, m_outClip ) * m_outGain;
-		inOut[f][1] = qBound( -m_outClip, rsum, m_outClip ) * m_outGain;
+		inOut[f][0] = d * inOut[f][0] + w * qBound( -m_outClip, lsum, m_outClip ) * m_outGain;
+		inOut[f][1] = d * inOut[f][1] + w * qBound( -m_outClip, rsum, m_outClip ) * m_outGain;
 	}
 
 	return ProcessStatus::ContinueIfNotQuiet;

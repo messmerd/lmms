@@ -60,6 +60,9 @@ DispersionEffect::DispersionEffect(Model* parent, const Descriptor::SubPluginFea
 
 ProcessStatus DispersionEffect::processImpl(CoreAudioDataMut inOut)
 {
+	const float d = dryLevel();
+	const float w = wetLevel();
+	
 	const int amount = m_dispersionControls.m_amountModel.value();
 	const float freq = m_dispersionControls.m_freqModel.value();
 	const float reso = m_dispersionControls.m_resoModel.value();
@@ -93,12 +96,11 @@ ProcessStatus DispersionEffect::processImpl(CoreAudioDataMut inOut)
 		m_feedbackVal[0] = m_feedbackVal[1] = 0;
 	}
 
-	for (SampleFrame& s : inOut)
+	for (SampleFrame& frame : inOut)
 	{
-		s[0] += m_feedbackVal[0];
-		s[1] += m_feedbackVal[1];
+		std::array<sample_t, 2> s = { frame[0] + m_feedbackVal[0], frame[1] + m_feedbackVal[1] };
 		
-		runDispersionAP(m_amountVal, apCoeff1, apCoeff2, s.data());
+		runDispersionAP(m_amountVal, apCoeff1, apCoeff2, s);
 		m_feedbackVal[0] = s[0] * feedback;
 		m_feedbackVal[1] = s[1] * feedback;
 		
@@ -111,13 +113,16 @@ ProcessStatus DispersionEffect::processImpl(CoreAudioDataMut inOut)
 				s[i] -= m_integrator[i];
 			}
 		}
+
+		frame[0] = d * frame[0] + w * s[0];
+		frame[1] = d * frame[1] + w * s[1];
 	}
 
 	return ProcessStatus::ContinueIfNotQuiet;
 }
 
 
-void DispersionEffect::runDispersionAP(const int filtNum, const float apCoeff1, const float apCoeff2, sample_t* put)
+void DispersionEffect::runDispersionAP(const int filtNum, const float apCoeff1, const float apCoeff2, std::array<sample_t, 2> &put)
 {
 	for (int i = 0; i < filtNum * 2; ++i)
 	{

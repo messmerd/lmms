@@ -59,6 +59,9 @@ AmplifierEffect::AmplifierEffect(Model* parent, const Descriptor::SubPluginFeatu
 
 ProcessStatus AmplifierEffect::processImpl(CoreAudioDataMut inOut)
 {
+	const float d = dryLevel();
+	const float w = wetLevel();
+
 	const ValueBuffer* volumeBuf = m_ampControls.m_volumeModel.valueBuffer();
 	const ValueBuffer* panBuf = m_ampControls.m_panModel.valueBuffer();
 	const ValueBuffer* leftBuf = m_ampControls.m_leftModel.valueBuffer();
@@ -74,7 +77,12 @@ ProcessStatus AmplifierEffect::processImpl(CoreAudioDataMut inOut)
 		const float panLeft = std::min(1.0f, 1.0f - pan);
 		const float panRight = std::min(1.0f, 1.0f + pan);
 
-		inOut[f] *= SampleFrame(left * panLeft, right * panRight) * volume;
+		auto& currentFrame = inOut[f];
+
+		const auto s = currentFrame * SampleFrame(left * panLeft, right * panRight) * volume;
+
+		// Dry/wet mix
+		currentFrame = currentFrame * d + s * w;
 	}
 
 	return ProcessStatus::ContinueIfNotQuiet;

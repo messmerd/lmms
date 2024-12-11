@@ -96,6 +96,9 @@ void MultitapEchoEffect::runFilter( SampleFrame* dst, SampleFrame* src, StereoOn
 
 ProcessStatus MultitapEchoEffect::processImpl(CoreAudioDataMut inOut)
 {
+	const float d = dryLevel();
+	const float w = wetLevel();
+
 	// get processing vars
 	const int steps = m_controls.m_steps.value();
 	const float stepLength = m_controls.m_stepLength.value();
@@ -145,7 +148,8 @@ ProcessStatus MultitapEchoEffect::processImpl(CoreAudioDataMut inOut)
 
 	for (auto f = std::size_t{0}; f < inOut.size(); ++f)
 	{
-		inOut[f] = m_work[f];
+		inOut[f][0] = d * inOut[f][0] + w * m_work[f][0];
+		inOut[f][1] = d * inOut[f][1] + w * m_work[f][1];
 	}
 
 	return ProcessStatus::ContinueIfNotQuiet;

@@ -84,6 +84,9 @@ StereoEnhancerEffect::~StereoEnhancerEffect()
 
 ProcessStatus StereoEnhancerEffect::processImpl(CoreAudioDataMut inOut)
 {
+	const float d = dryLevel();
+	const float w = wetLevel();
+
 	for (SampleFrame& frame : inOut)
 	{
 
@@ -108,8 +111,8 @@ ProcessStatus StereoEnhancerEffect::processImpl(CoreAudioDataMut inOut)
 
 		m_seFX.nextSample( s[0], s[1] );
 
-		frame[0] = s[0];
-		frame[1] = s[1];
+		frame[0] = d * frame[0] + w * s[0];
+		frame[1] = d * frame[1] + w * s[1];
 
 		// Update currFrame
 		m_currFrame += 1;

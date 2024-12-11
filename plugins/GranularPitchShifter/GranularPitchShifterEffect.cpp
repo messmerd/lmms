@@ -62,6 +62,9 @@ GranularPitchShifterEffect::GranularPitchShifterEffect(Model* parent, const Desc
 
 ProcessStatus GranularPitchShifterEffect::processImpl(CoreAudioDataMut inOut)
 {
+	const float d = dryLevel();
+	const float w = wetLevel();
+	
 	const ValueBuffer* pitchBuf = m_granularpitchshifterControls.m_pitchModel.valueBuffer();
 	const ValueBuffer* pitchSpreadBuf = m_granularpitchshifterControls.m_pitchSpreadModel.valueBuffer();
 
@@ -145,9 +148,8 @@ ProcessStatus GranularPitchShifterEffect::processImpl(CoreAudioDataMut inOut)
 			m_prefilter[1].setCoefs(m_sampleRate, std::min(m_nyquist / static_cast<float>(speed[1]), m_nyquist) * PrefilterBandwidth);
 		}
 		
+		std::array<float, 2> s = {0, 0};
 		std::array<float, 2> filtered = {inOut[f][0], inOut[f][1]};
-		SampleFrame& s = inOut[f];
-		s = SampleFrame{};
 		
 		// spawn a new grain if it's time
 		if (++m_timeSinceLastGrain >= m_nextWaitRandomization * waitMult)
@@ -230,6 +232,9 @@ ProcessStatus GranularPitchShifterEffect::processImpl(CoreAudioDataMut inOut)
 		
 		m_ringBuf[m_writePoint][0] = filtered[0] + s[0] * feedback;
 		m_ringBuf[m_writePoint][1] = filtered[1] + s[1] * feedback;
+			
+		inOut[f][0] = d * inOut[f][0] + w * s[0];
+		inOut[f][1] = d * inOut[f][1] + w * s[1];
 	}
 	
 	if (m_sampleRateNeedsUpdate)

@@ -65,9 +65,6 @@ struct PluginConfig
 
 	//! If true, plugin implementation will provide an `AudioPluginBufferInterfaceProvider`
 	bool customBuffer = false;
-
-	//! [Effects only] Fixes negative wet/dry levels by clamping them to wet=0, dry=1 (See #3261)
-	bool fixNegativeWetDryLevel = false;
 };
 
 class NotePlayHandle;
@@ -298,23 +295,8 @@ protected:
 		const auto bus = CoreAudioBusMut{&temp, 1, inOut.size()};
 		auto bufferInterface = this->bufferInterface();
 
-		float wet;
-		float dry;
-		if constexpr (config.fixNegativeWetDryLevel)
-		{
-			// #3261 - if w < 0, clamp w := 0, d := 1
-			bool corrupt = wetLevel() < 0;
-			wet = corrupt ? 0 : wetLevel();
-			dry = corrupt ? 1 : dryLevel();
-		}
-		else
-		{
-			wet = wetLevel();
-			dry = dryLevel();
-		}
-
 		auto router = m_pinConnector.getRouter<config.layout, SampleT, config.inputs, config.outputs>(
-			this->m_wetDryBuffer, wet, dry);
+			this->m_wetDryBuffer, wetLevel(), dryLevel());
 
 		ProcessStatus status;
 

@@ -68,6 +68,10 @@ ProcessStatus EqEffect::processImpl(CoreAudioDataMut inOut)
 {
 	const int sampleRate = Engine::audioEngine()->outputSampleRate();
 
+	//wet/dry controls
+	const float dry = dryLevel();
+	const float wet = wetLevel();
+	auto dryS = std::array<sample_t, 2>{};
 	// setup sample exact controls
 	float hpRes = m_eqControls.m_hpResModel.value();
 	float lowShelfRes = m_eqControls.m_lowShelfResModel.value();
@@ -166,7 +170,9 @@ ProcessStatus EqEffect::processImpl(CoreAudioDataMut inOut)
 	{
 		SampleFrame& frame = inOut[f];
 		periodProgress = static_cast<float>(f) / (inOut.size() - 1);
-
+		//wet dry buffer
+		dryS[0] = frame[0];
+		dryS[1] = frame[1];
 		if( hpActive )
 		{
 			frame[0] = m_hp12.update(frame[0], 0, periodProgress);
@@ -243,6 +249,12 @@ ProcessStatus EqEffect::processImpl(CoreAudioDataMut inOut)
 				frame[1] = m_lp481.update(frame[1], 1, periodProgress);
 			}
 		}
+
+		//apply wet / dry levels
+		frame[1] = (dry * dryS[1]) + (wet * frame[1]);
+		frame[0] = (dry * dryS[0]) + (wet * frame[0]);
+
+
 	}
 
 	SampleFrame outPeak = { 0, 0 };

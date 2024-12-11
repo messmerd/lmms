@@ -49,7 +49,7 @@ public:
 		return &m_dispersionControls;
 	}
 	
-	void runDispersionAP(const int filtNum, const float apCoeff1, const float apCoeff2, sample_t* put);
+	void runDispersionAP(const int filtNum, const float apCoeff1, const float apCoeff2, std::array<sample_t, 2> &put);
 
 private:
 	DispersionControls m_dispersionControls;

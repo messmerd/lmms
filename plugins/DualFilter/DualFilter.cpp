@@ -79,6 +79,9 @@ DualFilterEffect::~DualFilterEffect()
 
 ProcessStatus DualFilterEffect::processImpl(CoreAudioDataMut inOut)
 {
+	const float d = dryLevel();
+	const float w = wetLevel();
+
 	if (m_dfControls.m_filter1Model.isValueChanged() || m_filter1changed)
 	{
 		m_filter1->setFilterType( static_cast<BasicFilters<2>::FilterType>(m_dfControls.m_filter1Model.value()) );
@@ -129,16 +132,16 @@ ProcessStatus DualFilterEffect::processImpl(CoreAudioDataMut inOut)
 
 
 	// buffer processing loop
-	for (SampleFrame& s : inOut)
+	for (SampleFrame& frame : inOut)
 	{
 		// get mix amounts for wet signals of both filters
 		const float mix2 = ( ( *mixPtr + 1.0f ) * 0.5f );
 		const float mix1 = 1.0f - mix2;
 		const float gain1 = *gain1Ptr * 0.01f;
 		const float gain2 = *gain2Ptr * 0.01f;
-		auto s1 = std::array{s[0], s[1]};	// filter 1
-		auto s2 = std::array{s[0], s[1]};	// filter 2
-		s = SampleFrame{}; // mix
+		auto s = std::array{0.0f, 0.0f};	// mix
+		auto s1 = std::array{frame[0], frame[1]};	// filter 1
+		auto s2 = std::array{frame[0], frame[1]};	// filter 2
 
 		// update filter 1
 		if( enabled1 )
@@ -188,6 +191,10 @@ ProcessStatus DualFilterEffect::processImpl(CoreAudioDataMut inOut)
 			s[0] += ( s2[0] * mix2 );
 			s[1] += ( s2[1] * mix2 );
 		}
+
+		// do another mix with dry signal
+		frame[0] = d * frame[0] + w * s[0];
+		frame[1] = d * frame[1] + w * s[1];
 
 		//increment pointers
 		cut1Ptr += cut1Inc;
