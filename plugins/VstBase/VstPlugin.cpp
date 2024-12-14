@@ -24,9 +24,7 @@
 
 #include "VstPlugin.h"
 
-#include "RemotePlugin.h"
 #include "communication.h"
-#include "lmms_basics.h"
 
 #include <QtEndian>
 #include <QDebug>
@@ -55,6 +53,7 @@
 #include "LocaleHelper.h"
 #include "MainWindow.h"
 #include "PathUtil.h"
+#include "PluginPinConnector.h"
 #include "Song.h"
 #include "FileDialog.h"
 

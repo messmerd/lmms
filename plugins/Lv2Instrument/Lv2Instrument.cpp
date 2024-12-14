@@ -73,7 +73,7 @@ Plugin::Descriptor PLUGIN_EXPORT lv2instrument_plugin_descriptor =
 
 Lv2Instrument::Lv2Instrument(InstrumentTrack *instrumentTrackArg,
 	Descriptor::SubPluginFeatures::Key *key) :
-	AudioPluginInterface(&lv2instrument_plugin_descriptor, instrumentTrackArg, key,
+	Instrument(&lv2instrument_plugin_descriptor, instrumentTrackArg, key,
 #ifdef LV2_INSTRUMENT_USE_MIDI
 		Flag::IsSingleStreamed | Flag::IsMidiBased
 #else
@@ -177,7 +177,7 @@ bool Lv2Instrument::handleMidiEvent(
 
 // not yet working
 #ifndef LV2_INSTRUMENT_USE_MIDI
-void Lv2Instrument::processImpl(NotePlayHandle *nph, CoreAudioDataMut)
+void Lv2Instrument::playNoteImpl(NotePlayHandle *nph, CoreAudioDataMut)
 {
 }
 #endif
@@ -185,7 +185,7 @@ void Lv2Instrument::processImpl(NotePlayHandle *nph, CoreAudioDataMut)
 
 
 
-void Lv2Instrument::processImpl(CoreAudioDataMut out)
+void Lv2Instrument::playImpl(CoreAudioDataMut out)
 {
 	copyModelsFromLmms();
 

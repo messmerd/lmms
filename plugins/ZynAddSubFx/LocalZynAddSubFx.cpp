@@ -26,7 +26,6 @@
 
 #include <ctime>
 
-#include "lmms_basics.h"
 #include "lmmsconfig.h"
 
 #ifdef LMMS_BUILD_WIN32

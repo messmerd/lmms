@@ -30,8 +30,8 @@
 
 #include <array>
 
-#include "AudioPluginInterface.h"
 #include "AutomatableModel.h"
+#include "Instrument.h"
 #include "InstrumentView.h"
 
 namespace lmms

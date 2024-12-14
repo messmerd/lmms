@@ -31,7 +31,6 @@
 #include <QDropEvent>
 #include <QGridLayout>
 #include <QPushButton>
-#include <memory>
 
 #include "ZynAddSubFx.h"
 #include "ConfigManager.h"

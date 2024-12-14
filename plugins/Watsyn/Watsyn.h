@@ -26,7 +26,7 @@
 #ifndef WATSYN_H
 #define WATSYN_H
 
-#include "AudioPluginInterface.h"
+#include "Instrument.h"
 #include "InstrumentView.h"
 #include "Graph.h"
 #include "AutomatableModel.h"

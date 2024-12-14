@@ -29,8 +29,8 @@
 
 #include <stk/Instrmnt.h>
 
-#include "AudioPluginInterface.h"
 #include "ComboBox.h"
+#include "Instrument.h"
 #include "InstrumentView.h"
 #include "Knob.h"
 #include "NotePlayHandle.h"

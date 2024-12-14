@@ -32,7 +32,7 @@
 
 #include "AudioPluginInterface.h"
 #include "InstrumentView.h"
-#include "VstPlugin.h"
+
 
 class QPixmap;
 class QPushButton;
@@ -43,6 +43,7 @@ namespace lmms
 {
 
 class FloatModel;
+class VstPlugin;
 
 namespace gui
 {
@@ -70,11 +71,11 @@ public:
 
 	QString nodeName() const override;
 
-	void loadFile( const QString & _file ) override;
+	void loadFile(const QString& _file) override;
 
-	bool handleMidiEvent( const MidiEvent& event, const TimePos& time, f_cnt_t offset = 0 ) override;
+	bool handleMidiEvent(const MidiEvent& event, const TimePos& time, f_cnt_t offset = 0) override;
 
-	gui::PluginView* instantiateView( QWidget * _parent ) override;
+	gui::PluginView* instantiateView(QWidget* _parent) override;
 
 protected slots:
 	void setParameter( lmms::Model * action );
@@ -85,11 +86,7 @@ private:
 	void closePlugin();
 
 	auto bufferInterface() -> AudioPluginBufferInterface<AudioDataLayout::Split, float,
-		DynamicChannelCount, DynamicChannelCount>* override
-	{
-		return m_plugin;
-	}
-
+		DynamicChannelCount, DynamicChannelCount>* override;
 
 	VstPlugin * m_plugin;
 	QMutex m_pluginMutex;

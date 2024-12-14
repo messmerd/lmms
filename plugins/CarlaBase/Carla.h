@@ -54,8 +54,8 @@
 #endif
 
 // lmms/include/
-#include "AudioPluginInterface.h"
 #include "AutomatableModel.h"
+#include "Instrument.h"
 #include "InstrumentView.h"
 #include "SubWindow.h"
 
@@ -165,8 +165,8 @@ private:
 
 // -------------------------------------------------------------------
 
-// TODO: Add support for a variable number of audio input/output ports
-class CARLABASE_EXPORT CarlaInstrument : public DefaultMidiInstrumentPluginInterface
+// TODO: Add support for pin connector and variable number of audio input/output ports
+class CARLABASE_EXPORT CarlaInstrument : public Instrument
 {
     Q_OBJECT
 
@@ -189,7 +189,7 @@ public:
     QString nodeName() const override;
     void saveSettings(QDomDocument& doc, QDomElement& parent) override;
     void loadSettings(const QDomElement& elem) override;
-    void processImpl(CoreAudioDataMut out) override;
+    void playImpl(CoreAudioDataMut out) override;
     bool handleMidiEvent(const MidiEvent& event, const TimePos& time, f_cnt_t offset) override;
     gui::PluginView* instantiateView(QWidget* parent) override;
 

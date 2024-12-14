@@ -478,6 +478,16 @@ void VestigeInstrument::closePlugin( void )
 
 
 
+
+auto VestigeInstrument::bufferInterface() -> AudioPluginBufferInterface<AudioDataLayout::Split, float,
+	DynamicChannelCount, DynamicChannelCount>*
+{
+	return m_plugin;
+}
+
+
+
+
 gui::PluginView * VestigeInstrument::instantiateView( QWidget * _parent )
 {
 	return new gui::VestigeInstrumentView( this, _parent );

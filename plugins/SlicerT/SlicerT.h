@@ -29,8 +29,8 @@
 #include <fftw3.h>
 #include <stdexcept>
 
-#include "AudioPluginInterface.h"
 #include "AutomatableModel.h"
+#include "Instrument.h"
 #include "InstrumentView.h"
 #include "Note.h"
 #include "Sample.h"

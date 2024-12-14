@@ -28,7 +28,7 @@
 #include <QString>
 #include <array>
 
-#include "AudioPluginInterface.h"
+#include "Instrument.h"
 #include "InstrumentView.h"
 #include "Lv2ControlBase.h"
 #include "Lv2ViewBase.h"
@@ -48,8 +48,8 @@ class Lv2InsView;
 
 }
 
-// TODO: Modify Lv2 implementation to support a variable number of audio input/output ports
-class Lv2Instrument : public DefaultMidiInstrumentPluginInterface, public Lv2ControlBase
+// TODO: Add support for pin connector and a variable number of audio input/output ports
+class Lv2Instrument : public Instrument, public Lv2ControlBase
 {
 	Q_OBJECT
 signals:
@@ -79,9 +79,9 @@ public:
 	bool handleMidiEvent(const MidiEvent &event,
 		const TimePos &time = TimePos(), f_cnt_t offset = 0) override;
 #else
-	void processImpl(NotePlayHandle* nph, CoreAudioDataMut) override;
+	void playNoteImpl(NotePlayHandle* nph, CoreAudioDataMut) override;
 #endif
-	void processImpl(CoreAudioDataMut out) override;
+	void playImpl(CoreAudioDataMut out) override;
 
 	/*
 		misc

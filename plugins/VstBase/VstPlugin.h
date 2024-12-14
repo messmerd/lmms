@@ -31,10 +31,8 @@
 #include <QString>
 #include <QTimer>
 
-#include "AudioData.h"
 #include "AudioPluginBuffer.h"
 #include "JournallingObject.h"
-#include "PluginPinConnector.h"
 #include "RemotePlugin.h"
 
 #include "vstbase_export.h"
@@ -42,6 +40,7 @@
 namespace lmms
 {
 
+class PluginPinConnector;
 
 class VSTBASE_EXPORT VstPlugin
 	: public RemotePlugin

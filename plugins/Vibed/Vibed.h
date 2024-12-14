@@ -25,7 +25,7 @@
 #ifndef LMMS_VIBED_H
 #define LMMS_VIBED_H
 
-#include "AudioPluginInterface.h"
+#include "Instrument.h"
 #include "InstrumentView.h"
 #include "NineButtonSelector.h"
 #include "Knob.h"

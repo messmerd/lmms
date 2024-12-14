@@ -27,10 +27,9 @@
 
 #include <QString>
 
-#include "AudioPluginInterface.h"
+#include "Instrument.h"
 #include "InstrumentView.h"
 #include "AutomatableModel.h"
-#include "SampleFrame.h"
 
 class QPixmap;
 

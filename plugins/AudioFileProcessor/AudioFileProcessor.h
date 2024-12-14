@@ -26,11 +26,9 @@
 #ifndef LMMS_AUDIO_FILE_PROCESSOR_H
 #define LMMS_AUDIO_FILE_PROCESSOR_H
 
-
-#include "AudioPluginInterface.h"
 #include "AutomatableModel.h"
 #include "ComboBoxModel.h"
-
+#include "Instrument.h"
 #include "Sample.h"
 #include "lmms_basics.h"
 

@@ -27,11 +27,10 @@
 
 #include <cmath>
 
-#include "AudioPluginInterface.h"
+#include "Instrument.h"
 #include "InstrumentView.h"
 #include "AutomatableModel.h"
 #include "PixmapButton.h"
-#include "SampleFrame.h"
 
 
 #define makeknob( name, x, y, hint, unit, oname ) 		\

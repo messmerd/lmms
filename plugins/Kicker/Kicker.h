@@ -26,10 +26,9 @@
 #ifndef LMMS_KICKER_H
 #define LMMS_KICKER_H
 
-#include "AudioPluginInterface.h"
 #include "AutomatableModel.h"
+#include "Instrument.h"
 #include "InstrumentView.h"
-#include "SampleFrame.h"
 #include "TempoSyncKnobModel.h"
 
 

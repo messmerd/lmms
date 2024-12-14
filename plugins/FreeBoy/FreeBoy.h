@@ -28,11 +28,10 @@
 
 #include <Blip_Buffer.h>
 
-#include "AudioPluginInterface.h"
 #include "AutomatableModel.h"
+#include "Instrument.h"
 #include "InstrumentView.h"
 #include "Graph.h"
-#include "SampleFrame.h"
 
 namespace lmms
 {

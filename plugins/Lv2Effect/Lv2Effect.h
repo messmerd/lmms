@@ -31,7 +31,7 @@
 namespace lmms
 {
 
-// TODO: Modify Lv2 implementation to support a variable number of audio input/output ports
+// TODO: Add support for a variable number of audio input/output ports
 class Lv2Effect : public DefaultEffectPluginInterface
 {
 	Q_OBJECT

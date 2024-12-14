@@ -28,11 +28,10 @@
 
 #include <vector>
 
-#include "AudioPluginInterface.h"
 #include "ComboBoxModel.h"
+#include "Instrument.h"
 #include "InstrumentView.h"
 #include "AutomatableModel.h"
-#include "SampleFrame.h"
 #include "TempoSyncKnob.h"
 #include "PixmapButton.h"
 #include "Oscillator.h"

@@ -32,10 +32,9 @@
 #include <QMutex>
 #include <samplerate.h>
 
-#include "AudioPluginInterface.h"
+#include "Instrument.h"
 #include "InstrumentView.h"
 #include "LcdSpinBox.h"
-#include "SampleFrame.h"
 
 class QLabel;
 

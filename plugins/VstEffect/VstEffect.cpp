@@ -26,7 +26,6 @@
 #include "VstEffect.h"
 
 #include "GuiApplication.h"
-#include "PluginPinConnector.h"
 #include "Song.h"
 #include "TextFloat.h"
 #include "VstPlugin.h"
@@ -104,6 +103,15 @@ auto VstEffect::processImpl() -> ProcessStatus
 	}*/
 
 	return ProcessStatus::ContinueIfNotQuiet;
+}
+
+
+
+
+auto VstEffect::bufferInterface() -> AudioPluginBufferInterface<AudioDataLayout::Split, float,
+	DynamicChannelCount, DynamicChannelCount>*
+{
+	return m_plugin.get();
 }
 
 

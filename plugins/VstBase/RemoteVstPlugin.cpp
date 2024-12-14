@@ -179,7 +179,7 @@ public:
 #endif
 	~RemoteVstPlugin() override;
 
-	bool processMessage( const message & _m ) override;
+	bool processMessage(const message& _m) override;
 
 	void init( const std::string & _plugin_file );
 	void initEditor();
@@ -190,7 +190,7 @@ public:
 	void process(const float* _in, float* _out) override;
 
 
-	void processMidiEvent( const MidiEvent& event, const f_cnt_t offset ) override;
+	void processMidiEvent(const MidiEvent& event, const f_cnt_t offset) override;
 
 	// set given sample-rate for plugin
 	void updateSampleRate() override

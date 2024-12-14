@@ -26,12 +26,11 @@
 #ifndef PATMAN_H
 #define PATMAN_H
 
-#include "AudioPluginInterface.h"
+#include "Instrument.h"
 #include "InstrumentView.h"
 #include "Sample.h"
 #include "SampleBuffer.h"
 #include "AutomatableModel.h"
-#include "SampleFrame.h"
 
 namespace lmms
 {

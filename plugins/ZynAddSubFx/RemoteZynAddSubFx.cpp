@@ -25,7 +25,6 @@
 #include "RemoteZynAddSubFx.h"
 
 #include <lmmsconfig.h>
-#include "AudioData.h"
 #ifdef LMMS_BUILD_WIN32
 #include <winsock2.h>
 #endif

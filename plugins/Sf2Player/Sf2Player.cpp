@@ -41,7 +41,6 @@
 #include "NotePlayHandle.h"
 #include "PathUtil.h"
 #include "PixmapButton.h"
-#include "SampleFrame.h"
 #include "Song.h"
 #include "fluidsynthshims.h"
 

@@ -30,11 +30,11 @@
 
 #include "AudioPluginInterface.h"
 #include "VstEffectControls.h"
-#include "VstPlugin.h"
 
 namespace lmms
 {
 
+class VstPlugin;
 
 class VstEffect
 	: public AudioPluginInterface<Effect, float,
@@ -55,10 +55,7 @@ public:
 
 private:
 	auto bufferInterface() -> AudioPluginBufferInterface<AudioDataLayout::Split, float,
-		DynamicChannelCount, DynamicChannelCount>* override
-	{
-		return m_plugin.get();
-	}
+		DynamicChannelCount, DynamicChannelCount>* override;
 
 	//! Returns true if plugin was loaded (m_plugin != nullptr)
 	bool openPlugin(const QString& plugin);

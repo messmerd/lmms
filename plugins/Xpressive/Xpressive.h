@@ -29,8 +29,8 @@
 
 #include <QTextEdit>
 
-#include "AudioPluginInterface.h"
 #include "Graph.h"
+#include "Instrument.h"
 #include "InstrumentView.h"
 
 #include "ExprSynth.h"
