@@ -53,7 +53,7 @@
 #include "LocaleHelper.h"
 #include "MainWindow.h"
 #include "PathUtil.h"
-#include "PluginPinConnector.h"
+#include "RemotePluginAudioPort.h"
 #include "Song.h"
 #include "FileDialog.h"
 
@@ -267,7 +267,7 @@ void VstPlugin::loadSettings( const QDomElement & _this )
 		setParameterDump( dump );
 	}
 
-	audioPortController()->pinConnector().loadSettings(_this);
+	audioPortController()->pc().loadSettings(_this);
 }
 
 
@@ -311,7 +311,7 @@ void VstPlugin::saveSettings( QDomDocument & _doc, QDomElement & _this )
 	}
 
 	_this.setAttribute( "program", currentProgram() );
-	audioPortController()->pinConnector().saveSettings(_doc, _this);
+	audioPortController()->pc().saveSettings(_doc, _this);
 }
 
 void VstPlugin::toggleUI()

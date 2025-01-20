@@ -33,14 +33,13 @@
 
 #include "JournallingObject.h"
 #include "RemotePlugin.h"
-#include "RemotePluginAudioPort.h"
 
 #include "vstbase_export.h"
 
 namespace lmms
 {
 
-class PluginPinConnector;
+class RemotePluginAudioPortController;
 
 class VSTBASE_EXPORT VstPlugin
 	: public RemotePlugin

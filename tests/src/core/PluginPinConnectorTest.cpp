@@ -383,7 +383,7 @@ private slots:
 		trackChannels[33].setRight(987.f);
 
 		// Plugin input and output buffers
-		auto bufferSplit1x1 = AudioPluginBufferDefaultImpl<Config>{};
+		auto bufferSplit1x1 = DefaultAudioPluginBuffer<Config>{};
 		auto ins = bufferSplit1x1.inputBuffer();
 		auto outs = bufferSplit1x1.outputBuffer();
 
@@ -443,7 +443,7 @@ private slots:
 		trackChannels[33].setRight(987.f);
 
 		// Plugin input and output buffers
-		auto bufferSplit2x2 = AudioPluginBufferDefaultImpl<Config>{};
+		auto bufferSplit2x2 = DefaultAudioPluginBuffer<Config>{};
 		auto ins = bufferSplit2x2.inputBuffer();
 		auto outs = bufferSplit2x2.outputBuffer();
 
@@ -530,7 +530,7 @@ private slots:
 		trackChannels[33].setRight(987.f);
 
 		// Plugin input and output buffers
-		auto bufferSplit2x2 = AudioPluginBufferDefaultImpl<Config>{};
+		auto bufferSplit2x2 = DefaultAudioPluginBuffer<Config>{};
 		auto ins = bufferSplit2x2.inputBuffer();
 		auto outs = bufferSplit2x2.outputBuffer();
 
@@ -599,7 +599,7 @@ private slots:
 		trackChannels[33].setRight(987.f);
 
 		// Plugin input and output buffers
-		auto pluginBuffers = AudioPluginBufferDefaultImpl<Config>{};
+		auto pluginBuffers = DefaultAudioPluginBuffer<Config>{};
 		auto inOut = pluginBuffers.inputOutputBuffer();
 
 		// Route to plugin
@@ -676,7 +676,7 @@ private slots:
 		trackChannels[33].setRight(987.f);
 
 		// Plugin input and output buffers
-		auto bufferSplit1x2 = AudioPluginBufferDefaultImpl<Config>{};
+		auto bufferSplit1x2 = DefaultAudioPluginBuffer<Config>{};
 		auto ins = bufferSplit1x2.inputBuffer();
 		auto outs = bufferSplit1x2.outputBuffer();
 

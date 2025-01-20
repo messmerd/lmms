@@ -213,13 +213,13 @@ public:
 		using SampleT = GetAudioDataType<kind>;
 
 	public:
-		explicit Router(PluginPinConnector& parent) : m_pc{&parent} {}
+		explicit Router(const PluginPinConnector& parent) : m_pc{&parent} {}
 
 		void routeToPlugin(CoreAudioBus in, SplitAudioData<GetAudioDataType<kind>, config.inputs> out) const;
 		void routeFromPlugin(SplitAudioData<const GetAudioDataType<kind>, config.outputs> in, CoreAudioBusMut inOut) const;
 
 	private:
-		PluginPinConnector* m_pc;
+		const PluginPinConnector* m_pc;
 	};
 
 	//! `SampleFrame` routing
@@ -227,18 +227,18 @@ public:
 	class Router<config, AudioDataKind::SampleFrame, AudioDataLayout::Interleaved>
 	{
 	public:
-		explicit Router(PluginPinConnector& parent) : m_pc{&parent} {}
+		explicit Router(const PluginPinConnector& parent) : m_pc{&parent} {}
 
 		void routeToPlugin(CoreAudioBus in, CoreAudioDataMut out) const;
 		void routeFromPlugin(CoreAudioData in, CoreAudioBusMut inOut) const;
 
 	private:
-		PluginPinConnector* m_pc;
+		const PluginPinConnector* m_pc;
 	};
 
 
 	template<AudioPluginConfig config>
-	auto getRouter() -> Router<config>
+	auto getRouter() const -> Router<config>
 	{
 		return Router<config>{*this};
 	}

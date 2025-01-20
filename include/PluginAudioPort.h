@@ -44,14 +44,33 @@ struct PluginAudioPortTag {};
  */
 template<AudioPluginConfig config>
 class PluginAudioPort
-	: public PluginPinConnector // TODO: private inheritance?
+	: public PluginPinConnector
 	, public detail::PluginAudioPortTag
 {
 public:
+	PluginAudioPort(bool isInstrument, Model* parent)
+		: PluginPinConnector{isInstrument, parent}
+	{
+	}
+
 	auto pinConnector() const -> const PluginPinConnector&
 	{
 		return *static_cast<const PluginPinConnector*>(this);
 	}
+
+	auto pinConnector() -> PluginPinConnector&
+	{
+		return *static_cast<PluginPinConnector*>(this);
+	}
+
+	//! Returns the pin connector's router
+	auto getRouter() const -> PluginPinConnector::Router<config>
+	{
+		return static_cast<const PluginPinConnector*>(this)->getRouter<config>();
+	}
+
+	//! Returns nullptr if the port is unavailable (i.e. Vestige with no plugin loaded)
+	virtual auto buffers() -> AudioPluginBufferInterface<config>* = 0;
 
 	/**
 	 * Returns false if the plugin is not loaded.
@@ -70,22 +89,7 @@ public:
 	 */
 	constexpr static auto provideProcessBuffers() -> bool { return true; }
 
-protected:
-	PluginAudioPort(bool isInstrument, Model* parent)
-		: PluginPinConnector{isInstrument, parent}
-	{
-	}
-
-	auto pinConnector() -> PluginPinConnector& { return *static_cast<PluginPinConnector*>(this); }
-
-	//! Returns the pin connector's router
-	auto getRouter() const -> PluginPinConnector::Router<config>
-	{
-		return pinConnector().template getRouter<config>();
-	}
-
-	//! Returns nullptr if the port is unavailable (i.e. Vestige with no plugin loaded)
-	virtual auto buffers() -> AudioPluginBufferInterface<config>* = 0;
+	static constexpr auto pluginConfig() -> AudioPluginConfig { return config; }
 };
 
 
@@ -104,14 +108,12 @@ class PluginAudioPortDefaultImpl
 	static_assert(std::is_base_of_v<AudioPluginBufferInterface<config>, BufferT<config>>,
 		"BufferT must derive from AudioPluginBufferInterface");
 
-protected:
+public:
 	using PluginAudioPort<config>::PluginAudioPort;
 
 	auto buffers() -> BufferT<config>* final { return static_cast<BufferT<config>*>(this); }
 
-	static constexpr auto pluginConfig() -> AudioPluginConfig { return config; }
-
-private:
+protected:
 	void bufferPropertiesChanged(int inChannels, int outChannels, f_cnt_t frames) final
 	{
 		// Connects the pin connector to the buffers
@@ -122,28 +124,26 @@ private:
 
 //! Default audio port
 template<AudioPluginConfig config>
-using DefaultPluginAudioPort = PluginAudioPortDefaultImpl<config, AudioPluginBufferDefaultImpl>;
+using DefaultPluginAudioPort = PluginAudioPortDefaultImpl<config, DefaultAudioPluginBuffer>;
 
 
 //! Custom audio port - audio buffer interface to be implementated in child class
 template<AudioPluginConfig config>
-class PluginAudioPortCustom
+class CustomPluginAudioPort
 	: public PluginAudioPort<config>
 	, public AudioPluginBufferInterface<config>
 {
 public:
+	using PluginAudioPort<config>::PluginAudioPort;
+
 	constexpr static auto provideProcessBuffers() -> bool { return false; }
 
 protected:
-	using PluginAudioPort<config>::PluginAudioPort;
-
 	void bufferPropertiesChanged(int inChannels, int outChannels, f_cnt_t frames) override
 	{
 		// Connects the pin connector to the buffers
 		this->updateBuffers(inChannels, outChannels, frames);
 	}
-
-	static constexpr auto pluginConfig() -> AudioPluginConfig { return config; }
 };
 
 

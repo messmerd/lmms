@@ -41,6 +41,7 @@ public:
 	//! Call after a RemotePlugin is created
 	void activate(RemotePlugin* remotePlugin)
 	{
+		assert(remotePlugin != nullptr);
 		m_remotePlugin = remotePlugin;
 		remotePluginUpdateBuffers(
 			m_pinConnector->in().channelCount(),
@@ -54,7 +55,7 @@ public:
 		m_remotePlugin = nullptr;
 	}
 
-	auto pinConnector() -> PluginPinConnector&
+	auto pc() -> PluginPinConnector&
 	{
 		return *m_pinConnector;
 	}
@@ -74,13 +75,17 @@ protected:
 //! `PluginAudioPort` implementation for `RemotePlugin`
 template<AudioPluginConfig config>
 class RemotePluginAudioPort
-	: public PluginAudioPortCustom<config>
+	: public CustomPluginAudioPort<config>
 	, public RemotePluginAudioPortController
 {
 	using SampleT = GetAudioDataType<config.kind>;
 
 public:
-	using PluginAudioPortCustom<config>::PluginAudioPortCustom;
+	RemotePluginAudioPort(bool isInstrument, Model* parent)
+		: CustomPluginAudioPort<config>{isInstrument, parent}
+		, RemotePluginAudioPortController{*static_cast<PluginPinConnector*>(this)}
+	{
+	}
 
 	static_assert(config.kind == AudioDataKind::F32, "RemotePlugin only supports float");
 	static_assert(config.layout == AudioDataLayout::Split, "RemotePlugin only supports non-interleaved");
@@ -96,7 +101,7 @@ public:
 	 */
 
 	//! Only returns the buffer interface if audio port is active
-	auto buffers() -> AudioPluginBufferInterface<config>* final
+	auto buffers() -> AudioPluginBufferInterface<config>* override
 	{
 		return active() ? this : nullptr;
 	}
@@ -108,13 +113,13 @@ public:
 	auto inputBuffer() -> SplitAudioData<SampleT, config.inputs> override
 	{
 		assert(m_remotePlugin != nullptr);
-		return {m_audioBufferIn.data(), this->in().channelCount(), m_frames};
+		return {m_audioBufferIn.data(), static_cast<pi_ch_t>(this->in().channelCount()), m_frames};
 	}
 
 	auto outputBuffer() -> SplitAudioData<SampleT, config.outputs> override
 	{
 		assert(m_remotePlugin != nullptr);
-		return {m_audioBufferOut.data(), this->out().channelCount(), m_frames};
+		return {m_audioBufferOut.data(), static_cast<pi_ch_t>(this->out().channelCount()), m_frames};
 	}
 
 	void updateBuffers(int channelsIn, int channelsOut, f_cnt_t frames) override
@@ -155,12 +160,74 @@ public:
 		}
 	}
 
-	auto active() const -> bool final { return m_remotePlugin != nullptr; }
+	auto active() const -> bool override { return m_remotePlugin != nullptr; }
 
 private:
 	// Views into RemotePlugin's shared memory buffer
 	std::vector<SplitSampleType<float>*> m_audioBufferIn;
 	std::vector<SplitSampleType<float>*> m_audioBufferOut;
+};
+
+
+//! An audio port that can choose between RemotePlugin or a local buffer at runtime
+template<AudioPluginConfig config, class LocalBufferT = DefaultAudioPluginBuffer<config>>
+class ConfigurableAudioPort
+	: public RemotePluginAudioPort<config>
+{
+	using SampleT = GetAudioDataType<config.kind>;
+
+public:
+	using RemotePluginAudioPort<config>::RemotePluginAudioPort;
+
+	void useRemote(bool remote = true)
+	{
+		if (remote)
+		{
+			this->activate(this->m_remotePlugin);
+			m_isRemote = remote;
+			m_localBuffer.reset();
+		}
+		else
+		{
+			this->deactivate();
+			m_isRemote = remote;
+			m_localBuffer.emplace();
+		}
+	}
+
+	auto isRemote() const { return m_isRemote; }
+
+	auto buffers() -> AudioPluginBufferInterface<config>* override
+	{
+		return isRemote()
+			? RemotePluginAudioPort<config>::buffers()
+			: &m_localBuffer.value();
+	}
+
+	auto inputBuffer() -> SplitAudioData<SampleT, config.inputs> override
+	{
+		return isRemote()
+			? RemotePluginAudioPort<config>::inputBuffer()
+			: m_localBuffer->inputBuffer();
+	}
+
+	auto outputBuffer() -> SplitAudioData<SampleT, config.outputs> override
+	{
+		return isRemote()
+			? RemotePluginAudioPort<config>::outputBuffer()
+			: m_localBuffer->outputBuffer();
+	}
+
+	auto active() const -> bool override
+	{
+		return isRemote()
+			? RemotePluginAudioPort<config>::active()
+			: true;
+	}
+
+private:
+	std::optional<LocalBufferT> m_localBuffer;
+	bool m_isRemote = true;
 };
 
 

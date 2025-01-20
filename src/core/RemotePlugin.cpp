@@ -142,11 +142,11 @@ RemotePlugin::RemotePlugin(RemotePluginAudioPortController& controller, Model* p
 	, RemotePluginBase{}
 #endif
 	, m_failed{true}
-	, m_audioPortController{&controller}
 	, m_watcher{this}
 #if (QT_VERSION < QT_VERSION_CHECK(5,14,0))
 	, m_commMutex{QMutex::Recursive}
 #endif
+	, m_audioPortController{&controller}
 {
 #ifndef SYNC_WITH_SHM_FIFO
 	struct sockaddr_un sa;
@@ -502,15 +502,15 @@ bool RemotePlugin::processMessage( const message & _m )
 			break;
 
 		case IdChangeInputCount:
-			m_audioPortController->pinConnector().setPluginChannelCountIn(_m.getInt(0));
+			m_audioPortController->pc().setPluginChannelCountIn(_m.getInt(0));
 			break;
 
 		case IdChangeOutputCount:
-			m_audioPortController->pinConnector().setPluginChannelCountOut(_m.getInt(0));
+			m_audioPortController->pc().setPluginChannelCountOut(_m.getInt(0));
 			break;
 
 		case IdChangeInputOutputCount:
-			m_audioPortController->pinConnector().setPluginChannelCounts(_m.getInt(0), _m.getInt(1));
+			m_audioPortController->pc().setPluginChannelCounts(_m.getInt(0), _m.getInt(1));
 			break;
 
 		case IdDebugMessage:

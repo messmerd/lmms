@@ -152,8 +152,8 @@ template<AudioPluginConfig config, class AudioPortT>
 class AudioPlugin<Instrument, config, AudioPortT>
 	: public Instrument
 	, public AudioProcessingMethod<Instrument,
-		typename AudioDataViewSelector<config.kind, config.layout, config.inputs, true>::type,
 		typename AudioDataViewSelector<config.kind, config.layout, config.inputs, false>::type,
+		typename AudioDataViewSelector<config.kind, config.layout, config.inputs, true>::type,
 		config.inplace, AudioPortT::provideProcessBuffers()>
 {
 public:
@@ -170,7 +170,9 @@ protected:
 
 	auto pinConnector() const -> const PluginPinConnector* final
 	{
-		return m_audioPort.pinConnector();
+		return m_audioPort.active()
+			? &m_audioPort.pinConnector()
+			: nullptr;
 	}
 
 	void playImpl(CoreAudioDataMut inOut) final
@@ -189,7 +191,7 @@ protected:
 		if constexpr (config.inplace)
 		{
 			// Write core to plugin input buffer
-			const auto pluginInOut = buffers->inputBuffer();
+			const auto pluginInOut = buffers->inputOutputBuffer();
 			router.routeToPlugin(bus, pluginInOut);
 
 			// Process
@@ -237,8 +239,8 @@ template<AudioPluginConfig config, class AudioPortT>
 class AudioPlugin<Effect, config, AudioPortT>
 	: public Effect
 	, public AudioProcessingMethod<Effect,
-		typename AudioDataViewSelector<config.kind, config.layout, config.inputs, true>::type,
 		typename AudioDataViewSelector<config.kind, config.layout, config.inputs, false>::type,
+		typename AudioDataViewSelector<config.kind, config.layout, config.inputs, true>::type,
 		config.inplace, AudioPortT::provideProcessBuffers()>
 {
 public:
@@ -254,7 +256,9 @@ protected:
 
 	auto pinConnector() const -> const PluginPinConnector* final
 	{
-		return m_audioPort.pinConnector();
+		return m_audioPort.active()
+			? &m_audioPort.pinConnector()
+			: nullptr;
 	}
 
 	auto processAudioBufferImpl(CoreAudioDataMut inOut) -> bool final
@@ -276,7 +280,7 @@ protected:
 		if constexpr (config.inplace)
 		{
 			// Write core to plugin input buffer
-			const auto pluginInOut = buffers->inputBuffer();
+			const auto pluginInOut = buffers->inputOutputBuffer();
 			router.routeToPlugin(bus, pluginInOut);
 
 			// Process
@@ -375,6 +379,8 @@ class AudioPlugin
 
 public:
 	using Base::Base;
+
+	static constexpr auto pluginConfig() -> AudioPluginConfig { return config; }
 };
 
 

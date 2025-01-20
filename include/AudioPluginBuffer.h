@@ -25,7 +25,6 @@
 #ifndef LMMS_AUDIO_PLUGIN_BUFFER_H
 #define LMMS_AUDIO_PLUGIN_BUFFER_H
 
-#include <QObject>
 #include <type_traits>
 #include <vector>
 
@@ -315,17 +314,7 @@ using AudioPluginBufferInterface = detail::AudioPluginBufferInterface<config>;
 
 //! Default implementation of `AudioPluginBufferInterface`
 template<AudioPluginConfig config>
-using AudioPluginBufferDefaultImpl = detail::AudioPluginBufferDefaultImpl<config>;
-
-
-/**
- * Buffer to be implemented by the plugin implementation.
- * Use in an audio port's template parameter.
- */
-template<AudioPluginConfig config>
-class AudioPluginBufferCustom : public AudioPluginBufferInterface<config>
-{
-};
+using DefaultAudioPluginBuffer = detail::AudioPluginBufferDefaultImpl<config>;
 
 
 } // namespace lmms
