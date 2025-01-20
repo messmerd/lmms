@@ -227,6 +227,10 @@ inline void copyFromSampleFrames(InterleavedSampleType<float>* target, const Sam
 	}
 }
 
+// Enable `SampleFrame` to use the AudioDataType metafunction
+namespace detail {
+template<> struct AudioDataType<AudioDataKind::SampleFrame> { using type = SampleFrame; };
+} // namespace detail
 
 //! A non-owning `SampleFrame` buffer (interleaved, 2-channel)
 using CoreAudioData = Span<const SampleFrame>;

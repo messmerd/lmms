@@ -31,9 +31,9 @@
 #include <QString>
 #include <QTimer>
 
-#include "AudioPluginBuffer.h"
 #include "JournallingObject.h"
 #include "RemotePlugin.h"
+#include "RemotePluginAudioPort.h"
 
 #include "vstbase_export.h"
 
@@ -45,11 +45,10 @@ class PluginPinConnector;
 class VSTBASE_EXPORT VstPlugin
 	: public RemotePlugin
 	, public JournallingObject
-	, public AudioPluginBufferInterface<AudioDataLayout::Split, float, DynamicChannelCount, DynamicChannelCount>
 {
 	Q_OBJECT
 public:
-	VstPlugin(const QString& plugin, PluginPinConnector* pinConnector, Model* parent = nullptr);
+	VstPlugin(const QString& plugin, RemotePluginAudioPortController& controller, Model* parent = nullptr);
 	~VstPlugin() override;
 
 	void tryLoad( const QString &remoteVstPluginExecutable );
@@ -128,12 +127,6 @@ public:
 
 	QString embedMethod() const;
 
-	auto inputBuffer() -> SplitAudioData<float> override;
-	auto outputBuffer() -> SplitAudioData<float> override;
-	void updateBuffers(int channelsIn, int channelsOut) override;
-
-	void bufferUpdated() override;
-
 public slots:
 	void setTempo( lmms::bpm_t _bpm );
 	void updateSampleRate();
@@ -181,10 +174,6 @@ private:
 	int m_currentProgram;
 
 	QTimer m_idleTimer;
-
-	// Views into RemotePlugin's shared memory buffer
-	std::vector<SplitSampleType<float>*> m_audioBufferIn;
-	std::vector<SplitSampleType<float>*> m_audioBufferOut;
 };
 
 

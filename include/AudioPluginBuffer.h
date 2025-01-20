@@ -1,7 +1,7 @@
 /*
  * AudioPluginBuffer.h - Customizable working buffer for plugins
  *
- * Copyright (c) 2024 Dalton Messmer <messmer.dalton/at/gmail.com>
+ * Copyright (c) 2025 Dalton Messmer <messmer.dalton/at/gmail.com>
  *
  * This file is part of LMMS - https://lmms.io
  *
@@ -31,12 +31,14 @@
 
 #include "AudioData.h"
 #include "AudioEngine.h"
+#include "AudioPluginConfig.h"
 #include "Engine.h"
 #include "SampleFrame.h"
 #include "lmms_basics.h"
 
 namespace lmms
 {
+
 
 namespace detail
 {
@@ -45,113 +47,116 @@ namespace detail
  * Metafunction to select the appropriate non-owning audio buffer view
  * given the layout, sample type, and channel count
  */
-template<AudioDataLayout layout, typename SampleT, int numChannels>
-struct AudioDataTypeSelector
+template<AudioDataKind kind, AudioDataLayout layout, int channels, bool isConst>
+struct AudioDataViewSelector
 {
-	static_assert(always_false_v<AudioDataTypeSelector<layout, SampleT, numChannels>>,
+	static_assert(always_false_v<AudioDataViewSelector<kind, layout, channels, isConst>>,
 		"Unsupported audio data type");
 };
 
-template<typename SampleT, int channelCount>
-struct AudioDataTypeSelector<AudioDataLayout::Split, SampleT, channelCount>
+//! Non-interleaved specialization
+template<AudioDataKind kind, int channels, bool isConst>
+struct AudioDataViewSelector<kind, AudioDataLayout::Split, channels, isConst>
 {
-	using type = SplitAudioData<SampleT, channelCount>;
+	using type = SplitAudioData<
+		std::conditional_t<isConst, const GetAudioDataType<kind>, GetAudioDataType<kind>>,
+		channels>;
 };
 
-template<int channelCount>
-struct AudioDataTypeSelector<AudioDataLayout::Interleaved, SampleFrame, channelCount>
+//! SampleFrame specialization
+template<int channels, bool isConst>
+struct AudioDataViewSelector<AudioDataKind::SampleFrame, AudioDataLayout::Interleaved, channels, isConst>
 {
-	static_assert(channelCount == 0 || channelCount == 2,
+	static_assert(channels == 0 || channels == 2,
 		"Plugins using SampleFrame buffers must have exactly 0 or 2 inputs or outputs");
-	using type = CoreAudioDataMut;
+	using type = std::conditional_t<isConst, CoreAudioData, CoreAudioDataMut>;
 };
-
-template<int channelCount>
-struct AudioDataTypeSelector<AudioDataLayout::Interleaved, const SampleFrame, channelCount>
-{
-	static_assert(channelCount == 0 || channelCount == 2,
-		"Plugins using SampleFrame buffers must have exactly 0 or 2 inputs or outputs");
-	using type = CoreAudioData;
-};
-
-
-} // namespace detail
 
 
 //! Provides a view into a plugin's input and output audio buffers
-template<AudioDataLayout layout, typename SampleT, int numChannelsIn, int numChannelsOut>
-class AudioPluginBufferInterface
+template<AudioPluginConfig config, bool inplace = config.inplace>
+class AudioPluginBufferInterface;
+
+//! Non-inplace specialization
+template<AudioPluginConfig config>
+class AudioPluginBufferInterface<config, false>
 {
 public:
 	virtual ~AudioPluginBufferInterface() = default;
-	virtual auto inputBuffer() -> typename detail::AudioDataTypeSelector<layout, SampleT, numChannelsIn>::type = 0;
-	virtual auto outputBuffer() -> typename detail::AudioDataTypeSelector<layout, SampleT, numChannelsOut>::type = 0;
-	virtual void updateBuffers(int channelsIn, int channelsOut) = 0;
+
+	virtual auto inputBuffer()
+		-> typename detail::AudioDataViewSelector<config.kind, config.layout, config.inputs, false>::type = 0;
+
+	virtual auto outputBuffer()
+		-> typename detail::AudioDataViewSelector<config.kind, config.layout, config.outputs, false>::type = 0;
+
+	virtual void updateBuffers(int channelsIn, int channelsOut, f_cnt_t frames) = 0;
 };
 
-
-//! This lets plugin implementations provide their own buffers
-template<AudioDataLayout layout, typename SampleT, int numChannelsIn, int numChannelsOut>
-class AudioPluginBufferInterfaceProvider
+//! Inplace specialization
+template<AudioPluginConfig config>
+class AudioPluginBufferInterface<config, true>
 {
-protected:
-	virtual auto bufferInterface()
-		-> AudioPluginBufferInterface<layout, SampleT, numChannelsIn, numChannelsOut>* = 0;
+public:
+	virtual ~AudioPluginBufferInterface() = default;
+
+	virtual auto inputOutputBuffer()
+		-> typename detail::AudioDataViewSelector<config.kind, config.layout, config.inputs, false>::type = 0;
+
+	virtual void updateBuffers(int channelsIn, int channelsOut, f_cnt_t frames) = 0;
 };
 
 
 //! Default implementation of `AudioPluginBufferInterface`
-template<AudioDataLayout layout, typename SampleT, int numChannelsIn, int numChannelsOut, bool inplace>
+template<AudioPluginConfig config,
+	AudioDataKind kind = config.kind, AudioDataLayout layout = config.layout, bool inplace = config.inplace>
 class AudioPluginBufferDefaultImpl;
 
-//! Specialization for split (non-interleaved) buffers
-template<typename SampleT, int numChannelsIn, int numChannelsOut, bool inplace>
-class AudioPluginBufferDefaultImpl<AudioDataLayout::Split, SampleT, numChannelsIn, numChannelsOut, inplace>
-	: public AudioPluginBufferInterface<AudioDataLayout::Split, SampleT, numChannelsIn, numChannelsOut>
-	, public AudioPluginBufferInterfaceProvider<AudioDataLayout::Split, SampleT, numChannelsIn, numChannelsOut>
+//! Specialization for non-inplace, non-interleaved buffers
+template<AudioPluginConfig config, AudioDataKind kind>
+class AudioPluginBufferDefaultImpl<config, kind, AudioDataLayout::Split, false>
+	: public AudioPluginBufferInterface<config>
 {
 	static constexpr bool s_hasStaticChannelCount
-		= numChannelsIn != DynamicChannelCount && numChannelsOut != DynamicChannelCount;
+		= config.inputs != DynamicChannelCount && config.outputs != DynamicChannelCount;
+
+	using SampleT = GetAudioDataType<kind>;
 
 	// Optimization to avoid need for std::vector if size is known at compile time
 	using AccessBufferType = std::conditional_t<
 		s_hasStaticChannelCount,
-		std::array<SplitSampleType<SampleT>*, static_cast<std::size_t>(numChannelsIn + numChannelsOut)>,
+		std::array<SplitSampleType<SampleT>*, static_cast<std::size_t>(config.inputs + config.outputs)>,
 		std::vector<SplitSampleType<SampleT>*>>;
 
 public:
-	static_assert(numChannelsIn == numChannelsOut || !inplace,
-		"compile-time inplace buffers must have same number of input channels and output channels");
-
 	AudioPluginBufferDefaultImpl()
-		: m_frames{Engine::audioEngine()->framesPerPeriod()}
 	{
-		updateBuffers(numChannelsIn, numChannelsOut);
+		updateBuffers(config.inputs, config.outputs, Engine::audioEngine()->framesPerPeriod());
 	}
 
 	~AudioPluginBufferDefaultImpl() override = default;
 
-	auto inputBuffer() -> SplitAudioData<SampleT, numChannelsIn> final
+	auto inputBuffer() -> SplitAudioData<SampleT, config.inputs> final
 	{
-		return SplitAudioData<SampleT, numChannelsIn> {
+		return SplitAudioData<SampleT, config.inputs> {
 			m_accessBuffer.data(), static_cast<pi_ch_t>(m_channelsIn), m_frames
 		};
 	}
 
-	auto outputBuffer() -> SplitAudioData<SampleT, numChannelsOut> final
+	auto outputBuffer() -> SplitAudioData<SampleT, config.outputs> final
 	{
-		return SplitAudioData<SampleT, numChannelsOut> {
+		return SplitAudioData<SampleT, config.outputs> {
 			m_accessBuffer.data() + static_cast<pi_ch_t>(m_channelsIn),
 			static_cast<pi_ch_t>(m_channelsOut),
 			m_frames
 		};
 	}
 
-	void updateBuffers(int channelsIn, int channelsOut) final
+	void updateBuffers(int channelsIn, int channelsOut, f_cnt_t frames) final
 	{
 		if (channelsIn == DynamicChannelCount || channelsOut == DynamicChannelCount) { return; }
 
-		m_frames = Engine::audioEngine()->framesPerPeriod();
+		m_frames = frames;
 		const auto channels = static_cast<std::size_t>(channelsIn + channelsOut);
 
 		m_sourceBuffer.resize(channels * m_frames);
@@ -162,8 +167,8 @@ public:
 		else
 		{
 			// If channel counts are known at compile time, they should never change
-			assert(channelsIn == numChannelsIn);
-			assert(channelsOut == numChannelsOut);
+			assert(channelsIn == config.inputs);
+			assert(channelsOut == config.outputs);
 		}
 
 		std::size_t idx = 0;
@@ -179,10 +184,84 @@ public:
 		m_channelsOut = channelsOut;
 	}
 
-protected:
-	auto bufferInterface() -> AudioPluginBufferDefaultImpl* final
+private:
+	//! All input buffers followed by all output buffers
+	std::vector<SplitSampleType<SampleT>> m_sourceBuffer;
+
+	//! Provides [channel][frame] view into `m_sourceBuffer`
+	AccessBufferType m_accessBuffer;
+
+	int m_channelsIn = config.inputs;
+	int m_channelsOut = config.outputs;
+	f_cnt_t m_frames = 0;
+};
+
+
+//! Specialization for inplace, non-interleaved buffers
+template<AudioPluginConfig config, AudioDataKind kind>
+class AudioPluginBufferDefaultImpl<config, kind, AudioDataLayout::Split, true>
+	: public AudioPluginBufferInterface<config>
+{
+	static constexpr bool s_hasStaticChannelCount
+		= config.inputs != DynamicChannelCount && config.outputs != DynamicChannelCount;
+
+	static_assert(config.inputs == config.outputs || config.inputs == 0 || config.outputs == 0,
+		"compile-time inplace buffers must have same number of input channels and output channels, "
+		"or one of the channel counts must be fixed at zero");
+
+	using SampleT = GetAudioDataType<kind>;
+
+	// Optimization to avoid need for std::vector if size is known at compile time
+	using AccessBufferType = std::conditional_t<
+		s_hasStaticChannelCount,
+		std::array<SplitSampleType<SampleT>*, static_cast<std::size_t>(config.outputs)>,
+		std::vector<SplitSampleType<SampleT>*>>;
+
+public:
+	AudioPluginBufferDefaultImpl()
 	{
-		return this;
+		updateBuffers(config.inputs, config.outputs, Engine::audioEngine()->framesPerPeriod());
+	}
+
+	~AudioPluginBufferDefaultImpl() override = default;
+
+	auto inputOutputBuffer() -> SplitAudioData<SampleT, config.outputs> final
+	{
+		return SplitAudioData<SampleT, config.outputs> {
+			m_accessBuffer.data(), static_cast<pi_ch_t>(m_channels), m_frames
+		};
+	}
+
+	void updateBuffers(int channelsIn, int channelsOut, f_cnt_t frames) final
+	{
+		assert(channelsIn == channelsOut || channelsIn == 0 || channelsOut == 0);
+		if (channelsIn == DynamicChannelCount || channelsOut == DynamicChannelCount) { return; }
+
+		m_frames = frames;
+		const auto channels = std::max<std::size_t>(channelsIn, channelsOut);
+
+		m_sourceBuffer.resize(channels * m_frames);
+		if constexpr (!s_hasStaticChannelCount)
+		{
+			m_accessBuffer.resize(channels);
+		}
+		else
+		{
+			// If channel counts are known at compile time, they should never change
+			assert(channelsIn == config.inputs);
+			assert(channelsOut == config.outputs);
+		}
+
+		std::size_t idx = 0;
+		f_cnt_t pos = 0;
+		while (idx < channels)
+		{
+			m_accessBuffer[idx] = m_sourceBuffer.data() + pos;
+			++idx;
+			pos += m_frames;
+		}
+
+		m_channels = channelsOut;
 	}
 
 private:
@@ -192,52 +271,60 @@ private:
 	//! Provides [channel][frame] view into `m_sourceBuffer`
 	AccessBufferType m_accessBuffer;
 
-	int m_channelsIn = numChannelsIn;
-	int m_channelsOut = numChannelsOut;
+	int m_channels = config.outputs;
 	f_cnt_t m_frames = 0;
 };
 
+
 //! Specialization for 2-channel SampleFrame buffers
-template<int numChannelsIn, int numChannelsOut, bool inplace>
-class AudioPluginBufferDefaultImpl<AudioDataLayout::Interleaved, SampleFrame, numChannelsIn, numChannelsOut, inplace>
-	: public AudioPluginBufferInterface<AudioDataLayout::Interleaved, SampleFrame, numChannelsIn, numChannelsOut>
-	, public AudioPluginBufferInterfaceProvider<AudioDataLayout::Interleaved, SampleFrame, numChannelsIn, numChannelsOut>
+template<AudioPluginConfig config>
+class AudioPluginBufferDefaultImpl<config, AudioDataKind::SampleFrame, AudioDataLayout::Interleaved, true>
+	: public AudioPluginBufferInterface<config>
 {
 public:
-	static_assert(inplace, "SampleFrame buffers are always processed in-place");
-
 	AudioPluginBufferDefaultImpl()
 	{
-		updateBuffers(numChannelsIn, numChannelsOut);
+		updateBuffers(config.inputs, config.outputs, Engine::audioEngine()->framesPerPeriod());
 	}
 
 	~AudioPluginBufferDefaultImpl() override = default;
 
-	auto inputBuffer() -> CoreAudioDataMut final
+	auto inputOutputBuffer() -> CoreAudioDataMut final
 	{
 		return CoreAudioDataMut{m_buffer.data(), m_buffer.size()};
 	}
 
-	auto outputBuffer() -> CoreAudioDataMut final
-	{
-		return CoreAudioDataMut{m_buffer.data(), m_buffer.size()};
-	}
-
-	void updateBuffers(int channelsIn, int channelsOut) final
+	void updateBuffers(int channelsIn, int channelsOut, f_cnt_t frames) final
 	{
 		(void)channelsIn;
 		(void)channelsOut;
-		m_buffer.resize(Engine::audioEngine()->framesPerPeriod());
-	}
-
-protected:
-	auto bufferInterface() -> AudioPluginBufferDefaultImpl* final
-	{
-		return this;
+		m_buffer.resize(frames);
 	}
 
 private:
 	std::vector<SampleFrame> m_buffer;
+};
+
+} // namespace detail
+
+
+//! Provides a view into a plugin's input and output audio buffers
+template<AudioPluginConfig config>
+using AudioPluginBufferInterface = detail::AudioPluginBufferInterface<config>;
+
+
+//! Default implementation of `AudioPluginBufferInterface`
+template<AudioPluginConfig config>
+using AudioPluginBufferDefaultImpl = detail::AudioPluginBufferDefaultImpl<config>;
+
+
+/**
+ * Buffer to be implemented by the plugin implementation.
+ * Use in an audio port's template parameter.
+ */
+template<AudioPluginConfig config>
+class AudioPluginBufferCustom : public AudioPluginBufferInterface<config>
+{
 };
 
 

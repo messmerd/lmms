@@ -1,7 +1,7 @@
 /*
  * AudioData.h - Audio data types
  *
- * Copyright (c) 2024 Dalton Messmer <messmer.dalton/at/gmail.com>
+ * Copyright (c) 2025 Dalton Messmer <messmer.dalton/at/gmail.com>
  *
  * This file is part of LMMS - https://lmms.io
  *
@@ -33,8 +33,32 @@
 namespace lmms
 {
 
+
+//! Types of audio data supported in LMMS
+enum class AudioDataKind : std::uint8_t
+{
+	SampleFrame,
+	F32,
+	// F64,
+	// I16,
+	// etc.
+};
+
+namespace detail {
+
+//! Specialize this struct to enable
+template<AudioDataKind kind> struct AudioDataType;
+
+template<> struct AudioDataType<AudioDataKind::F32> { using type = float; };
+
+} // namespace detail
+
+//! Metafunction to convert `AudioDataKind` to its type
+template<AudioDataKind kind>
+using GetAudioDataType = typename detail::AudioDataType<kind>::type;
+
 //! Conventions for passing audio data
-enum class AudioDataLayout
+enum class AudioDataLayout : bool
 {
 	/**
 	 * Given:
