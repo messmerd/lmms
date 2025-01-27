@@ -89,6 +89,8 @@ public:
 	virtual auto outputBuffer()
 		-> typename detail::AudioDataViewSelector<config.kind, config.layout, config.outputs, false>::type = 0;
 
+	virtual auto frames() const -> fpp_t = 0;
+
 	virtual void updateBuffers(int channelsIn, int channelsOut, f_cnt_t frames) = 0;
 };
 
@@ -101,6 +103,8 @@ public:
 
 	virtual auto inputOutputBuffer()
 		-> typename detail::AudioDataViewSelector<config.kind, config.layout, config.inputs, false>::type = 0;
+
+	virtual auto frames() const -> fpp_t = 0;
 
 	virtual void updateBuffers(int channelsIn, int channelsOut, f_cnt_t frames) = 0;
 };
@@ -128,11 +132,7 @@ class AudioPluginBufferDefaultImpl<config, kind, AudioDataLayout::Split, false>
 		std::vector<SplitSampleType<SampleT>*>>;
 
 public:
-	AudioPluginBufferDefaultImpl()
-	{
-		updateBuffers(config.inputs, config.outputs, Engine::audioEngine()->framesPerPeriod());
-	}
-
+	AudioPluginBufferDefaultImpl() = default;
 	~AudioPluginBufferDefaultImpl() override = default;
 
 	auto inputBuffer() -> SplitAudioData<SampleT, config.inputs> final
@@ -151,14 +151,18 @@ public:
 		};
 	}
 
+	auto frames() const -> fpp_t final
+	{
+		return m_frames;
+	}
+
 	void updateBuffers(int channelsIn, int channelsOut, f_cnt_t frames) final
 	{
 		if (channelsIn == DynamicChannelCount || channelsOut == DynamicChannelCount) { return; }
 
-		m_frames = frames;
 		const auto channels = static_cast<std::size_t>(channelsIn + channelsOut);
 
-		m_sourceBuffer.resize(channels * m_frames);
+		m_sourceBuffer.resize(channels * frames);
 		if constexpr (!s_hasStaticChannelCount)
 		{
 			m_accessBuffer.resize(channels);
@@ -170,13 +174,13 @@ public:
 			assert(channelsOut == config.outputs);
 		}
 
-		std::size_t idx = 0;
-		f_cnt_t pos = 0;
-		while (idx < channels)
+		m_frames = frames;
+
+		SplitSampleType<SampleT>* ptr = m_sourceBuffer.data();
+		for (std::size_t channel = 0; channel < channels; ++channel)
 		{
-			m_accessBuffer[idx] = m_sourceBuffer.data() + pos;
-			++idx;
-			pos += m_frames;
+			m_accessBuffer[idx] = ptr;
+			ptr += frames;
 		}
 
 		m_channelsIn = channelsIn;
@@ -217,11 +221,7 @@ class AudioPluginBufferDefaultImpl<config, kind, AudioDataLayout::Split, true>
 		std::vector<SplitSampleType<SampleT>*>>;
 
 public:
-	AudioPluginBufferDefaultImpl()
-	{
-		updateBuffers(config.inputs, config.outputs, Engine::audioEngine()->framesPerPeriod());
-	}
-
+	AudioPluginBufferDefaultImpl() = default;
 	~AudioPluginBufferDefaultImpl() override = default;
 
 	auto inputOutputBuffer() -> SplitAudioData<SampleT, config.outputs> final
@@ -231,15 +231,19 @@ public:
 		};
 	}
 
+	auto frames() const -> fpp_t final
+	{
+		return m_frames;
+	}
+
 	void updateBuffers(int channelsIn, int channelsOut, f_cnt_t frames) final
 	{
 		assert(channelsIn == channelsOut || channelsIn == 0 || channelsOut == 0);
 		if (channelsIn == DynamicChannelCount || channelsOut == DynamicChannelCount) { return; }
 
-		m_frames = frames;
 		const auto channels = std::max<std::size_t>(channelsIn, channelsOut);
 
-		m_sourceBuffer.resize(channels * m_frames);
+		m_sourceBuffer.resize(channels * frames);
 		if constexpr (!s_hasStaticChannelCount)
 		{
 			m_accessBuffer.resize(channels);
@@ -251,13 +255,13 @@ public:
 			assert(channelsOut == config.outputs);
 		}
 
-		std::size_t idx = 0;
-		f_cnt_t pos = 0;
-		while (idx < channels)
+		m_frames = frames;
+
+		SplitSampleType<SampleT>* ptr = m_sourceBuffer.data();
+		for (std::size_t channel = 0; channel < channels; ++channel)
 		{
-			m_accessBuffer[idx] = m_sourceBuffer.data() + pos;
-			++idx;
-			pos += m_frames;
+			m_accessBuffer[idx] = ptr;
+			ptr += frames;
 		}
 
 		m_channels = channelsOut;
@@ -281,16 +285,17 @@ class AudioPluginBufferDefaultImpl<config, AudioDataKind::SampleFrame, AudioData
 	: public AudioPluginBufferInterface<config>
 {
 public:
-	AudioPluginBufferDefaultImpl()
-	{
-		updateBuffers(config.inputs, config.outputs, Engine::audioEngine()->framesPerPeriod());
-	}
-
+	AudioPluginBufferDefaultImpl() = default;
 	~AudioPluginBufferDefaultImpl() override = default;
 
 	auto inputOutputBuffer() -> CoreAudioDataMut final
 	{
 		return CoreAudioDataMut{m_buffer.data(), m_buffer.size()};
+	}
+
+	auto frames() const -> fpp_t final
+	{
+		return m_buffer.size();
 	}
 
 	void updateBuffers(int channelsIn, int channelsOut, f_cnt_t frames) final

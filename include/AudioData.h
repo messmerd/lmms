@@ -153,6 +153,16 @@ public:
 	{
 	}
 
+	//! Dynamic channel count to static channel count; use with care
+	template<int thisChannelCount, std::enable_if_t<(channelCount == DynamicChannelCount), bool> = true>
+	explicit SplitAudioData(const SplitAudioData<SampleT, thisChannelCount>& other)
+		: m_data{other.data()}
+		, m_channels{thisChannelCount}
+		, m_frames{other.frames()}
+	{
+		assert(thisChannelCount <= other.channels());
+	}
+
 	/**
 	 * Returns pointer to the buffer of a given channel.
 	 * The size of the buffer is `frames()`.
@@ -160,6 +170,7 @@ public:
 	auto buffer(pi_ch_t channel) const -> SplitSampleType<SampleT>*
 	{
 		assert(channel < m_channels);
+		assert(m_data != nullptr);
 		return m_data[channel];
 	}
 
@@ -168,6 +179,7 @@ public:
 	{
 		static_assert(channel != DynamicChannelCount);
 		static_assert(channel < channelCount);
+		assert(m_data != nullptr);
 		return m_data[channel];
 	}
 
@@ -185,15 +197,17 @@ public:
 
 	auto frames() const -> f_cnt_t { return m_frames; }
 
+	auto empty() const -> bool { return !m_data || m_channels == 0 || m_frames == 0; }
+
 	/**
 	 * WARNING: This method assumes that internally there is a single
 	 *     contiguous buffer for all channels whose size is channels() * frames().
 	 *     Whether this is true depends on the implementation of the source buffer.
 	 */
-	auto sourceBuffer() const -> SplitSampleType<SampleT>*
+	auto sourceBuffer() const -> Span<SplitSampleType<SampleT>>
 	{
 		assert(m_data != nullptr);
-		return m_data[0];
+		return Span<SplitSampleType<SampleT>>{m_data[0], channels() * frames()};
 	}
 
 	auto data() const -> SplitSampleType<SampleT>* const* { return m_data; }

@@ -49,7 +49,7 @@ class PluginAudioPort
 {
 public:
 	PluginAudioPort(bool isInstrument, Model* parent)
-		: PluginPinConnector{isInstrument, parent}
+		: PluginPinConnector{config.inputs, config.outputs, isInstrument, parent}
 	{
 	}
 

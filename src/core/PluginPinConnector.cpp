@@ -53,7 +53,7 @@ PluginPinConnector::PluginPinConnector(int pluginChannelCountIn, int pluginChann
 	, m_isInstrument{isInstrument}
 {
 	setTrackChannelCount(s_totalTrackChannels);
-	setPluginChannelCounts(pluginChannelCountIn, pluginChannelCountOut);
+	setPluginChannelCountsImpl(pluginChannelCountIn, pluginChannelCountOut);
 
 	connect(Engine::audioEngine(), &AudioEngine::sampleRateChanged, [this]() {
 		bufferPropertiesChanged(in().channelCount(), out().channelCount(), Engine::audioEngine()->framesPerPeriod());
@@ -62,12 +62,26 @@ PluginPinConnector::PluginPinConnector(int pluginChannelCountIn, int pluginChann
 
 void PluginPinConnector::setPluginChannelCounts(int inCount, int outCount)
 {
+	setPluginChannelCountsImpl(inCount, outCount);
+
+	/*
+	 * Now tell the audio buffer to update.
+	 * NOTE: This method does not call the implementation in the audio port until
+	 *       the audio port is fully constructed
+	 */
+	bufferPropertiesChanged(inCount, outCount, Engine::audioEngine()->framesPerPeriod());
+
+	emit propertiesChanged();
+}
+
+void PluginPinConnector::setPluginChannelCountsImpl(int inCount, int outCount)
+{
 	if (m_trackChannelsUpperBound > MaxTrackChannels)
 	{
 		throw std::runtime_error{"Only up to 256 track channels are allowed"};
 	}
 
-	if (inCount == DynamicChannelCount || outCount != DynamicChannelCount)
+	if (inCount == DynamicChannelCount || outCount == DynamicChannelCount)
 	{
 		return;
 	}
@@ -98,15 +112,6 @@ void PluginPinConnector::setPluginChannelCounts(int inCount, int outCount)
 
 	m_in.setPluginChannelCount(this, inCount, QString::fromUtf16(u"Pin in [%1 \U0001F82E %2]"));
 	m_out.setPluginChannelCount(this, outCount, QString::fromUtf16(u"Pin out [%2 \U0001F82E %1]"));
-
-	/*
-	 * Now tell the audio buffer to update.
-	 * NOTE: This method does not call the implementation in the audio port until
-	 *       the audio port is fully constructed
-	 */
-	bufferPropertiesChanged(inCount, outCount, Engine::audioEngine()->framesPerPeriod());
-
-	emit propertiesChanged();
 }
 
 void PluginPinConnector::setPluginChannelCountIn(int inCount)

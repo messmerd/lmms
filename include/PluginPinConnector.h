@@ -283,6 +283,7 @@ protected:
 	virtual void bufferPropertiesChanged(int inChannels, int outChannels, f_cnt_t frames) {}
 
 private:
+	void setPluginChannelCountsImpl(int inCount, int outCount);
 	void updateAllRoutedChannels();
 
 	Matrix m_in{false}; //!< LMMS --> Plugin
@@ -326,11 +327,13 @@ inline void PluginPinConnector::Router<config, kind, AudioDataLayout::Split>::ro
 	// Ignore all unused track channels for better performance
 	const auto inSizeConstrained = m_pc->m_trackChannelsUpperBound / 2;
 	assert(inSizeConstrained <= in.channelPairs);
-	assert(out.sourceBuffer() != nullptr);
 
 	// Zero the output buffer - TODO: std::memcpy?
-	std::fill_n(out.sourceBuffer(), out.channels() * out.frames(), SampleT{});
-	//std::memset(out.sourceBuffer(), 0, out.channels() * out.frames() * sizeof(SampleT));
+	{
+		auto source = out.sourceBuffer();
+		std::fill_n(source.data(), out.size(), SampleT{});
+		//std::memset(source.data(), 0, source.size_bytes());
+	}
 
 	for (std::uint32_t outChannel = 0; outChannel < out.channels(); ++outChannel)
 	{
@@ -392,7 +395,6 @@ inline void PluginPinConnector::Router<config, kind, AudioDataLayout::Split>::ro
 	// Ignore all unused track channels for better performance
 	const auto inOutSizeConstrained = m_pc->m_trackChannelsUpperBound / 2;
 	assert(inOutSizeConstrained <= inOut.channelPairs);
-	assert(in.sourceBuffer() != nullptr);
 
 	/*
 	 * Routes plugin audio to track channel pair and normalizes the result. For track channels

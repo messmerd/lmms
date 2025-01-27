@@ -102,7 +102,8 @@ bool ZynAddSubFxRemotePlugin::processMessage( const message & _m )
 
 ZynAddSubFxInstrument::ZynAddSubFxInstrument(
 									InstrumentTrack * _instrumentTrack ) :
-	AudioPlugin(&zynaddsubfx_plugin_descriptor, _instrumentTrack, nullptr, Flag::IsSingleStreamed | Flag::IsMidiBased),
+	AudioPlugin(&zynaddsubfx_plugin_descriptor, _instrumentTrack, nullptr,
+		Flag::IsSingleStreamed | Flag::IsMidiBased, /* beginAsRemote */ false),
 	m_hasGUI( false ),
 	m_localPlugin(nullptr),
 	m_remotePlugin( nullptr ),
@@ -439,8 +440,8 @@ void ZynAddSubFxInstrument::initPlugin()
 
 	if( m_hasGUI )
 	{
-		m_remotePlugin = new ZynAddSubFxRemotePlugin(audioPort().controller());
 		audioPort().useRemote(true);
+		m_remotePlugin = new ZynAddSubFxRemotePlugin(audioPort().controller());
 		m_remotePlugin->lock();
 		m_remotePlugin->waitForInitDone( false );
 
@@ -460,17 +461,17 @@ void ZynAddSubFxInstrument::initPlugin()
 
 		// temporary workaround until the VST synchronization feature gets stripped out of the RemotePluginClient class
 		// causing not to send buffer size information requests
-		m_remotePlugin->sendMessage( RemotePlugin::message( IdBufferSizeInformation ).addInt( Engine::audioEngine()->framesPerPeriod() ) );
+		//m_remotePlugin->sendMessage( RemotePlugin::message( IdBufferSizeInformation ).addInt( Engine::audioEngine()->framesPerPeriod() ) );
 
 		m_remotePlugin->showUI();
 		m_remotePlugin->unlock();
 	}
 	else
 	{
+		audioPort().useRemote(false);
 		m_localPlugin = new LocalZynAddSubFx{};
 		m_localPlugin->setSampleRate( Engine::audioEngine()->outputSampleRate() );
-		m_localPlugin->setBufferSize( Engine::audioEngine()->framesPerPeriod() );
-		audioPort().useRemote(false);
+		m_localPlugin->setBufferSize(audioPort().frames());
 	}
 
 	m_pluginMutex.unlock();

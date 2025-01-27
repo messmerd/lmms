@@ -157,12 +157,15 @@ class AudioPlugin<Instrument, config, AudioPortT>
 		config.inplace, AudioPortT::provideProcessBuffers()>
 {
 public:
+	template<typename... AudioPortArgsT>
 	AudioPlugin(const Plugin::Descriptor* desc, InstrumentTrack* parent = nullptr,
 		const Plugin::Descriptor::SubPluginFeatures::Key* key = nullptr,
-		Instrument::Flags flags = Instrument::Flag::NoFlags)
+		Instrument::Flags flags = Instrument::Flag::NoFlags,
+		AudioPortArgsT&&... audioPortArgs)
 		: Instrument{desc, parent, key, flags}
-		, m_audioPort{true, this}
+		, m_audioPort{true, this, std::forward<AudioPortArgsT>(audioPortArgs)...}
 	{
+		m_audioPort.updateBuffers(config.inputs, config.outputs, Engine::audioEngine()->framesPerPeriod());
 	}
 
 protected:
@@ -244,11 +247,14 @@ class AudioPlugin<Effect, config, AudioPortT>
 		config.inplace, AudioPortT::provideProcessBuffers()>
 {
 public:
+	template<typename... AudioPortArgsT>
 	AudioPlugin(const Plugin::Descriptor* desc, Model* parent = nullptr,
-		const Plugin::Descriptor::SubPluginFeatures::Key* key = nullptr)
+		const Plugin::Descriptor::SubPluginFeatures::Key* key = nullptr,
+		AudioPortArgsT&&... audioPortArgs)
 		: Effect{desc, parent, key}
-		, m_audioPort{false, this}
+		, m_audioPort{false, this, std::forward<AudioPortArgsT>(audioPortArgs)...}
 	{
+		m_audioPort.updateBuffers(config.inputs, config.outputs, Engine::audioEngine()->framesPerPeriod());
 	}
 
 protected:
@@ -378,6 +384,7 @@ class AudioPlugin
 	using Base = typename detail::AudioPlugin<ParentT, config, AudioPortT>;
 
 public:
+	//! The last parameter(s) are variadic template parameters passed to the audio port constructor
 	using Base::Base;
 
 	static constexpr auto pluginConfig() -> AudioPluginConfig { return config; }
