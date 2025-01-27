@@ -35,8 +35,8 @@ struct AudioPluginConfig
 	//! The audio data type used by the plugin
 	AudioDataKind kind;
 
-	//! The audio data layout used by the plugin
-	AudioDataLayout layout;
+	//! The audio data layout used by the plugin: interleaved or non-interleaved
+	bool interleaved;
 
 	//! The number of plugin input channels, or `DynamicChannelCount` if unknown at compile time
 	int inputs = DynamicChannelCount;

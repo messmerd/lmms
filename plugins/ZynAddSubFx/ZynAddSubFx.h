@@ -71,7 +71,7 @@ signals:
 
 constexpr auto ZynConfig = AudioPluginConfig {
 	.kind = AudioDataKind::F32,
-	.layout = AudioDataLayout::Split,
+	.interleaved = false,
 	.inputs = 0,
 	.outputs = 2
 };

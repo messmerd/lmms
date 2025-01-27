@@ -98,7 +98,7 @@ public:
 	}
 
 	static_assert(config.kind == AudioDataKind::F32, "RemotePlugin only supports float");
-	static_assert(config.layout == AudioDataLayout::Split, "RemotePlugin only supports non-interleaved");
+	static_assert(config.interleaved == false, "RemotePlugin only supports non-interleaved");
 	static_assert(!config.inplace, "RemotePlugin does not support inplace processing");
 
 	auto controller() -> RemotePluginAudioPortController&

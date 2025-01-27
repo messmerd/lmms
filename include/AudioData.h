@@ -46,55 +46,17 @@ enum class AudioDataKind : std::uint8_t
 
 namespace detail {
 
-//! Specialize this struct to enable
+//! Specialize this struct to enable the use of an audio data kind
 template<AudioDataKind kind> struct AudioDataType;
 
 template<> struct AudioDataType<AudioDataKind::F32> { using type = float; };
 
 } // namespace detail
 
+
 //! Metafunction to convert `AudioDataKind` to its type
 template<AudioDataKind kind>
 using GetAudioDataType = typename detail::AudioDataType<kind>::type;
-
-//! Conventions for passing audio data
-enum class AudioDataLayout : bool
-{
-	/**
-	 * Given:
-	 *   - N == Frame count
-	 *   - C == Number of channels
-	 *   - i == Sample index, where 0 <= i < N
-	 *   - `samples` has the type sample_t*
-	 *   - `samples` size == N * C
-	 */
-
-	/**
-	 * Layout where the samples for each channel are interleaved.
-	 * i.e. "LRLRLRLR"
-	 *
-	 * Samples for individual channels can be accessed like this:
-	 * - Channel #0 samples: samples[C*i]
-	 * - Channel #1 samples: samples[C*i + 1]
-	 * - Channel #2 samples: samples[C*i + 2]
-	 * - Channel #3 samples: samples[C*i + 3]
-	 * - ...
-	 */
-	Interleaved,
-
-	/**
-	 * Layout where all samples for a particular channel are grouped together.
-	 * i.e. "LLLLRRRR"
-	 *
-	 * Samples for individual channels can be accessed like this:
-	 * - Channel #0 samples: samples[i]
-	 * - Channel #1 samples: samples[1*N + i]
-	 * - Channel #2 samples: samples[2*N + i]
-	 * - Channel #3 samples: samples[3*N + i]
-	 * - ...
-	 */
-	Split
-};
 
 
 /**
@@ -105,14 +67,14 @@ enum class AudioDataLayout : bool
  *
  * NOTE: Can add support for integer sample types later
  */
-template<AudioDataLayout layout, typename T, std::enable_if_t<std::is_floating_point_v<T>, bool> = true>
+template<bool interleaved, typename T, std::enable_if_t<std::is_floating_point_v<T>, bool> = true>
 using SampleType = T;
 
 template<typename T>
-using SplitSampleType = SampleType<AudioDataLayout::Split, T>;
+using SplitSampleType = SampleType<false, T>;
 
 template<typename T>
-using InterleavedSampleType = SampleType<AudioDataLayout::Interleaved, T>;
+using InterleavedSampleType = SampleType<true, T>;
 
 
 //! Use when the number of channels is not known at compile time
@@ -124,7 +86,7 @@ inline constexpr int DynamicChannelCount = -1;
  *
  * TODO C++23: Use std::mdspan
  */
-template<typename SampleT, int channelCount = DynamicChannelCount, typename = SplitSampleType<SampleT>>
+template<typename SampleT, int channelCount = DynamicChannelCount>
 class SplitAudioData
 {
 public:

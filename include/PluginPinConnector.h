@@ -199,16 +199,16 @@ public:
 	 *     `inOut`   : track channels from/to LMMS core
 	 *                 `inOut.frames` provides the number of frames in each `in`/`inOut` audio buffer
 	 */
-	template<AudioPluginConfig config, AudioDataKind kind = config.kind, AudioDataLayout layout = config.layout>
+	template<AudioPluginConfig config, AudioDataKind kind = config.kind, bool interleaved = config.interleaved>
 	class Router
 	{
-		static_assert(always_false_v<Router<config, kind, layout>>,
+		static_assert(always_false_v<Router<config, kind, interleaved>>,
 			"A router for the requested configuration is not implemented yet");
 	};
 
 	//! Non-`SampleFrame` routing
 	template<AudioPluginConfig config, AudioDataKind kind>
-	class Router<config, kind, AudioDataLayout::Split>
+	class Router<config, kind, false>
 	{
 		using SampleT = GetAudioDataType<kind>;
 
@@ -224,7 +224,7 @@ public:
 
 	//! `SampleFrame` routing
 	template<AudioPluginConfig config>
-	class Router<config, AudioDataKind::SampleFrame, AudioDataLayout::Interleaved>
+	class Router<config, AudioDataKind::SampleFrame, true>
 	{
 	public:
 		explicit Router(const PluginPinConnector& parent) : m_pc{&parent} {}
@@ -316,7 +316,7 @@ private:
 // Non-`SampleFrame` Router out-of-class definitions
 
 template<AudioPluginConfig config, AudioDataKind kind>
-inline void PluginPinConnector::Router<config, kind, AudioDataLayout::Split>::routeToPlugin(
+inline void PluginPinConnector::Router<config, kind, false>::routeToPlugin(
 	CoreAudioBus in, SplitAudioData<SampleT, config.inputs> out) const
 {
 	if constexpr (config.inputs == 0) { return; }
@@ -337,7 +337,7 @@ inline void PluginPinConnector::Router<config, kind, AudioDataLayout::Split>::ro
 
 	for (std::uint32_t outChannel = 0; outChannel < out.channels(); ++outChannel)
 	{
-		SampleType<config.layout, SampleT>* outPtr = out.buffer(outChannel);
+		SampleType<config.interleaved, SampleT>* outPtr = out.buffer(outChannel);
 
 		for (std::uint8_t inChannelPairIdx = 0; inChannelPairIdx < inSizeConstrained; ++inChannelPairIdx)
 		{
@@ -384,7 +384,7 @@ inline void PluginPinConnector::Router<config, kind, AudioDataLayout::Split>::ro
 }
 
 template<AudioPluginConfig config, AudioDataKind kind>
-inline void PluginPinConnector::Router<config, kind, AudioDataLayout::Split>::routeFromPlugin(
+inline void PluginPinConnector::Router<config, kind, false>::routeFromPlugin(
 	SplitAudioData<const SampleT, config.outputs> in, CoreAudioBusMut inOut) const
 {
 	if constexpr (config.outputs == 0) { return; }
@@ -436,7 +436,7 @@ inline void PluginPinConnector::Router<config, kind, AudioDataLayout::Split>::ro
 
 		for (pi_ch_t inChannel = 0; inChannel < in.channels(); ++inChannel)
 		{
-			const SampleType<config.layout, const SampleT>* inPtr = in.buffer(inChannel);
+			const SampleType<config.interleaved, const SampleT>* inPtr = in.buffer(inChannel);
 
 			if constexpr (rc == 0b11)
 			{
@@ -525,7 +525,7 @@ inline void PluginPinConnector::Router<config, kind, AudioDataLayout::Split>::ro
 
 template<AudioPluginConfig config>
 inline void PluginPinConnector::Router<config,
-	AudioDataKind::SampleFrame, AudioDataLayout::Interleaved>::routeToPlugin(
+	AudioDataKind::SampleFrame, true>::routeToPlugin(
 	CoreAudioBus in, CoreAudioDataMut out) const
 {
 	if constexpr (config.inputs == 0) { return; }
@@ -617,7 +617,7 @@ inline void PluginPinConnector::Router<config,
 
 template<AudioPluginConfig config>
 inline void PluginPinConnector::Router<config,
-	AudioDataKind::SampleFrame, AudioDataLayout::Interleaved>::routeFromPlugin(
+	AudioDataKind::SampleFrame, true>::routeFromPlugin(
 	CoreAudioData in, CoreAudioBusMut inOut) const
 {
 	if constexpr (config.outputs == 0) { return; }

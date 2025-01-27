@@ -459,10 +459,6 @@ void ZynAddSubFxInstrument::initPlugin()
 
 		m_remotePlugin->updateSampleRate( Engine::audioEngine()->outputSampleRate() );
 
-		// temporary workaround until the VST synchronization feature gets stripped out of the RemotePluginClient class
-		// causing not to send buffer size information requests
-		//m_remotePlugin->sendMessage( RemotePlugin::message( IdBufferSizeInformation ).addInt( Engine::audioEngine()->framesPerPeriod() ) );
-
 		m_remotePlugin->showUI();
 		m_remotePlugin->unlock();
 	}

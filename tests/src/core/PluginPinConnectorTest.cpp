@@ -356,7 +356,7 @@ private slots:
 		using namespace lmms;
 
 		// Setup
-		constexpr auto Config = AudioPluginConfig{AudioDataKind::F32, AudioDataLayout::Split, 1, 1};
+		constexpr auto Config = AudioPluginConfig{AudioDataKind::F32, false, 1, 1};
 		auto model = Model{nullptr};
 		auto pc = PluginPinConnector{1, 1, false, &model};
 		auto coreBus = getCoreBus();
@@ -428,7 +428,7 @@ private slots:
 		using namespace lmms;
 
 		// Setup
-		constexpr auto Config = AudioPluginConfig{AudioDataKind::F32, AudioDataLayout::Split, 2, 2};
+		constexpr auto Config = AudioPluginConfig{AudioDataKind::F32, false, 2, 2};
 		auto model = Model{nullptr};
 		auto pc = PluginPinConnector{Config.inputs, Config.outputs, false, &model};
 		auto coreBus = getCoreBus();
@@ -500,7 +500,7 @@ private slots:
 		using namespace lmms;
 
 		// Setup
-		constexpr auto Config = AudioPluginConfig{AudioDataKind::F32, AudioDataLayout::Split, 2, 2};
+		constexpr auto Config = AudioPluginConfig{AudioDataKind::F32, false, 2, 2};
 		auto model = Model{nullptr};
 		auto pc = PluginPinConnector{Config.inputs, Config.outputs, false, &model};
 		auto coreBus = getCoreBus();
@@ -583,7 +583,7 @@ private slots:
 
 		// Setup
 		constexpr auto Config = AudioPluginConfig {
-			AudioDataKind::SampleFrame, AudioDataLayout::Interleaved, 2, 2, true
+			AudioDataKind::SampleFrame, true, 2, 2, true
 		};
 		auto model = Model{nullptr};
 		auto pc = PluginPinConnector{Config.inputs, Config.outputs, false, &model};
@@ -647,7 +647,7 @@ private slots:
 		using namespace lmms;
 
 		// Setup
-		constexpr auto Config = AudioPluginConfig{AudioDataKind::F32, AudioDataLayout::Split, 1, 2};
+		constexpr auto Config = AudioPluginConfig{AudioDataKind::F32, false, 1, 2};
 		auto model = Model{nullptr};
 		auto pc = PluginPinConnector{Config.inputs, Config.outputs, false, &model};
 		auto coreBus = getCoreBus();

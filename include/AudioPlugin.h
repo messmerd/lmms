@@ -152,8 +152,8 @@ template<AudioPluginConfig config, class AudioPortT>
 class AudioPlugin<Instrument, config, AudioPortT>
 	: public Instrument
 	, public AudioProcessingMethod<Instrument,
-		typename AudioDataViewSelector<config.kind, config.layout, config.inputs, false>::type,
-		typename AudioDataViewSelector<config.kind, config.layout, config.inputs, true>::type,
+		typename AudioDataViewSelector<config.kind, config.interleaved, config.inputs, false>::type,
+		typename AudioDataViewSelector<config.kind, config.interleaved, config.inputs, true>::type,
 		config.inplace, AudioPortT::provideProcessBuffers()>
 {
 public:
@@ -242,8 +242,8 @@ template<AudioPluginConfig config, class AudioPortT>
 class AudioPlugin<Effect, config, AudioPortT>
 	: public Effect
 	, public AudioProcessingMethod<Effect,
-		typename AudioDataViewSelector<config.kind, config.layout, config.inputs, false>::type,
-		typename AudioDataViewSelector<config.kind, config.layout, config.inputs, true>::type,
+		typename AudioDataViewSelector<config.kind, config.interleaved, config.inputs, false>::type,
+		typename AudioDataViewSelector<config.kind, config.interleaved, config.inputs, true>::type,
 		config.inplace, AudioPortT::provideProcessBuffers()>
 {
 public:
@@ -360,8 +360,8 @@ private:
  * interfaces with LMMS Core.
  *
  * This design allows for some compile-time customization over aspects of the plugin implementation
- * such as the number of in/out channels and the audio data layout, so plugin developers can
- * implement their plugin in whatever way works best for them. All the mapping from their plugin to/from
+ * such as the number of in/out channels and whether samples are interleaved, so plugin developers can
+ * implement their plugin in whatever way works best for them. All the mapping of their plugin to/from
  * LMMS Core is handled here, at compile-time where possible for best performance.
  *
  * A `processImpl` interface method is provided which must be implemented by the plugin implementation.
@@ -394,14 +394,14 @@ public:
 // NOTE: NotePlayHandle-based instruments are not supported yet
 using DefaultMidiInstrument = AudioPlugin<Instrument, AudioPluginConfig {
 	.kind = AudioDataKind::SampleFrame,
-	.layout = AudioDataLayout::Interleaved,
+	.interleaved = true,
 	.inputs = 0,
 	.outputs = 2,
 	.inplace = true }>;
 
 using DefaultEffect = AudioPlugin<Effect, AudioPluginConfig {
 	.kind = AudioDataKind::SampleFrame,
-	.layout = AudioDataLayout::Interleaved,
+	.interleaved = true,
 	.inputs = 2,
 	.outputs = 2,
 	.inplace = true }>;

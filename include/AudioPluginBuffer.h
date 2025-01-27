@@ -39,23 +39,22 @@ namespace lmms
 {
 
 
-namespace detail
-{
+namespace detail {
 
 /**
  * Metafunction to select the appropriate non-owning audio buffer view
  * given the layout, sample type, and channel count
  */
-template<AudioDataKind kind, AudioDataLayout layout, int channels, bool isConst>
+template<AudioDataKind kind, bool interleaved, int channels, bool isConst>
 struct AudioDataViewSelector
 {
-	static_assert(always_false_v<AudioDataViewSelector<kind, layout, channels, isConst>>,
+	static_assert(always_false_v<AudioDataViewSelector<kind, interleaved, channels, isConst>>,
 		"Unsupported audio data type");
 };
 
 //! Non-interleaved specialization
 template<AudioDataKind kind, int channels, bool isConst>
-struct AudioDataViewSelector<kind, AudioDataLayout::Split, channels, isConst>
+struct AudioDataViewSelector<kind, false, channels, isConst>
 {
 	using type = SplitAudioData<
 		std::conditional_t<isConst, const GetAudioDataType<kind>, GetAudioDataType<kind>>,
@@ -64,7 +63,7 @@ struct AudioDataViewSelector<kind, AudioDataLayout::Split, channels, isConst>
 
 //! SampleFrame specialization
 template<int channels, bool isConst>
-struct AudioDataViewSelector<AudioDataKind::SampleFrame, AudioDataLayout::Interleaved, channels, isConst>
+struct AudioDataViewSelector<AudioDataKind::SampleFrame, true, channels, isConst>
 {
 	static_assert(channels == 0 || channels == 2,
 		"Plugins using SampleFrame buffers must have exactly 0 or 2 inputs or outputs");
@@ -84,10 +83,10 @@ public:
 	virtual ~AudioPluginBufferInterface() = default;
 
 	virtual auto inputBuffer()
-		-> typename detail::AudioDataViewSelector<config.kind, config.layout, config.inputs, false>::type = 0;
+		-> typename detail::AudioDataViewSelector<config.kind, config.interleaved, config.inputs, false>::type = 0;
 
 	virtual auto outputBuffer()
-		-> typename detail::AudioDataViewSelector<config.kind, config.layout, config.outputs, false>::type = 0;
+		-> typename detail::AudioDataViewSelector<config.kind, config.interleaved, config.outputs, false>::type = 0;
 
 	virtual auto frames() const -> fpp_t = 0;
 
@@ -102,7 +101,7 @@ public:
 	virtual ~AudioPluginBufferInterface() = default;
 
 	virtual auto inputOutputBuffer()
-		-> typename detail::AudioDataViewSelector<config.kind, config.layout, config.inputs, false>::type = 0;
+		-> typename detail::AudioDataViewSelector<config.kind, config.interleaved, config.inputs, false>::type = 0;
 
 	virtual auto frames() const -> fpp_t = 0;
 
@@ -112,12 +111,12 @@ public:
 
 //! Default implementation of `AudioPluginBufferInterface`
 template<AudioPluginConfig config,
-	AudioDataKind kind = config.kind, AudioDataLayout layout = config.layout, bool inplace = config.inplace>
+	AudioDataKind kind = config.kind, bool interleaved = config.interleaved, bool inplace = config.inplace>
 class AudioPluginBufferDefaultImpl;
 
 //! Specialization for non-inplace, non-interleaved buffers
 template<AudioPluginConfig config, AudioDataKind kind>
-class AudioPluginBufferDefaultImpl<config, kind, AudioDataLayout::Split, false>
+class AudioPluginBufferDefaultImpl<config, kind, false, false>
 	: public AudioPluginBufferInterface<config>
 {
 	static constexpr bool s_hasStaticChannelCount
@@ -202,7 +201,7 @@ private:
 
 //! Specialization for inplace, non-interleaved buffers
 template<AudioPluginConfig config, AudioDataKind kind>
-class AudioPluginBufferDefaultImpl<config, kind, AudioDataLayout::Split, true>
+class AudioPluginBufferDefaultImpl<config, kind, false, true>
 	: public AudioPluginBufferInterface<config>
 {
 	static constexpr bool s_hasStaticChannelCount
@@ -281,7 +280,7 @@ private:
 
 //! Specialization for 2-channel SampleFrame buffers
 template<AudioPluginConfig config>
-class AudioPluginBufferDefaultImpl<config, AudioDataKind::SampleFrame, AudioDataLayout::Interleaved, true>
+class AudioPluginBufferDefaultImpl<config, AudioDataKind::SampleFrame, true, true>
 	: public AudioPluginBufferInterface<config>
 {
 public:

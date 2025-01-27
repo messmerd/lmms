@@ -58,7 +58,7 @@ class VestigeInstrumentView;
 
 constexpr auto VestigeConfig = AudioPluginConfig {
 	.kind = AudioDataKind::F32,
-	.layout = AudioDataLayout::Split
+	.interleaved = false
 };
 
 class VestigeInstrument

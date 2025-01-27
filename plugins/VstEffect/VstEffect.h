@@ -39,7 +39,7 @@ class VstPlugin;
 
 constexpr auto VstEffectConfig = AudioPluginConfig {
 	.kind = AudioDataKind::F32,
-	.layout = AudioDataLayout::Split
+	.interleaved = false
 };
 
 class VstEffect : public AudioPlugin<Effect, VstEffectConfig, RemotePluginAudioPort<VstEffectConfig>>
