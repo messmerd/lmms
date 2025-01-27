@@ -47,7 +47,7 @@ class VSTBASE_EXPORT VstPlugin
 {
 	Q_OBJECT
 public:
-	VstPlugin(const QString& plugin, RemotePluginAudioPortController& controller, Model* parent = nullptr);
+	VstPlugin(const QString& plugin, RemotePluginAudioPortController& audioPort);
 	~VstPlugin() override;
 
 	void tryLoad( const QString &remoteVstPluginExecutable );

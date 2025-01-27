@@ -33,27 +33,37 @@ namespace lmms
 
 class RemotePlugin;
 
+/*
+ * TODO: A better design would just have `RemotePluginAudioPort<config>` passed to
+ *       `RemotePlugin` from the plugin implementation rather than
+ *       `RemotePluginAudioPortController`, and `RemotePlugin` would be a class
+ *       template with an `AudioPluginConfig` template parameter.
+ *       There would also be `RemotePluginAudioBuffer`, a custom buffer implementation
+ *       for remote plugins and remote plugin clients which `RemotePlugin` would
+ *       derive from. However, this design requires C++20's class type NTTP on the
+ *       remote plugin's client side but we're compiling that with C++17 due to a
+ *       weird regression.
+ */
+
 class RemotePluginAudioPortController
 {
 public:
 	RemotePluginAudioPortController(PluginPinConnector& pinConnector);
 
-	//! Call after a RemotePlugin is created
-	void activate(RemotePlugin* remotePlugin)
+	//! Connects `RemotePlugin`'s buffers to audio port; Call after buffers are created
+	void connectBuffers(RemotePlugin* buffers)
 	{
-		assert(remotePlugin != nullptr);
-		m_remotePlugin = remotePlugin;
-		remotePluginUpdateBuffers(
-			m_pinConnector->in().channelCount(),
-			m_pinConnector->out().channelCount(),
-			m_frames);
+		m_buffers = buffers;
 	}
 
-	//! Call before a RemotePlugin is destroyed
-	void deactivate()
+	//! Disconnects `RemotePlugin`'s buffers from audio port; Call before buffers are destroyed
+	void disconnectBuffers()
 	{
-		m_remotePlugin = nullptr;
+		m_buffers = nullptr;
 	}
+
+	//! Call after the RemotePlugin is fully initialized
+	virtual void activate(f_cnt_t frames) = 0;
 
 	auto pc() -> PluginPinConnector&
 	{
@@ -65,7 +75,7 @@ protected:
 	auto remotePluginInputBuffer() const -> float*;
 	auto remotePluginOutputBuffer() const -> float*;
 
-	RemotePlugin* m_remotePlugin = nullptr;
+	RemotePlugin* m_buffers = nullptr;
 	PluginPinConnector* m_pinConnector = nullptr;
 
 	fpp_t m_frames = 0;
@@ -96,6 +106,13 @@ public:
 		return *static_cast<RemotePluginAudioPortController*>(this);
 	}
 
+	void activate(f_cnt_t frames) override
+	{
+		assert(m_buffers != nullptr);
+		updateBuffers(this->in().channelCount(), this->out().channelCount(), frames);
+		m_active = true;
+	}
+
 	/*
 	 * `PluginAudioPort` implementation
 	 */
@@ -103,7 +120,7 @@ public:
 	//! Only returns the buffer interface if audio port is active
 	auto buffers() -> AudioPluginBufferInterface<config>* override
 	{
-		return active() ? this : nullptr;
+		return remoteActive() ? this : nullptr;
 	}
 
 	/*
@@ -112,60 +129,66 @@ public:
 
 	auto inputBuffer() -> SplitAudioData<SampleT, config.inputs> override
 	{
-		assert(m_remotePlugin != nullptr);
-		return {m_audioBufferIn.data(), static_cast<pi_ch_t>(this->in().channelCount()), m_frames};
+		if (!remoteActive()) { return SplitAudioData<SampleT, config.inputs>{}; }
+
+		return SplitAudioData<SampleT, config.inputs> {
+			m_audioBufferIn.data(),
+			static_cast<pi_ch_t>(this->in().channelCount()),
+			m_frames
+		};
 	}
 
 	auto outputBuffer() -> SplitAudioData<SampleT, config.outputs> override
 	{
-		assert(m_remotePlugin != nullptr);
-		return {m_audioBufferOut.data(), static_cast<pi_ch_t>(this->out().channelCount()), m_frames};
+		if (!remoteActive()) { return SplitAudioData<SampleT, config.outputs>{}; }
+
+		return SplitAudioData<SampleT, config.outputs> {
+			m_audioBufferOut.data(),
+			static_cast<pi_ch_t>(this->out().channelCount()),
+			m_frames
+		};
+	}
+
+	auto frames() const -> fpp_t override
+	{
+		return remoteActive() ? m_frames : 0;
 	}
 
 	void updateBuffers(int channelsIn, int channelsOut, f_cnt_t frames) override
 	{
-		if (!m_remotePlugin) { return; }
+		if (!m_buffers) { return; }
 		remotePluginUpdateBuffers(channelsIn, channelsOut, frames);
-	}
-
-	/*
-	 * `PluginPinConnector` implementation
-	 */
-
-	//! Receives updates from the pin connector
-	void bufferPropertiesChanged(int inChannels, int outChannels, f_cnt_t frames) override
-	{
-		if (!m_remotePlugin) { return; }
 
 		m_frames = frames;
 
-		// Connects the pin connector to the buffers
-		updateBuffers(inChannels, outChannels, frames);
-
 		// Update the views into the RemotePlugin buffer
 		float* ptr = remotePluginInputBuffer();
-		m_audioBufferIn.resize(inChannels);
-		for (pi_ch_t idx = 0; idx < inChannels; ++idx)
+		m_audioBufferIn.resize(channelsIn);
+		for (pi_ch_t idx = 0; idx < channelsIn; ++idx)
 		{
 			m_audioBufferIn[idx] = ptr;
 			ptr += frames;
 		}
 
 		ptr = remotePluginOutputBuffer();
-		m_audioBufferOut.resize(outChannels);
-		for (pi_ch_t idx = 0; idx < outChannels; ++idx)
+		m_audioBufferOut.resize(channelsOut);
+		for (pi_ch_t idx = 0; idx < channelsOut; ++idx)
 		{
 			m_audioBufferOut[idx] = ptr;
 			ptr += frames;
 		}
 	}
 
-	auto active() const -> bool override { return m_remotePlugin != nullptr; }
+	auto active() const -> bool override { return remoteActive(); }
 
 private:
+	auto remoteActive() const -> bool { return m_buffers != nullptr && m_active; }
+
 	// Views into RemotePlugin's shared memory buffer
 	std::vector<SplitSampleType<float>*> m_audioBufferIn;
 	std::vector<SplitSampleType<float>*> m_audioBufferOut;
+
+	bool m_active = false;
 };
 
 
@@ -177,56 +200,95 @@ class ConfigurableAudioPort
 	using SampleT = GetAudioDataType<config.kind>;
 
 public:
-	using RemotePluginAudioPort<config>::RemotePluginAudioPort;
+	ConfigurableAudioPort(bool isInstrument, Model* parent, bool beginAsRemote = true)
+		: RemotePluginAudioPort<config>{isInstrument, parent}
+	{
+		useRemoteImpl(beginAsRemote);
+	}
 
 	void useRemote(bool remote = true)
 	{
-		if (remote)
-		{
-			this->activate(this->m_remotePlugin);
-			m_isRemote = remote;
-			m_localBuffer.reset();
-		}
-		else
-		{
-			this->deactivate();
-			m_isRemote = remote;
-			m_localBuffer.emplace();
-		}
+		useRemoteImpl(remote);
+		updateBuffers(this->in().channelCount(), this->out().channelCount(), this->frames());
 	}
 
-	auto isRemote() const { return m_isRemote; }
+	auto isRemote() const -> bool { return m_isRemote; }
 
 	auto buffers() -> AudioPluginBufferInterface<config>* override
 	{
-		return isRemote()
-			? RemotePluginAudioPort<config>::buffers()
-			: &m_localBuffer.value();
+		if (isRemote()) { return RemotePluginAudioPort<config>::buffers(); }
+		return localActive() ? &m_localBuffer.value() : nullptr;
 	}
 
 	auto inputBuffer() -> SplitAudioData<SampleT, config.inputs> override
 	{
-		return isRemote()
-			? RemotePluginAudioPort<config>::inputBuffer()
-			: m_localBuffer->inputBuffer();
+		if (isRemote()) { return RemotePluginAudioPort<config>::inputBuffer(); }
+		return localActive()
+			? m_localBuffer->inputBuffer()
+			: SplitAudioData<SampleT, config.inputs>{};
 	}
 
 	auto outputBuffer() -> SplitAudioData<SampleT, config.outputs> override
 	{
-		return isRemote()
-			? RemotePluginAudioPort<config>::outputBuffer()
-			: m_localBuffer->outputBuffer();
+		if (isRemote()) { return RemotePluginAudioPort<config>::outputBuffer(); }
+		return localActive()
+			? m_localBuffer->outputBuffer()
+			: SplitAudioData<SampleT, config.outputs>{};
+	}
+
+	auto frames() const -> fpp_t override
+	{
+		if (isRemote()) { return RemotePluginAudioPort<config>::frames(); }
+		return localActive() ? m_localBuffer->frames() : 0;
+	}
+
+	void updateBuffers(int channelsIn, int channelsOut, f_cnt_t frames) override
+	{
+		if (isRemote())
+		{
+			RemotePluginAudioPort<config>::updateBuffers(channelsIn, channelsOut, frames);
+		}
+		else
+		{
+			assert(m_localBuffer.has_value());
+			m_localBuffer->updateBuffers(channelsIn, channelsOut, frames);
+			m_localActive = true;
+		}
 	}
 
 	auto active() const -> bool override
 	{
 		return isRemote()
 			? RemotePluginAudioPort<config>::active()
-			: true;
+			: localActive();
 	}
 
 private:
+	void activate(f_cnt_t frames) override
+	{
+		useRemoteImpl(true);
+		RemotePluginAudioPort<config>::activate(frames);
+	}
+
+	void useRemoteImpl(bool remote)
+	{
+		if (remote)
+		{
+			//m_localBuffer.reset(); // TODO: Might not be worth reseting
+			m_localActive = false;
+		}
+		else if (!m_localBuffer)
+		{
+			m_localBuffer.emplace();
+		}
+
+		m_isRemote = remote;
+	}
+
+	auto localActive() const -> bool { return m_localBuffer.has_value() && m_localActive; }
+
 	std::optional<LocalBufferT> m_localBuffer;
+	bool m_localActive = false;
 	bool m_isRemote = true;
 };
 

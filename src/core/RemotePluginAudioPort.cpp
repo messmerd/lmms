@@ -39,20 +39,20 @@ RemotePluginAudioPortController::RemotePluginAudioPortController(PluginPinConnec
 
 void RemotePluginAudioPortController::remotePluginUpdateBuffers(int channelsIn, int channelsOut, fpp_t frames)
 {
-	assert(m_remotePlugin != nullptr);
-	m_remotePlugin->updateBuffer(channelsIn, channelsOut, frames);
+	assert(m_buffers != nullptr);
+	m_buffers->updateBuffer(channelsIn, channelsOut, frames);
 }
 
 auto RemotePluginAudioPortController::remotePluginInputBuffer() const -> float*
 {
-	assert(m_remotePlugin != nullptr);
-	return m_remotePlugin->inputBuffer().data();
+	assert(m_buffers != nullptr);
+	return m_buffers->inputBuffer().data();
 }
 
 auto RemotePluginAudioPortController::remotePluginOutputBuffer() const -> float*
 {
-	assert(m_remotePlugin != nullptr);
-	return m_remotePlugin->outputBuffer().data();
+	assert(m_buffers != nullptr);
+	return m_buffers->outputBuffer().data();
 }
 
 } // namespace lmms

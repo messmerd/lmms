@@ -153,16 +153,6 @@ public:
 	{
 	}
 
-	//! Dynamic channel count to static channel count; use with care
-	template<int thisChannelCount, std::enable_if_t<(channelCount == DynamicChannelCount), bool> = true>
-	explicit SplitAudioData(const SplitAudioData<SampleT, thisChannelCount>& other)
-		: m_data{other.data()}
-		, m_channels{thisChannelCount}
-		, m_frames{other.frames()}
-	{
-		assert(thisChannelCount <= other.channels());
-	}
-
 	/**
 	 * Returns pointer to the buffer of a given channel.
 	 * The size of the buffer is `frames()`.

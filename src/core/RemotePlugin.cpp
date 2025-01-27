@@ -134,7 +134,7 @@ void ProcessWatcher::run()
 
 
 
-RemotePlugin::RemotePlugin(RemotePluginAudioPortController& controller, Model* parent)
+RemotePlugin::RemotePlugin(RemotePluginAudioPortController& audioPort)
 	: QObject{}
 #ifdef SYNC_WITH_SHM_FIFO
 	, RemotePluginBase{new shmFifo(), new shmFifo()}
@@ -146,7 +146,7 @@ RemotePlugin::RemotePlugin(RemotePluginAudioPortController& controller, Model* p
 #if (QT_VERSION < QT_VERSION_CHECK(5,14,0))
 	, m_commMutex{QMutex::Recursive}
 #endif
-	, m_audioPortController{&controller}
+	, m_audioPort{&audioPort}
 {
 #ifndef SYNC_WITH_SHM_FIFO
 	struct sockaddr_un sa;
@@ -177,6 +177,8 @@ RemotePlugin::RemotePlugin(RemotePluginAudioPortController& controller, Model* p
 	}
 #endif
 
+	m_audioPort->connectBuffers(this);
+
 	connect( &m_process, SIGNAL(finished(int,QProcess::ExitStatus)),
 		this, SLOT(processFinished(int,QProcess::ExitStatus)),
 		Qt::DirectConnection );
@@ -192,7 +194,7 @@ RemotePlugin::RemotePlugin(RemotePluginAudioPortController& controller, Model* p
 
 RemotePlugin::~RemotePlugin()
 {
-	m_audioPortController->deactivate();
+	m_audioPort->disconnectBuffers();
 
 	m_watcher.stop();
 	m_watcher.wait();
@@ -320,7 +322,7 @@ bool RemotePlugin::init(const QString &pluginExecutable,
 		waitForInitDone();
 	}
 
-	m_audioPortController->activate(this);
+	m_audioPort->activate(Engine::audioEngine()->framesPerPeriod());
 
 	unlock();
 
@@ -334,7 +336,7 @@ bool RemotePlugin::process()
 {
 	if (m_failed || !isRunning())
 	{
-		if (m_outputBuffer.size() != 0)
+		if (!m_outputBuffer.empty())
 		{
 			std::memset(m_outputBuffer.data(), 0, m_outputBuffer.size_bytes());
 		}
@@ -353,7 +355,7 @@ bool RemotePlugin::process()
 			fetchAndProcessAllMessages();
 			unlock();
 		}
-		if (m_outputBuffer.size() != 0)
+		if (!m_outputBuffer.empty())
 		{
 			std::memset(m_outputBuffer.data(), 0, m_outputBuffer.size_bytes());
 		}
@@ -363,7 +365,7 @@ bool RemotePlugin::process()
 	lock();
 	sendMessage(IdStartProcessing);
 
-	if (m_failed || m_outputBuffer.size() == 0)
+	if (m_failed || m_outputBuffer.empty())
 	{
 		unlock();
 		return false;
@@ -501,16 +503,8 @@ bool RemotePlugin::processMessage( const message & _m )
 			reply_message.addInt( Engine::audioEngine()->framesPerPeriod() );
 			break;
 
-		case IdChangeInputCount:
-			m_audioPortController->pc().setPluginChannelCountIn(_m.getInt(0));
-			break;
-
-		case IdChangeOutputCount:
-			m_audioPortController->pc().setPluginChannelCountOut(_m.getInt(0));
-			break;
-
 		case IdChangeInputOutputCount:
-			m_audioPortController->pc().setPluginChannelCounts(_m.getInt(0), _m.getInt(1));
+			m_audioPort->pc().setPluginChannelCounts(_m.getInt(0), _m.getInt(1));
 			break;
 
 		case IdDebugMessage:

@@ -179,7 +179,7 @@ public:
 		SplitSampleType<SampleT>* ptr = m_sourceBuffer.data();
 		for (std::size_t channel = 0; channel < channels; ++channel)
 		{
-			m_accessBuffer[idx] = ptr;
+			m_accessBuffer[channel] = ptr;
 			ptr += frames;
 		}
 
@@ -260,7 +260,7 @@ public:
 		SplitSampleType<SampleT>* ptr = m_sourceBuffer.data();
 		for (std::size_t channel = 0; channel < channels; ++channel)
 		{
-			m_accessBuffer[idx] = ptr;
+			m_accessBuffer[channel] = ptr;
 			ptr += frames;
 		}
 

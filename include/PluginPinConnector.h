@@ -331,7 +331,7 @@ inline void PluginPinConnector::Router<config, kind, AudioDataLayout::Split>::ro
 	// Zero the output buffer - TODO: std::memcpy?
 	{
 		auto source = out.sourceBuffer();
-		std::fill_n(source.data(), out.size(), SampleT{});
+		std::fill_n(source.data(), source.size(), SampleT{});
 		//std::memset(source.data(), 0, source.size_bytes());
 	}
 

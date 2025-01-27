@@ -76,7 +76,7 @@ class LMMS_EXPORT RemotePlugin : public QObject, public RemotePluginBase
 {
 	Q_OBJECT
 public:
-	explicit RemotePlugin(RemotePluginAudioPortController& controller, Model* parent = nullptr);
+	explicit RemotePlugin(RemotePluginAudioPortController& audioPort);
 	~RemotePlugin() override;
 
 	inline bool isRunning()
@@ -149,9 +149,9 @@ public:
 		m_commMutex.unlock();
 	}
 
-	auto audioPortController() -> RemotePluginAudioPortController*
+	auto audioPort() -> RemotePluginAudioPortController*
 	{
-		return m_audioPortController;
+		return m_audioPort;
 	}
 
 	//auto frames() const -> f_cnt_t { return m_frames; }
@@ -181,7 +181,7 @@ private:
 	QMutex m_commMutex;
 #endif
 
-	RemotePluginAudioPortController* const m_audioPortController = nullptr;
+	RemotePluginAudioPortController* const m_audioPort = nullptr;
 
 	SharedMemory<float[]> m_audioBuffer; // NOLINT
 	std::size_t m_audioBufferSize = 0; // TODO: Move to `SharedMemory`?
