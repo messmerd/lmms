@@ -59,24 +59,6 @@ template<AudioDataKind kind>
 using GetAudioDataType = typename detail::AudioDataType<kind>::type;
 
 
-/**
- * A simple type alias for floating point audio data types which documents the data layout.
- *
- * For example, `const InterleavedSampleType<sample_t>*` can be used as a replacement for `const sample_t*`
- * parameters in order to document that the data layout of the audio is interleaved.
- *
- * NOTE: Can add support for integer sample types later
- */
-template<bool interleaved, typename T, std::enable_if_t<std::is_floating_point_v<T>, bool> = true>
-using SampleType = T;
-
-template<typename T>
-using SplitSampleType = SampleType<false, T>;
-
-template<typename T>
-using InterleavedSampleType = SampleType<true, T>;
-
-
 //! Use when the number of channels is not known at compile time
 inline constexpr int DynamicChannelCount = -1;
 
@@ -98,7 +80,7 @@ public:
 	 *  data[channels][frames]
 	 * Each buffer contains `frames` frames.
 	 */
-	SplitAudioData(SplitSampleType<SampleT>* const* data, pi_ch_t channels, f_cnt_t frames)
+	SplitAudioData(SampleT* const* data, pi_ch_t channels, f_cnt_t frames)
 		: m_data{data}
 		, m_channels{channels}
 		, m_frames{frames}
@@ -119,7 +101,7 @@ public:
 	 * Returns pointer to the buffer of a given channel.
 	 * The size of the buffer is `frames()`.
 	 */
-	auto buffer(pi_ch_t channel) const -> SplitSampleType<SampleT>*
+	auto buffer(pi_ch_t channel) const -> SampleT*
 	{
 		assert(channel < m_channels);
 		assert(m_data != nullptr);
@@ -127,7 +109,7 @@ public:
 	}
 
 	template<pi_ch_t channel>
-	auto buffer() const -> SplitSampleType<SampleT>*
+	auto buffer() const -> SampleT*
 	{
 		static_assert(channel != DynamicChannelCount);
 		static_assert(channel < channelCount);
@@ -156,16 +138,16 @@ public:
 	 *     contiguous buffer for all channels whose size is channels() * frames().
 	 *     Whether this is true depends on the implementation of the source buffer.
 	 */
-	auto sourceBuffer() const -> Span<SplitSampleType<SampleT>>
+	auto sourceBuffer() const -> Span<SampleT>
 	{
 		assert(m_data != nullptr);
-		return Span<SplitSampleType<SampleT>>{m_data[0], channels() * frames()};
+		return Span<SampleT>{m_data[0], channels() * frames()};
 	}
 
-	auto data() const -> SplitSampleType<SampleT>* const* { return m_data; }
+	auto data() const -> SampleT* const* { return m_data; }
 
 private:
-	SplitSampleType<SampleT>* const* m_data = nullptr;
+	SampleT* const* m_data = nullptr;
 	pi_ch_t m_channels = 0;
 	f_cnt_t m_frames = 0;
 };

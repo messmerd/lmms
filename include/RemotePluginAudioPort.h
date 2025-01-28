@@ -185,8 +185,8 @@ private:
 	auto remoteActive() const -> bool { return m_buffers != nullptr && m_active; }
 
 	// Views into RemotePlugin's shared memory buffer
-	std::vector<SplitSampleType<float>*> m_audioBufferIn;
-	std::vector<SplitSampleType<float>*> m_audioBufferOut;
+	std::vector<float*> m_audioBufferIn;
+	std::vector<float*> m_audioBufferOut;
 
 	bool m_active = false;
 };

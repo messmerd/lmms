@@ -337,7 +337,7 @@ inline void PluginPinConnector::Router<config, kind, false>::routeToPlugin(
 
 	for (std::uint32_t outChannel = 0; outChannel < out.channels(); ++outChannel)
 	{
-		SampleType<config.interleaved, SampleT>* outPtr = out.buffer(outChannel);
+		SampleT* outPtr = out.buffer(outChannel);
 
 		for (std::uint8_t inChannelPairIdx = 0; inChannelPairIdx < inSizeConstrained; ++inChannelPairIdx)
 		{
@@ -436,7 +436,7 @@ inline void PluginPinConnector::Router<config, kind, false>::routeFromPlugin(
 
 		for (pi_ch_t inChannel = 0; inChannel < in.channels(); ++inChannel)
 		{
-			const SampleType<config.interleaved, const SampleT>* inPtr = in.buffer(inChannel);
+			const SampleT* inPtr = in.buffer(inChannel);
 
 			if constexpr (rc == 0b11)
 			{

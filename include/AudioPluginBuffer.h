@@ -127,8 +127,8 @@ class AudioPluginBufferDefaultImpl<config, kind, false, false>
 	// Optimization to avoid need for std::vector if size is known at compile time
 	using AccessBufferType = std::conditional_t<
 		s_hasStaticChannelCount,
-		std::array<SplitSampleType<SampleT>*, static_cast<std::size_t>(config.inputs + config.outputs)>,
-		std::vector<SplitSampleType<SampleT>*>>;
+		std::array<SampleT*, static_cast<std::size_t>(config.inputs + config.outputs)>,
+		std::vector<SampleT*>>;
 
 public:
 	AudioPluginBufferDefaultImpl() = default;
@@ -175,7 +175,7 @@ public:
 
 		m_frames = frames;
 
-		SplitSampleType<SampleT>* ptr = m_sourceBuffer.data();
+		SampleT* ptr = m_sourceBuffer.data();
 		for (std::size_t channel = 0; channel < channels; ++channel)
 		{
 			m_accessBuffer[channel] = ptr;
@@ -188,7 +188,7 @@ public:
 
 private:
 	//! All input buffers followed by all output buffers
-	std::vector<SplitSampleType<SampleT>> m_sourceBuffer;
+	std::vector<SampleT> m_sourceBuffer;
 
 	//! Provides [channel][frame] view into `m_sourceBuffer`
 	AccessBufferType m_accessBuffer;
@@ -216,8 +216,8 @@ class AudioPluginBufferDefaultImpl<config, kind, false, true>
 	// Optimization to avoid need for std::vector if size is known at compile time
 	using AccessBufferType = std::conditional_t<
 		s_hasStaticChannelCount,
-		std::array<SplitSampleType<SampleT>*, static_cast<std::size_t>(config.outputs)>,
-		std::vector<SplitSampleType<SampleT>*>>;
+		std::array<SampleT*, static_cast<std::size_t>(config.outputs)>,
+		std::vector<SampleT*>>;
 
 public:
 	AudioPluginBufferDefaultImpl() = default;
@@ -256,7 +256,7 @@ public:
 
 		m_frames = frames;
 
-		SplitSampleType<SampleT>* ptr = m_sourceBuffer.data();
+		SampleT* ptr = m_sourceBuffer.data();
 		for (std::size_t channel = 0; channel < channels; ++channel)
 		{
 			m_accessBuffer[channel] = ptr;
@@ -268,7 +268,7 @@ public:
 
 private:
 	//! All input buffers followed by all output buffers
-	std::vector<SplitSampleType<SampleT>> m_sourceBuffer;
+	std::vector<SampleT> m_sourceBuffer;
 
 	//! Provides [channel][frame] view into `m_sourceBuffer`
 	AccessBufferType m_accessBuffer;
