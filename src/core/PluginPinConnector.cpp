@@ -64,11 +64,7 @@ void PluginPinConnector::setPluginChannelCounts(int inCount, int outCount)
 {
 	setPluginChannelCountsImpl(inCount, outCount);
 
-	/*
-	 * Now tell the audio buffer to update.
-	 * NOTE: This method does not call the implementation in the audio port until
-	 *       the audio port is fully constructed
-	 */
+	// Now tell the audio buffer to update
 	bufferPropertiesChanged(inCount, outCount, Engine::audioEngine()->framesPerPeriod());
 
 	emit propertiesChanged();

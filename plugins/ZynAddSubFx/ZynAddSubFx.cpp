@@ -342,7 +342,7 @@ void ZynAddSubFxInstrument::processImpl()
 	}
 	else
 	{
-		m_localPlugin->process(audioPort().buffers()->outputBuffer());
+		m_localPlugin->process(audioPort().outputBuffer());
 	}
 	m_pluginMutex.unlock();
 }
@@ -459,15 +459,22 @@ void ZynAddSubFxInstrument::initPlugin()
 
 		m_remotePlugin->updateSampleRate( Engine::audioEngine()->outputSampleRate() );
 
+		// temporary workaround until the VST synchronization feature gets stripped out of the RemotePluginClient class
+		// causing not to send buffer size information requests
+		m_remotePlugin->sendMessage( RemotePlugin::message( IdBufferSizeInformation ).addInt( Engine::audioEngine()->framesPerPeriod() ) );
+
 		m_remotePlugin->showUI();
 		m_remotePlugin->unlock();
 	}
 	else
 	{
 		audioPort().useRemote(false);
+
 		m_localPlugin = new LocalZynAddSubFx{};
-		m_localPlugin->setSampleRate( Engine::audioEngine()->outputSampleRate() );
-		m_localPlugin->setBufferSize(audioPort().frames());
+		m_localPlugin->setSampleRate(Engine::audioEngine()->outputSampleRate());
+		m_localPlugin->setBufferSize(Engine::audioEngine()->framesPerPeriod());
+
+		audioPort().activate(Engine::audioEngine()->framesPerPeriod());
 	}
 
 	m_pluginMutex.unlock();

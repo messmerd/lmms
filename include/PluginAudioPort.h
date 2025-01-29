@@ -130,7 +130,7 @@ public:
 
 	auto buffers() -> BufferT<config>* final { return static_cast<BufferT<config>*>(this); }
 
-protected:
+private:
 	void bufferPropertiesChanged(int inChannels, int outChannels, f_cnt_t frames) final
 	{
 		// Connects the pin connector to the buffers
@@ -155,8 +155,8 @@ public:
 
 	constexpr static auto provideProcessBuffers() -> bool { return false; }
 
-protected:
-	void bufferPropertiesChanged(int inChannels, int outChannels, f_cnt_t frames) override
+private:
+	void bufferPropertiesChanged(int inChannels, int outChannels, f_cnt_t frames) final
 	{
 		// Connects the pin connector to the buffers
 		this->updateBuffers(inChannels, outChannels, frames);

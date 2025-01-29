@@ -111,7 +111,7 @@ public:
 	{
 		assert(m_buffers != nullptr);
 		updateBuffers(this->in().channelCount(), this->out().channelCount(), frames);
-		m_active = true;
+		m_remoteActive = true;
 	}
 
 	/*
@@ -183,13 +183,14 @@ public:
 	auto active() const -> bool override { return remoteActive(); }
 
 private:
-	auto remoteActive() const -> bool { return m_buffers != nullptr && m_active; }
+	auto remoteActive() const -> bool { return m_buffers != nullptr && m_remoteActive; }
 
 	// Views into RemotePlugin's shared memory buffer
 	std::vector<float*> m_audioBufferIn;
 	std::vector<float*> m_audioBufferOut;
 
-	bool m_active = false;
+protected:
+	bool m_remoteActive = false;
 };
 
 
@@ -204,16 +205,26 @@ public:
 	ConfigurableAudioPort(bool isInstrument, Model* parent, bool beginAsRemote = true)
 		: RemotePluginAudioPort<config>{isInstrument, parent}
 	{
-		useRemoteImpl(beginAsRemote);
+		useRemote(beginAsRemote);
 	}
 
 	void useRemote(bool remote = true)
 	{
-		useRemoteImpl(remote);
-		updateBuffers(this->in().channelCount(), this->out().channelCount(), this->frames());
+		if (remote) { m_localActive = false; }
+		else { RemotePluginAudioPort<config>::m_remoteActive = false; }
+
+		m_isRemote = remote;
 	}
 
 	auto isRemote() const -> bool { return m_isRemote; }
+
+	void activate(f_cnt_t frames) override
+	{
+		if (isRemote()) { RemotePluginAudioPort<config>::activate(frames); return; }
+
+		updateBuffers(this->in().channelCount(), this->out().channelCount(), frames);
+		m_localActive = true;
+	}
 
 	auto buffers() -> AudioPluginBufferInterface<config>* override
 	{
@@ -251,9 +262,8 @@ public:
 		}
 		else
 		{
-			assert(m_localBuffer.has_value());
+			if (!m_localBuffer) { m_localBuffer.emplace(); }
 			m_localBuffer->updateBuffers(channelsIn, channelsOut, frames);
-			m_localActive = true;
 		}
 	}
 
@@ -265,27 +275,6 @@ public:
 	}
 
 private:
-	void activate(f_cnt_t frames) override
-	{
-		useRemoteImpl(true);
-		RemotePluginAudioPort<config>::activate(frames);
-	}
-
-	void useRemoteImpl(bool remote)
-	{
-		if (remote)
-		{
-			//m_localBuffer.reset(); // TODO: Might not be worth reseting
-			m_localActive = false;
-		}
-		else if (!m_localBuffer)
-		{
-			m_localBuffer.emplace();
-		}
-
-		m_isRemote = remote;
-	}
-
 	auto localActive() const -> bool { return m_localBuffer.has_value() && m_localActive; }
 
 	std::optional<LocalBufferT> m_localBuffer;

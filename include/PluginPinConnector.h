@@ -274,11 +274,7 @@ protected:
 	 * To be implemented by the plugin's audio port.
 	 * Called when channel counts or sample rate changes.
 	 *
-	 * NOTE: If this method is called in the pin connector's constructor,
-	 *       it will not call the implementation in a derived class
-	 *       since that class has not been constructed yet. During construction,
-	 *       buffer implementations should initialize themselves rather than
-	 *       rely on this method.
+	 * NOTE: Virtual method, do not call in constructor.
 	 */
 	virtual void bufferPropertiesChanged(int inChannels, int outChannels, f_cnt_t frames) {}
 

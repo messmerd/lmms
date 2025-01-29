@@ -24,16 +24,12 @@
 
 #include "RemotePluginAudioPort.h"
 
-#include "AudioEngine.h"
-#include "Engine.h"
 #include "RemotePlugin.h"
-#include "lmms_basics.h"
 
 namespace lmms {
 
 RemotePluginAudioPortController::RemotePluginAudioPortController(PluginPinConnector& pinConnector)
 	: m_pinConnector{&pinConnector}
-	, m_frames{Engine::audioEngine()->framesPerPeriod()}
 {
 }
 
