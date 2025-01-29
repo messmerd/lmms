@@ -331,6 +331,7 @@ inline void PluginPinConnector::Router<config, kind, false>::routeToPlugin(
 	// Zero the output buffer - TODO: std::memcpy?
 	{
 		auto source = out.sourceBuffer();
+		assert(source.data() != nullptr);
 		std::fill_n(source.data(), source.size(), SampleT{});
 		//std::memset(source.data(), 0, source.size_bytes());
 	}

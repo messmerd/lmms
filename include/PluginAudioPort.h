@@ -25,8 +25,10 @@
 #ifndef LMMS_PLUGIN_AUDIO_PORT_H
 #define LMMS_PLUGIN_AUDIO_PORT_H
 
+#include "AudioEngine.h"
 #include "AudioPluginBuffer.h"
 #include "AudioPluginConfig.h"
+#include "Engine.h"
 #include "PluginPinConnector.h"
 
 namespace lmms
@@ -51,6 +53,21 @@ public:
 	PluginAudioPort(bool isInstrument, Model* parent)
 		: PluginPinConnector{config.inputs, config.outputs, isInstrument, parent}
 	{
+	}
+
+	/**
+	 * Must be called after constructing an audio port.
+	 *
+	 * NOTE: This cannot be called in the constructor due
+	 *       to the use of a virtual method.
+	 */
+	void init()
+	{
+		if (auto buffers = this->buffers())
+		{
+			buffers->updateBuffers(in().channelCount(), out().channelCount(),
+				Engine::audioEngine()->framesPerPeriod());
+		}
 	}
 
 	auto pinConnector() const -> const PluginPinConnector&

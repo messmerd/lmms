@@ -27,6 +27,7 @@
 
 #include "PluginAudioPort.h"
 #include "lmms_basics.h"
+#include "lmms_export.h"
 
 namespace lmms
 {
@@ -45,7 +46,7 @@ class RemotePlugin;
  *       weird regression.
  */
 
-class RemotePluginAudioPortController
+class LMMS_EXPORT RemotePluginAudioPortController
 {
 public:
 	RemotePluginAudioPortController(PluginPinConnector& pinConnector);

@@ -64,7 +64,7 @@ inline constexpr int DynamicChannelCount = -1;
 
 
 /**
- * Non-owning view for multi-channel "split" (non-interleaved) audio data
+ * Non-owning view for multi-channel non-interleaved audio data
  *
  * TODO C++23: Use std::mdspan
  */

@@ -165,7 +165,7 @@ public:
 		: Instrument{desc, parent, key, flags}
 		, m_audioPort{true, this, std::forward<AudioPortArgsT>(audioPortArgs)...}
 	{
-		m_audioPort.updateBuffers(config.inputs, config.outputs, Engine::audioEngine()->framesPerPeriod());
+		m_audioPort.init();
 	}
 
 protected:
@@ -254,7 +254,7 @@ public:
 		: Effect{desc, parent, key}
 		, m_audioPort{false, this, std::forward<AudioPortArgsT>(audioPortArgs)...}
 	{
-		m_audioPort.updateBuffers(config.inputs, config.outputs, Engine::audioEngine()->framesPerPeriod());
+		m_audioPort.init();
 	}
 
 protected:

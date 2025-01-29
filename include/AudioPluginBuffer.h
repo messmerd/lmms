@@ -29,9 +29,7 @@
 #include <vector>
 
 #include "AudioData.h"
-#include "AudioEngine.h"
 #include "AudioPluginConfig.h"
-#include "Engine.h"
 #include "SampleFrame.h"
 #include "lmms_basics.h"
 
