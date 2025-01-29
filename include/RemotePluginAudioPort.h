@@ -51,13 +51,13 @@ class LMMS_EXPORT RemotePluginAudioPortController
 public:
 	RemotePluginAudioPortController(PluginPinConnector& pinConnector);
 
-	//! Connects `RemotePlugin`'s buffers to audio port; Call after buffers are created
+	//! Connects RemotePlugin's buffers to audio port; Call after buffers are created
 	void connectBuffers(RemotePlugin* buffers)
 	{
 		m_buffers = buffers;
 	}
 
-	//! Disconnects `RemotePlugin`'s buffers from audio port; Call before buffers are destroyed
+	//! Disconnects RemotePlugin's buffers from audio port; Call before buffers are destroyed
 	void disconnectBuffers()
 	{
 		m_buffers = nullptr;

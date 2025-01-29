@@ -77,8 +77,8 @@ Plugin::Descriptor PLUGIN_EXPORT zynaddsubfx_plugin_descriptor =
 
 
 
-ZynAddSubFxRemotePlugin::ZynAddSubFxRemotePlugin(RemotePluginAudioPortController& controller)
-	: RemotePlugin{controller}
+ZynAddSubFxRemotePlugin::ZynAddSubFxRemotePlugin(RemotePluginAudioPortController& audioPort)
+	: RemotePlugin{audioPort}
 {
 	init( "RemoteZynAddSubFx", false );
 }

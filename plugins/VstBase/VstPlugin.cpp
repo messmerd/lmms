@@ -162,8 +162,6 @@ VstPlugin::VstPlugin(const QString& plugin, RemotePluginAudioPortController& aud
 		}
 	}
 
-
-
 	switch(pluginType)
 	{
 	case ExecutableType::Win64:

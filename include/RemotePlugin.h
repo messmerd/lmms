@@ -25,9 +25,6 @@
 #ifndef LMMS_REMOTE_PLUGIN_H
 #define LMMS_REMOTE_PLUGIN_H
 
-#include <QObject>
-#include <cassert>
-
 #include "AudioData.h"
 #include "RemotePluginBase.h"
 #include "SharedMemory.h"
@@ -40,7 +37,6 @@
 namespace lmms
 {
 
-class Model;
 class RemotePlugin;
 class RemotePluginAudioPortController;
 class SampleFrame;
@@ -153,10 +149,6 @@ public:
 	{
 		return m_audioPort;
 	}
-
-	//auto frames() const -> f_cnt_t { return m_frames; }
-	//auto channelsIn() const -> pi_ch_t { return m_channelsIn; }
-	//auto channelsOut() const -> pi_ch_t { return m_channelsOut; }
 
 	auto inputBuffer() const -> Span<float> { return m_inputBuffer; }
 	auto outputBuffer() const -> Span<float> { return m_outputBuffer; }

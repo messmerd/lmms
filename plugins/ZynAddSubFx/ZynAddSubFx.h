@@ -60,7 +60,7 @@ class ZynAddSubFxRemotePlugin
 {
 	Q_OBJECT
 public:
-	ZynAddSubFxRemotePlugin(RemotePluginAudioPortController& controller);
+	ZynAddSubFxRemotePlugin(RemotePluginAudioPortController& audioPort);
 
 	bool processMessage( const message & _m ) override;
 

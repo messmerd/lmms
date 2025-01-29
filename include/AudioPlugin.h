@@ -180,8 +180,6 @@ protected:
 
 	void playImpl(CoreAudioDataMut inOut) final
 	{
-		SampleFrame* temp = inOut.data();
-		const auto bus = CoreAudioBusMut{&temp, 1, inOut.size()};
 		auto buffers = m_audioPort.buffers();
 		if (!buffers)
 		{
@@ -189,6 +187,8 @@ protected:
 			return;
 		}
 
+		SampleFrame* temp = inOut.data();
+		const auto bus = CoreAudioBusMut{&temp, 1, inOut.size()};
 		auto router = m_audioPort.getRouter();
 
 		if constexpr (config.inplace)
@@ -275,10 +275,11 @@ protected:
 			return false;
 		}
 
-		SampleFrame* temp = inOut.data();
-		const auto bus = CoreAudioBusMut{&temp, 1, inOut.size()};
 		auto buffers = m_audioPort.buffers();
 		assert(buffers != nullptr);
+
+		SampleFrame* temp = inOut.data();
+		const auto bus = CoreAudioBusMut{&temp, 1, inOut.size()};
 		auto router = m_audioPort.getRouter();
 
 		ProcessStatus status;
