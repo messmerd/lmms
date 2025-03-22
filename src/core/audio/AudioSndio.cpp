@@ -31,12 +31,11 @@
 #include <QFormLayout>
 #include <QLineEdit>
 
-#include "endian_handling.h"
-#include "LcdSpinBox.h"
 #include "AudioEngine.h"
-#include "Engine.h"
-
+#include "BitOperations.h"
 #include "ConfigManager.h"
+#include "Engine.h"
+#include "LcdSpinBox.h"
 
 
 namespace lmms

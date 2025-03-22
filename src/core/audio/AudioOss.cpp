@@ -30,10 +30,10 @@
 #include <QFormLayout>
 #include <QLineEdit>
 
-#include "endian_handling.h"
-#include "LcdSpinBox.h"
 #include "AudioEngine.h"
+#include "BitOperations.h"
 #include "Engine.h"
+#include "LcdSpinBox.h"
 
 #ifdef LMMS_HAVE_UNISTD_H
 #include <unistd.h>

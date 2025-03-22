@@ -37,8 +37,8 @@
 #include <QDomDocument>
 
 #include "AudioEngine.h"
+#include "BitOperations.h"
 #include "ConfigManager.h"
-#include "endian_handling.h"
 #include "Engine.h"
 #include "FileDialog.h"
 #include "InstrumentTrack.h"
@@ -573,19 +573,19 @@ void GigInstrument::loadSample( GigSample& sample, SampleFrame* sampleData, f_cn
 		sample.sample->SetPos( sample.pos );
 
 		unsigned long size = sample.sample->Read( &buffer, samples ) * sample.sample->FrameSize;
-		std::memset( (int8_t*) &buffer + size, 0, allocationsize - size );
+		std::memset(buffer + size, 0, allocationsize - size);
 	}
 
 	// Convert from 16 or 24 bit into 32-bit float
 	if( sample.sample->BitDepth == 24 ) // 24 bit
 	{
-		auto pInt = reinterpret_cast<uint8_t*>(&buffer);
+		auto pInt = reinterpret_cast<unsigned char*>(&buffer);
 
 		for( f_cnt_t i = 0; i < samples; ++i )
 		{
 			// libgig gives 24-bit data as little endian, so we must
 			// convert if on a big endian system
-			int32_t valueLeft = swap32IfBE(
+			auto valueLeft = byteswapIfBE<std::int32_t>(
 						( pInt[ 3 * sample.sample->Channels * i ] << 8 ) |
 						( pInt[ 3 * sample.sample->Channels * i + 1 ] << 16 ) |
 						( pInt[ 3 * sample.sample->Channels * i + 2 ] << 24 ) );
@@ -600,7 +600,7 @@ void GigInstrument::loadSample( GigSample& sample, SampleFrame* sampleData, f_cn
 			}
 			else
 			{
-				int32_t valueRight = swap32IfBE(
+				auto valueRight = byteswapIfBE<std::int32_t>(
 							( pInt[ 3 * sample.sample->Channels * i + 3 ] << 8 ) |
 							( pInt[ 3 * sample.sample->Channels * i + 4 ] << 16 ) |
 							( pInt[ 3 * sample.sample->Channels * i + 5 ] << 24 ) );

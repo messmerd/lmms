@@ -64,10 +64,17 @@ constexpr char LADSPA_PATH_SEPERATOR =
 ':';
 #endif
 
-
-
 #define LMMS_STRINGIFY(s) LMMS_STR(s)
 #define LMMS_STR(PN)	#PN
+
+/**
+ * Can be used with static_assert() in an uninstantiated template
+ * as a workaround for static_assert(false)
+ *
+ * TODO C++23: No longer needed with resolution of CWG2518
+ */
+template<class... T>
+inline constexpr bool always_false_v = false;
 
 } // namespace lmms
 

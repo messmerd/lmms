@@ -29,8 +29,8 @@
 #include <QPainter>
 #include <QDomElement>
 
+#include "BitOperations.h"
 #include "ConfigManager.h"
-#include "endian_handling.h"
 #include "Engine.h"
 #include "FileDialog.h"
 #include "FontHelper.h"
@@ -222,6 +222,8 @@ PatmanInstrument::LoadError PatmanInstrument::loadPatch(
 		return( LoadError::Open );
 	}
 
+	// Gravis Ultasound Patch file format specs: https://www.fileformat.info/format/gravis/corion.htm
+
 	auto header = std::array<unsigned char, 239>{};
 
 	if (fread(header.data(), 1, 239, fd ) != 239 ||
@@ -256,46 +258,55 @@ PatmanInstrument::LoadError PatmanInstrument::loadPatch(
 			return( LoadError::IO ); \
 		}
 
-#define READ_SHORT( x ) \
+#define READ_WORD( x ) \
 		if ( fread( &tmpshort, 2, 1, fd ) != 1 ) \
 		{ \
 			fclose( fd ); \
 			return( LoadError::IO ); \
 		} \
-		x = (unsigned short)swap16IfBE( tmpshort );
+		x = byteswapIfBE(std::uint16_t{tmpshort});
 
-#define READ_LONG( x ) \
+#define READ_DWORD( x ) \
 		if ( fread( &x, 4, 1, fd ) != 1 ) \
 		{ \
 			fclose( fd ); \
 			return( LoadError::IO ); \
 		} \
-		x = (unsigned)swap32IfBE( x );
+		x = byteswapIfBE(std::uint32_t{x});
 
 		// skip wave name, fractions
-		SKIP_BYTES( 7 + 1 );
-		unsigned data_length;
-		READ_LONG( data_length );
-		unsigned loop_start;
-		READ_LONG( loop_start );
-		unsigned loop_end;
-		READ_LONG( loop_end );
-		unsigned sample_rate;
-		READ_SHORT( sample_rate );
+		SKIP_BYTES(7 + 1);
+
+		std::uint32_t data_length;
+		READ_DWORD(data_length);
+
+		std::uint32_t loop_start;
+		READ_DWORD(loop_start);
+
+		std::uint32_t loop_end;
+		READ_DWORD(loop_end);
+
+		std::uint16_t sample_rate;
+		READ_WORD(sample_rate);
+
 		// skip low_freq, high_freq
-		SKIP_BYTES( 4 + 4 );
-		unsigned root_freq;
-		READ_LONG( root_freq );
+		SKIP_BYTES(4 + 4);
+
+		std::uint32_t root_freq;
+		READ_DWORD(root_freq);
+
 		// skip tuning, panning, envelope, tremolo, vibrato
-		SKIP_BYTES( 2 + 1 + 12 + 3 + 3 );
-		unsigned char modes;
+		SKIP_BYTES(2 + 1 + 12 + 3 + 3);
+
+		std::uint8_t modes;
 		if ( fread( &modes, 1, 1, fd ) != 1 )
 		{
 			fclose( fd );
 			return( LoadError::IO );
 		}
+
 		// skip scale frequency, scale factor, reserved space
-		SKIP_BYTES( 2 + 2 + 36 );
+		SKIP_BYTES(2 + 2 + 36);
 
 		f_cnt_t frames;
 		std::unique_ptr<sample_t[]> wave_samples;
@@ -305,13 +316,13 @@ PatmanInstrument::LoadError PatmanInstrument::loadPatch(
 			wave_samples = std::make_unique<sample_t[]>(frames);
 			for( f_cnt_t frame = 0; frame < frames; ++frame )
 			{
-				short sample;
+				std::int16_t sample;
 				if ( fread( &sample, 2, 1, fd ) != 1 )
 				{
 					fclose( fd );
 					return( LoadError::IO );
 				}
-				sample = swap16IfBE( sample );
+				sample = byteswapIfBE(sample);
 				if( modes & MODES_UNSIGNED )
 				{
 					sample ^= 0x8000;
@@ -328,7 +339,7 @@ PatmanInstrument::LoadError PatmanInstrument::loadPatch(
 			wave_samples = std::make_unique<sample_t[]>(frames);
 			for( f_cnt_t frame = 0; frame < frames; ++frame )
 			{
-				char sample;
+				std::int8_t sample;
 				if ( fread( &sample, 1, 1, fd ) != 1 )
 				{
 					fclose( fd );
