@@ -28,6 +28,7 @@
 #include <QtGlobal>
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
