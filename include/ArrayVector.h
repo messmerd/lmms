@@ -353,7 +353,7 @@ public:
 
 	friend auto operator<=>(const ArrayVector& l, const ArrayVector& r)
 	{
-#if defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 17000
+#if defined(__clang__) && defined(__apple_build_version__)
 		// TODO: Remove this workaround once AppleClang supports std::lexicographical_compare_three_way
 		const auto endL = l.end();
 		const auto endR = r.end();
