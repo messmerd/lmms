@@ -27,6 +27,7 @@
 
 #include <QtGlobal>
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -108,18 +109,15 @@ static void roundAt(T& value, const T& where, const T& stepSize)
 	}
 }
 
-//! Source: http://martin.ankerl.com/2007/10/04/optimized-pow-approximation-for-java-and-c-c/
-inline double fastPow(double a, double b)
+//! Based on http://martin.ankerl.com/2007/10/04/optimized-pow-approximation-for-java-and-c-c/
+constexpr double fastPow(double a, double b)
 {
-	double d;
-	std::int32_t x[2];
+	auto x = std::bit_cast<std::array<std::int32_t, 2>, double>(a);
 
-	std::memcpy(x, &a, sizeof(x));
 	x[1] = static_cast<std::int32_t>(b * (x[1] - 1072632447) + 1072632447);
 	x[0] = 0;
 
-	std::memcpy(&d, x, sizeof(d));
-	return d;
+	return std::bit_cast<double>(x);
 }
 
 
