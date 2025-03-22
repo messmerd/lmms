@@ -45,18 +45,16 @@ void InstrumentPlayHandle::play(SampleFrame* working_buffer)
 	InstrumentTrack * instrumentTrack = m_instrument->instrumentTrack();
 
 	// ensure that all our nph's have been processed first
-	auto nphv = NotePlayHandle::nphsOfInstrumentTrack(instrumentTrack, true);
-
 	bool nphsLeft;
 	do
 	{
 		nphsLeft = false;
-		for (const auto& handle : nphv)
+		for (auto handle : instrumentTrack->notePlayHandles(true))
 		{
 			if (handle->state() != ThreadableJob::ProcessingState::Done && !handle->isFinished())
 			{
 				nphsLeft = true;
-				const_cast<NotePlayHandle*>(handle)->process();
+				handle->process();
 			}
 		}
 	}

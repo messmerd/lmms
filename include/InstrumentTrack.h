@@ -27,6 +27,7 @@
 #define LMMS_INSTRUMENT_TRACK_H
 
 #include <limits>
+#include <ranges>
 
 #include "AudioBusHandle.h"
 #include "InstrumentFunctions.h"
@@ -239,6 +240,46 @@ public:
 	void replaceInstrument(DataFile dataFile);
 
 	void autoAssignMidiDevice( bool );
+
+	class NotePlayHandleView : public std::ranges::view_interface<NotePlayHandleView>
+	{
+	public:
+		struct Filter
+		{
+			auto operator()(PlayHandle* ph) const noexcept -> bool;
+
+			const InstrumentTrack* it = nullptr;
+			bool allPlayHandles = false;
+		};
+
+		using ViewType = std::ranges::transform_view<
+			std::ranges::filter_view<std::ranges::ref_view<PlayHandleList>, Filter>,
+			NotePlayHandle*(*)(PlayHandle*)
+		>;
+
+		explicit NotePlayHandleView(ViewType view)
+			: m_view{std::move(view)}
+		{
+		}
+
+		auto begin() { return m_view.begin(); }
+		auto end() { return m_view.end(); }
+
+	private:
+		ViewType m_view;
+	};
+
+	/**
+	 * Returns a view of note play handles that belong to this instrument track.
+	 *
+	 * If `allPlayHandles` is false, only non-released NPHs without a parent are included,
+	 *   i.e. non-released NPHs that are not part of an arpeggio or chord.
+	 * Otherwise all NPHs are included.
+	 */
+	auto notePlayHandles(bool allPlayHandles) const -> NotePlayHandleView;
+
+	//! Returns the preset preview note play handle for this track, or nullptr if it does not exist
+	auto presetPreviewNotePlayHandle() const -> const NotePlayHandle*;
 
 signals:
 	void instrumentChanged();

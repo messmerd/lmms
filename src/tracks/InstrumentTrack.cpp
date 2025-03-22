@@ -40,6 +40,7 @@
 #include "PatternTrack.h"
 #include "PianoRoll.h"
 #include "Pitch.h"
+#include "PresetPreviewPlayHandle.h"
 #include "Song.h"
 
 namespace lmms
@@ -1094,6 +1095,34 @@ void InstrumentTrack::autoAssignMidiDevice(bool assign)
 		m_midiPort.subscribeReadablePort(device, assign);
 		m_hasAutoMidiDev = assign;
 	}
+}
+
+auto InstrumentTrack::NotePlayHandleView::Filter::operator()(PlayHandle* ph) const noexcept -> bool
+{
+	const auto nph = dynamic_cast<NotePlayHandle*>(ph);
+	return nph != nullptr
+		&& nph->instrumentTrack() == it
+		&& (allPlayHandles || (!nph->isReleased() && !nph->hasParent()));
+}
+
+auto InstrumentTrack::notePlayHandles(bool allPlayHandles) const -> NotePlayHandleView
+{
+	auto transformFunc = +[](PlayHandle* ph) { return dynamic_cast<NotePlayHandle*>(ph); };
+
+	const auto playHandles = std::ranges::ref_view{Engine::audioEngine()->playHandles()};
+
+	return NotePlayHandleView {
+		std::ranges::filter_view(playHandles, NotePlayHandleView::Filter{this, allPlayHandles})
+			| std::views::transform(transformFunc)
+	};
+}
+
+auto InstrumentTrack::presetPreviewNotePlayHandle() const -> const NotePlayHandle*
+{
+	const auto nph = PresetPreviewPlayHandle::previewNote();
+	return nph != nullptr && nph->instrumentTrack() == this
+		? nph
+		: nullptr;
 }
 
 

@@ -353,13 +353,20 @@ void InstrumentFunctionArpeggio::processNote( NotePlayHandle * _n )
 	const int selected_arp = m_arpModel.value();
 	const auto arpMode = static_cast<ArpMode>(m_arpModeModel.value());
 
-	ConstNotePlayHandleList cnphv = NotePlayHandle::nphsOfInstrumentTrack(_n->instrumentTrack());
+	ConstNotePlayHandleList cnphv;
+	for (auto nph : _n->instrumentTrack()->notePlayHandles(false))
+	{
+		cnphv.push_back(nph);
+	}
 
-	if(arpMode != ArpMode::Free && cnphv.size() == 0 )
+	if (arpMode != ArpMode::Free && cnphv.empty())
 	{
 		// maybe we're playing only a preset-preview-note?
-		cnphv = PresetPreviewPlayHandle::nphsOfInstrumentTrack( _n->instrumentTrack() );
-		if( cnphv.size() == 0 )
+		if (auto ppnph = _n->instrumentTrack()->presetPreviewNotePlayHandle())
+		{
+			cnphv.push_back(ppnph);
+		}
+		else
 		{
 			// still nothing found here, so lets return
 			//return;

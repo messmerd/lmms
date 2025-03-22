@@ -175,13 +175,13 @@ public:
 	/*! Returns volume level at given frame (envelope/LFO) */
 	float volumeLevel( const f_cnt_t frame );
 
-	/*! Returns instrument track which is being played by this handle (const version) */
+	/*! Returns instrument track which is being played by this handle (const version); Never null */
 	const InstrumentTrack* instrumentTrack() const
 	{
 		return m_instrumentTrack;
 	}
 
-	/*! Returns instrument track which is being played by this handle */
+	/*! Returns instrument track which is being played by this handle; Never null */
 	InstrumentTrack* instrumentTrack()
 	{
 		return m_instrumentTrack;
@@ -224,11 +224,6 @@ public:
 	    belonging to this instrument track - used by arpeggiator.
 	    Ignores child note-play-handles, returns -1 when called on one */
 	int index() const;
-
-	/*! Returns list of note-play-handles belonging to given instrument track.
-	    If allPlayHandles = true, also released note-play-handles and children
-	    are returned */
-	static ConstNotePlayHandleList nphsOfInstrumentTrack( const InstrumentTrack* Track, bool allPlayHandles = false );
 
 	/*! Returns whether given NotePlayHandle instance is equal to *this */
 	bool operator==( const NotePlayHandle & _nph ) const;
