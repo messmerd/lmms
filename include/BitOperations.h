@@ -48,9 +48,16 @@ constexpr auto byteswap(T value) -> T
 	{
 		return value;
 	}
+	else if constexpr (std::is_signed_v<T>)
+	{
+		// Use unsigned value when performing byteswap to avoid issues with
+		// bitwise right shift on signed negative integers
+		using U = std::make_unsigned_t<T>;
+		return static_cast<T>(byteswap(static_cast<U>(value)));
+	}
 	else if constexpr (sizeof(T) == 2)
 	{
-		return ((value & 0xFF) << 8) | ((value >> 8) & 0xFF);
+		return ((value & 0xFFu) << 8) | ((value >> 8) & 0xFFu);
 	}
 	else if constexpr (sizeof(T) == 4)
 	{
@@ -86,23 +93,24 @@ constexpr auto byteswapIfBE(T value) -> T
 	}
 }
 
-static_assert(byteswap<std::int8_t>(0x12) == 0x12);
-static_assert(byteswap<std::uint8_t>(0x12) == 0x12);
+static_assert(byteswap(static_cast<std::int8_t>(0x12)) == 0x12);
+static_assert(byteswap(static_cast<std::uint8_t>(0x12)) == 0x12);
 
-static_assert(byteswap<std::int16_t>(0x1234) == 0x3412);
-static_assert(byteswap<std::int16_t>(0x9876) == 0x7698);
-static_assert(byteswap<std::uint16_t>(0x1234) == 0x3412);
-static_assert(byteswap<std::uint16_t>(0x9876) == 0x7698);
+static_assert(byteswap(static_cast<std::int16_t>(0x1234)) == 0x3412);
+static_assert(byteswap(static_cast<std::int16_t>(0x9876)) == 0x7698);
+static_assert(byteswap(static_cast<std::uint16_t>(0x1234)) == 0x3412);
+static_assert(byteswap(static_cast<std::uint16_t>(0x9876)) == 0x7698);
 
-static_assert(byteswap<std::int32_t>(0x12345678) == 0x78563412);
-static_assert(byteswap<std::int32_t>(0x98765432) == 0x32547698);
-static_assert(byteswap<std::uint32_t>(0x12345678) == 0x78563412);
-static_assert(byteswap<std::uint32_t>(0x98765432) == 0x32547698);
+static_assert(byteswap(static_cast<std::int32_t>(0x12345678)) == 0x78563412);
+static_assert(byteswap(static_cast<std::int32_t>(0x98765432)) == 0x32547698);
+static_assert(byteswap(static_cast<std::uint32_t>(0x12345678)) == 0x78563412);
+static_assert(byteswap(static_cast<std::uint32_t>(0x98765432)) == 0x32547698);
 
-static_assert(byteswap<std::int64_t>(0x1234567898765432) == 0x3254769878563412);
-static_assert(byteswap<std::int64_t>(0x9876543210123456) == 0x5634121032547698);
-static_assert(byteswap<std::uint64_t>(0x1234567898765432) == 0x3254769878563412);
-static_assert(byteswap<std::uint64_t>(0x9876543210123456) == 0x5634121032547698);
+static_assert(byteswap(static_cast<std::int64_t>(0x1234567898765432)) == 0x3254769878563412);
+static_assert(byteswap(static_cast<std::int64_t>(0x9876543210123456)) == 0x5634121032547698);
+static_assert(byteswap(static_cast<std::uint64_t>(0x1234567898765432)) == 0x3254769878563412);
+static_assert(byteswap(static_cast<std::uint64_t>(0x9876543210123456)) == 0x5634121032547698);
+
 
 } // namespace lmms
 
