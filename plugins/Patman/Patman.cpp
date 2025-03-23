@@ -349,18 +349,14 @@ PatmanInstrument::LoadError PatmanInstrument::loadPatch(
 			}
 		}
 
-		auto data = new SampleFrame[frames];
-
-		for( f_cnt_t frame = 0; frame < frames; ++frame )
+		auto data = std::vector<SampleFrame>{};
+		data.reserve(frames);
+		for (f_cnt_t frame = 0; frame < frames; ++frame)
 		{
-			for( ch_cnt_t chnl = 0; chnl < DEFAULT_CHANNELS;
-									++chnl )
-			{
-				data[frame][chnl] = wave_samples[frame];
-			}
+			data.emplace_back(wave_samples[frame]);
 		}
 
-		auto psample = std::make_shared<Sample>(data, frames, sample_rate);
+		auto psample = std::make_shared<Sample>(std::make_shared<SampleBuffer>(std::move(data), sample_rate));
 		psample->setFrequency(root_freq / 1000.0f);
 
 		if( modes & MODES_LOOPING )
@@ -370,8 +366,6 @@ PatmanInstrument::LoadError PatmanInstrument::loadPatch(
 		}
 
 		m_patchSamples.push_back(psample);
-
-		delete[] data;
 	}
 	fclose( fd );
 	return( LoadError::OK );
