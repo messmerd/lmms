@@ -249,8 +249,6 @@ PatmanInstrument::LoadError PatmanInstrument::loadPatch(
 	int sample_count = header[198];
 	for( int i = 0; i < sample_count; ++i )
 	{
-		unsigned short tmpshort;
-
 #define SKIP_BYTES( x ) \
 		if ( fseek( fd, x, SEEK_CUR ) == -1 ) \
 		{ \
@@ -259,20 +257,22 @@ PatmanInstrument::LoadError PatmanInstrument::loadPatch(
 		}
 
 #define READ_WORD( x ) \
-		if ( fread( &tmpshort, 2, 1, fd ) != 1 ) \
+		static_assert(sizeof(x) == 2); \
+		if ( fread( &x, 2, 1, fd ) != 1 ) \
 		{ \
 			fclose( fd ); \
 			return( LoadError::IO ); \
 		} \
-		x = byteswapIfBE(std::uint16_t{tmpshort});
+		x = byteswapIfBE(x);
 
 #define READ_DWORD( x ) \
+		static_assert(sizeof(x) == 4); \
 		if ( fread( &x, 4, 1, fd ) != 1 ) \
 		{ \
 			fclose( fd ); \
 			return( LoadError::IO ); \
 		} \
-		x = byteswapIfBE(std::uint32_t{x});
+		x = byteswapIfBE(x);
 
 		// skip wave name, fractions
 		SKIP_BYTES(7 + 1);
@@ -317,12 +317,8 @@ PatmanInstrument::LoadError PatmanInstrument::loadPatch(
 			for( f_cnt_t frame = 0; frame < frames; ++frame )
 			{
 				std::int16_t sample;
-				if ( fread( &sample, 2, 1, fd ) != 1 )
-				{
-					fclose( fd );
-					return( LoadError::IO );
-				}
-				sample = byteswapIfBE(sample);
+				READ_WORD(sample);
+
 				if( modes & MODES_UNSIGNED )
 				{
 					sample ^= 0x8000;
