@@ -381,6 +381,17 @@ private:
 	AudioPortSerializer m_serializer{this};
 };
 
+/**
+ * Same as `AudioPlugin` but the audio port is passed as a template template parameter.
+ *
+ * @tparam ParentT Either `Instrument` or `Effect`
+ * @tparam config Compile time configuration to customize `AudioPlugin`
+ * @tparam AudioPortsT The plugin's audio port - must fully implement `AudioPorts`
+ */
+template<class ParentT, AudioPortsConfig config,
+	template<AudioPortsConfig> class AudioPortsT = PluginAudioPorts>
+using AudioPluginExt = AudioPlugin<ParentT, AudioPortsT<config>>;
+
 
 /**
  * Same as `AudioPlugin` but the audio port is passed as a template template parameter.
