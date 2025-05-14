@@ -220,7 +220,7 @@ LadspaControls * LadspaMatrixControlDialog::getLadspaControls() const
 
 ch_cnt_t LadspaMatrixControlDialog::getChannelCount() const
 {
-	return getLadspaControls()->m_processors;
+	return getLadspaControls()->m_processors; // ???
 }
 
 } // namespace lmms::gui

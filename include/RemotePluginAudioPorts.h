@@ -186,6 +186,36 @@ public:
 
 	auto active() const -> bool override { return remoteActive(); }
 
+	auto channelName(proc_ch_t channel, bool isOutput) const -> QString override
+	{
+		if (isOutput)
+		{
+			switch (this->out().channelCount())
+			{
+				case 1:
+					return this->tr("Plugin Out");
+				case 2:
+					assert(channel < 2);
+					return channel == 0 ? this->tr("Plugin Out L") : this->tr("Plugin Out R");
+				default:
+					return this->tr("Plugin Out %1").arg(channel + 1);
+			}
+		}
+		else
+		{
+			switch (this->in().channelCount())
+			{
+				case 1:
+					return this->tr("Plugin In");
+				case 2:
+					assert(channel < 2);
+					return channel == 0 ? this->tr("Plugin In L") : this->tr("Plugin In R");
+				default:
+					return this->tr("Plugin In %1").arg(channel + 1);
+			}
+		}
+	}
+
 private:
 	auto remoteActive() const -> bool { return m_buffers != nullptr && m_remoteActive; }
 

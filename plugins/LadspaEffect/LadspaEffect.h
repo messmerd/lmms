@@ -39,7 +39,82 @@ namespace lmms
 struct port_desc_t;
 using multi_proc_t = QVector<port_desc_t*>;
 
-class LadspaEffect : public DefaultEffect
+inline constexpr auto LadspaConfig = AudioPortsConfig {
+	.kind = AudioDataKind::F32,
+	.interleaved = false,
+	.inplace = false,
+	.buffered = false
+};
+
+
+class LadspaAudioPortsBuffer
+	: public AudioPorts<LadspaConfig>::Buffer
+{
+	static_assert(std::is_same_v<LADSPA_Data, GetAudioDataType<LadspaConfig.kind>>);
+
+public:
+	LadspaAudioPortsBuffer() = default;
+	~LadspaAudioPortsBuffer() override = default;
+
+	auto inputBuffer() -> SplitAudioData<LADSPA_Data> final
+	{
+		return {m_accessBuffer.data(), m_channelsIn, m_frames};
+	}
+
+	auto outputBuffer() -> SplitAudioData<LADSPA_Data> final
+	{
+		return {m_accessBuffer.data() + m_channelsIn, m_channelsOut, m_frames};
+	}
+
+	auto frames() const -> fpp_t final
+	{
+		return m_frames;
+	}
+
+	void updateBuffers(proc_ch_t channelsIn, proc_ch_t channelsOut, f_cnt_t frames) final
+	{
+		assert(channelsIn != DynamicChannelCount && channelsOut != DynamicChannelCount);
+		const auto channels = static_cast<std::size_t>(channelsIn + channelsOut);
+
+		m_sourceBuffer.resize(channels * frames);
+		m_accessBuffer.resize(channels);
+
+		m_frames = frames;
+
+		LADSPA_Data* ptr = m_sourceBuffer.data();
+		for (std::size_t channel = 0; channel < channels; ++channel)
+		{
+			m_accessBuffer[channel] = ptr;
+			ptr += frames;
+		}
+
+		m_channelsIn = channelsIn;
+		m_channelsOut = channelsOut;
+	}
+
+private:
+	//! All input buffers followed by all output buffers
+	std::vector<LADSPA_Data> m_sourceBuffer;
+
+	//! Provides [channel][frame] view into `m_sourceBuffer`
+	std::vector<LADSPA_Data*> m_accessBuffer;
+
+	proc_ch_t m_channelsIn = config.inputs;
+	proc_ch_t m_channelsOut = config.outputs;
+	f_cnt_t m_frames = 0;
+};
+
+
+class LadspaAudioPorts
+	: public PluginAudioPorts<LadspaConfig>
+{
+public:
+
+};
+
+
+
+class LadspaEffect : public AudioPlugin<Effect, LadspaAudioPorts>
 {
 	Q_OBJECT
 public:
@@ -65,7 +140,7 @@ private slots:
 
 
 private:
-	ProcessStatus processImpl(std::span<SampleFrame> inOut) override;
+	ProcessStatus processImpl(SplitAudioData<const float> in, SplitAudioData<float> out) override;
 
 	void pluginInstantiation();
 	void pluginDestruction();

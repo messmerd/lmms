@@ -71,7 +71,7 @@ public:
 };
 
 class VestigeInstrument
-	: public AudioPlugin<Instrument, AudioPortsConfig {
+	: public AudioPluginExt<Instrument, AudioPortsConfig {
 			.kind = AudioDataKind::F32,
 			.interleaved = false
 		}, VestigeAudioPorts>

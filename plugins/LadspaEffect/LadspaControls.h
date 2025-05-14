@@ -78,6 +78,9 @@ private:
 	//! control vector for each processor
 	QVector<control_list_t> m_controls;
 
+	//! 0 == legacy (stereo link if needed); 1 == all channels
+	int m_portConfig = 0;
+
 
 	friend class gui::LadspaControlDialog;
 	friend class gui::LadspaMatrixControlDialog;
