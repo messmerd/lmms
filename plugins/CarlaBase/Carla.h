@@ -54,8 +54,8 @@
 #endif
 
 // lmms/include/
+#include "AudioPlugin.h"
 #include "AutomatableModel.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "SubWindow.h"
 
@@ -165,13 +165,64 @@ private:
 
 // -------------------------------------------------------------------
 
-// TODO: Add support for pin connector and variable number of audio input/output ports
-class CARLABASE_EXPORT CarlaInstrument : public Instrument
+class CARLABASE_EXPORT CarlaAudioPorts
+	: public PluginAudioPorts<AudioPortsConfig {
+		.kind = AudioDataKind::F32,
+		.interleaved = false,
+		.inplace = true,
+		.buffered = false
+	}>
+{
+public:
+	using PluginAudioPorts::PluginAudioPorts;
+
+	auto active() const -> bool override { return m_handle && m_descriptor; }
+
+	auto buffers() -> PluginAudioPorts::Buffer* override
+	{
+		return active()
+			? static_cast<PluginAudioPorts::Buffer*>(this)
+			: nullptr;
+	}
+
+	void activate(NativePluginHandle handle, const NativePluginDescriptor* descriptor)
+	{
+		m_handle = handle;
+		m_descriptor = descriptor;
+	}
+
+	void deactivate()
+	{
+		m_handle = nullptr;
+		m_descriptor = nullptr;
+	}
+
+	auto channelName(proc_ch_t channel, bool isOutput) const -> QString override
+	{
+		assert(active());
+		if (m_descriptor->get_buffer_port_name)
+		{
+			const char* name = m_descriptor->get_buffer_port_name(m_handle, channel, isOutput);
+			return (!name || name[0] == '\0')
+				? PluginAudioPorts::channelName(channel, isOutput)
+				: name;
+		}
+
+		return QString{};
+	}
+
+private:
+	NativePluginHandle m_handle = nullptr;
+	const NativePluginDescriptor* m_descriptor = nullptr;
+};
+
+
+class CARLABASE_EXPORT CarlaInstrument : public AudioPlugin<Instrument, CarlaAudioPorts>
 {
     Q_OBJECT
 
 public:
-    static const uint32_t kMaxMidiEvents = 512;
+    static constexpr uint32_t kMaxMidiEvents = 512;
 
     CarlaInstrument(InstrumentTrack* const instrumentTrack, const Descriptor* const descriptor, const bool isPatchbay);
     ~CarlaInstrument() override;
@@ -204,7 +255,7 @@ private slots:
     void updateParamModel(uint32_t index);
 
 private:
-	void playImpl(std::span<SampleFrame> out) override;
+	void processImpl(SplitAudioData<float> inOut) override;
 
     const bool kIsPatchbay;
 

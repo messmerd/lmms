@@ -73,6 +73,22 @@ class PinConnector;
 
 
 /**
+ * 
+ */
+struct AudioPortConfiguration
+{
+	//! Unique, persistent identifier which can be saved/loaded from project file
+	std::uint32_t id;
+
+	//! Display name
+	std::string name;
+
+	proc_ch_t inputs;
+	proc_ch_t outputs;
+};
+
+
+/**
  * The model for audio ports used by the pin connector.
  *
  * Contains:
@@ -191,6 +207,23 @@ public:
 
 	virtual auto instantiateView() const -> std::unique_ptr<gui::PinConnector>;
 
+	/**
+	 * Port configurations
+	 */
+
+	/**
+	 * Returns the number of port configurations or 0 if not supported.
+	 * Can override in custom audio port implementation.
+	 */
+	virtual auto portConfigurationsCount() const -> std::size_t { return 0; }
+
+	virtual auto portConfigurations() const -> std::span<const PortConfiguration>
+	{
+		throw std::runtime_error{"Port configurations are not implemented by this audio port"};
+	}
+
+
+
 	auto getChannelCountText() const -> QString;
 
 	static constexpr track_ch_t MaxTrackChannels = 256; // TODO: Move somewhere else
@@ -202,6 +235,9 @@ public:
 signals:
 	//! Called when channel counts change (whether audio processor or track channel counts)
 	//void propertiesChanged(); // from Model
+
+	//! Called when the number of port configurations or their contents changed
+	void portConfigurationsChanged();
 
 public slots:
 	void setTrackChannelCount(track_ch_t count);

@@ -150,13 +150,15 @@ static const char* host_ui_save_file(NativeHostHandle, bool isDir, const char* t
 
 
 CarlaInstrument::CarlaInstrument(InstrumentTrack* const instrumentTrack, const Descriptor* const descriptor, const bool isPatchbay)
-    : Instrument(descriptor, instrumentTrack, nullptr, Flag::IsSingleStreamed | Flag::IsMidiBased | Flag::IsNotBendable),
+    : AudioPlugin(descriptor, instrumentTrack, nullptr, Flag::IsSingleStreamed | Flag::IsMidiBased | Flag::IsNotBendable),
       kIsPatchbay(isPatchbay),
       fHandle(nullptr),
       fDescriptor(isPatchbay ? carla_get_native_patchbay_plugin() : carla_get_native_rack_plugin()),
       fMidiEventCount(0),
       m_paramModels()
 {
+	audioPorts().setChannelCounts(2, 2); // TODO: Port configurations
+
     fHost.handle      = this;
     fHost.uiName      = nullptr;
     fHost.uiParentId  = 0;
@@ -254,7 +256,8 @@ CarlaInstrument::~CarlaInstrument()
 
 uint32_t CarlaInstrument::handleGetBufferSize() const
 {
-    return Engine::audioEngine()->framesPerPeriod();
+	return static_cast<std::uint32_t>(audioPorts().frames());
+	//return Engine::audioEngine()->framesPerPeriod(); // TODO
 }
 
 double CarlaInstrument::handleGetSampleRate() const
@@ -495,61 +498,42 @@ void CarlaInstrument::loadSettings(const QDomElement& elem)
 #endif
 }
 
-void CarlaInstrument::playImpl(std::span<SampleFrame> out)
+void CarlaInstrument::processImpl(SplitAudioData<float> inOut)
 {
-    const auto bufsize = static_cast<std::uint32_t>(out.size());
+	if (fHandle == nullptr)
+	{
+		return;
+	}
 
-	zeroSampleFrames(out.data(), bufsize);
+	// set time info
+	Song * const s = Engine::getSong();
+	fTimeInfo.playing  = s->isPlaying();
+	fTimeInfo.frame    = s->getPlayPos(s->playMode()).frames(Engine::framesPerTick());
+	fTimeInfo.usecs    = s->getMilliseconds()*1000;
+	fTimeInfo.bbt.bar  = s->getBars() + 1;
+	fTimeInfo.bbt.beat = s->getBeat() + 1;
+	fTimeInfo.bbt.tick = s->getBeatTicks();
+	fTimeInfo.bbt.barStartTick   = ticksPerBeat*s->getTimeSigModel().getNumerator()*s->getBars();
+	fTimeInfo.bbt.beatsPerBar    = s->getTimeSigModel().getNumerator();
+	fTimeInfo.bbt.beatType       = s->getTimeSigModel().getDenominator();
+	fTimeInfo.bbt.ticksPerBeat   = ticksPerBeat;
+	fTimeInfo.bbt.beatsPerMinute = s->getTempo();
 
-    if (fHandle == nullptr)
-    {
-        return;
-    }
+	const auto buffer = const_cast<float**>(inOut.data());
+	const auto frames = static_cast<std::uint32_t>(inOut.frames());
 
-    // set time info
-    Song * const s = Engine::getSong();
-    fTimeInfo.playing  = s->isPlaying();
-    fTimeInfo.frame    = s->getPlayPos(s->playMode()).frames(Engine::framesPerTick());
-    fTimeInfo.usecs    = s->getMilliseconds()*1000;
-    fTimeInfo.bbt.bar  = s->getBars() + 1;
-    fTimeInfo.bbt.beat = s->getBeat() + 1;
-    fTimeInfo.bbt.tick = s->getBeatTicks();
-    fTimeInfo.bbt.barStartTick   = ticksPerBeat*s->getTimeSigModel().getNumerator()*s->getBars();
-    fTimeInfo.bbt.beatsPerBar    = s->getTimeSigModel().getNumerator();
-    fTimeInfo.bbt.beatType       = s->getTimeSigModel().getDenominator();
-    fTimeInfo.bbt.ticksPerBeat   = ticksPerBeat;
-    fTimeInfo.bbt.beatsPerMinute = s->getTempo();
-
-#ifndef _MSC_VER
-    float buf1[bufsize];
-    float buf2[bufsize];
-#else
-    float *buf1 = static_cast<float *>(_alloca(bufsize * sizeof(float)));
-    float *buf2 = static_cast<float *>(_alloca(bufsize * sizeof(float)));
-#endif
-
-    float* rBuf[] = { buf1, buf2 };
-    std::memset(buf1, 0, sizeof(float)*bufsize);
-    std::memset(buf2, 0, sizeof(float)*bufsize);
-
-    {
-        const QMutexLocker ml(&fMutex);
+	{
+		const QMutexLocker ml(&fMutex);
 // TODO FIXME this is just here so it compiles.
 // https://github.com/falkTX/Carla/blob/8bceb9ed173a10b29038f8abb4383710c0e497c1/source/includes/CarlaNative.h
 //     FIXME for v3.0, use const for the input buffer
 #if CARLA_VERSION_HEX >= CARLA_VERSION_HEX_3
-        fDescriptor->process(fHandle, (const float**)rBuf, rBuf, bufsize, fMidiEvents, fMidiEventCount);
+		fDescriptor->process(fHandle, const_cast<const float**>(buffer), buffer, frames, fMidiEvents, fMidiEventCount);
 #else
-        fDescriptor->process(fHandle, rBuf, rBuf, bufsize, fMidiEvents, fMidiEventCount);
+		fDescriptor->process(fHandle, buffer, buffer, frames, fMidiEvents, fMidiEventCount);
 #endif
-        fMidiEventCount = 0;
-    }
-
-    for (uint i=0; i < bufsize; ++i)
-    {
-        out[i][0] = buf1[i];
-        out[i][1] = buf2[i];
-    }
+		fMidiEventCount = 0;
+	}
 }
 
 bool CarlaInstrument::handleMidiEvent(const MidiEvent& event, const TimePos&, f_cnt_t offset)
