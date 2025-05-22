@@ -188,12 +188,14 @@ protected:
 
 	void playImpl(std::span<SampleFrame> inOut) final
 	{
-		auto buffers = m_audioPorts.buffers();
-		if (!buffers)
+		if (!m_audioPorts.active())
 		{
 			// Plugin is not running
 			return;
 		}
+
+		auto buffers = m_audioPorts.buffers();
+		assert(buffers != nullptr);
 
 		SampleFrame* temp = inOut.data();
 		const auto bus = AudioBus<SampleFrame>{&temp, 1, inOut.size()};
@@ -251,7 +253,7 @@ protected:
 
 	auto processAudioBufferImpl(std::span<SampleFrame> inOut) -> bool final
 	{
-		if (isSleeping())
+		if (isSleeping() || !m_audioPorts.active())
 		{
 			this->processBypassedImpl();
 			return false;
@@ -385,12 +387,12 @@ private:
  * Same as `AudioPlugin` but the audio port is passed as a template template parameter.
  *
  * @tparam ParentT Either `Instrument` or `Effect`
- * @tparam config Compile time configuration to customize `AudioPlugin`
+ * @tparam settings Compile-time settings to customize `AudioPlugin`
  * @tparam AudioPortsT The plugin's audio port - must fully implement `AudioPorts`
  */
-template<class ParentT, AudioPortsConfig config,
-	template<AudioPortsConfig> class AudioPortsT = PluginAudioPorts>
-using AudioPluginExt = AudioPlugin<ParentT, AudioPortsT<config>>;
+template<class ParentT, AudioPortsSettings settings,
+	template<AudioPortsSettings> class AudioPortsT = PluginAudioPorts>
+using AudioPluginExt = AudioPlugin<ParentT, settings, AudioPortsT<settings>>;
 
 
 /**

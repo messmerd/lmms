@@ -228,7 +228,7 @@ private:
 template<AudioPortsSettings settings, template<AudioPortsSettings> class BufferT>
 class PluginAudioPorts
 	: public AudioPorts<settings>
-	, public BufferT<settings>
+	, private BufferT<settings>
 {
 	static_assert(std::is_base_of_v<typename AudioPorts<settings>::Buffer, BufferT<settings>>,
 		"BufferT must derive from AudioPorts::Buffer");

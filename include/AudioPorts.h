@@ -361,14 +361,21 @@ public:
 	//! Returns an audio port router
 	auto getRouter() const -> Router { return Router{*this}; }
 
-	//! Returns nullptr if the port is unavailable (i.e. Vestige with no plugin loaded)
-	virtual auto buffers() -> Buffer* = 0;
-
 	/**
 	 * Returns true if the audio port can be used.
 	 * Custom audio ports with an unusable state (i.e. a "plugin not loaded" state) should override this.
 	 */
 	virtual auto active() const -> bool { return true; }
+
+	//! Returns nullptr if the buffers are unavailable (i.e. Vestige with no plugin loaded)
+	virtual auto buffers() -> Buffer* = 0;
+
+	//! Returns nullptr if the buffers are unavailable (i.e. Vestige with no plugin loaded)
+	auto constBuffers() const -> const Buffer*
+	{
+		// const cast to avoid duplicate code - should be safe since buffers() doesn't modify
+		return const_cast<AudioPorts*>(this)->buffers();
+	}
 
 	static constexpr auto audioPortsSettings() -> AudioPortsSettings { return settings; }
 };

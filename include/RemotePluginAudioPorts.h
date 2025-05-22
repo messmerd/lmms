@@ -118,12 +118,15 @@ public:
 	 * `AudioPorts` implementation
 	 */
 
-	//! Only returns the buffer interface if audio port is active
+	auto active() const -> bool override { return remoteActive(); }
+
+	//! Only returns the buffer interface if it's available
 	auto buffers() -> AudioPorts<settings>::Buffer* override
 	{
 		return remoteActive() ? this : nullptr;
 	}
 
+protected:
 	/*
 	 * `AudioPorts::Buffer` implementation
 	 */
@@ -184,8 +187,6 @@ public:
 		m_insOuts = m_accessBuffer.data();
 	}
 
-	auto active() const -> bool override { return remoteActive(); }
-
 private:
 	auto remoteActive() const -> bool { return m_buffers != nullptr && m_remoteActive; }
 
@@ -234,12 +235,20 @@ public:
 		m_localActive = true;
 	}
 
+	auto active() const -> bool override
+	{
+		return isRemote()
+			? RemotePluginAudioPorts<settings>::active()
+			: localActive();
+	}
+
 	auto buffers() -> AudioPorts<settings>::Buffer* override
 	{
 		if (isRemote()) { return RemotePluginAudioPorts<settings>::buffers(); }
 		return localActive() ? &m_localBuffer.value() : nullptr;
 	}
 
+protected:
 	auto inputBuffer() -> SplitAudioData<SampleT, settings.inputs> override
 	{
 		if (isRemote()) { return RemotePluginAudioPorts<settings>::inputBuffer(); }
@@ -273,13 +282,6 @@ public:
 			if (!m_localBuffer) { m_localBuffer.emplace(); }
 			m_localBuffer->updateBuffers(channelsIn, channelsOut, frames);
 		}
-	}
-
-	auto active() const -> bool override
-	{
-		return isRemote()
-			? RemotePluginAudioPorts<settings>::active()
-			: localActive();
 	}
 
 private:
