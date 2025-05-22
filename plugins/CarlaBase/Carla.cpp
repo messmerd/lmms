@@ -148,14 +148,86 @@ static const char* host_ui_save_file(NativeHostHandle, bool isDir, const char* t
 
 // -----------------------------------------------------------------------
 
+auto CarlaAudioPorts::getDescriptor(std::uint32_t configId) const -> const NativePluginDescriptor*
+{
+	if (!m_isPatchbay)
+	{
+		return carla_get_native_rack_plugin();
+	}
 
-CarlaInstrument::CarlaInstrument(InstrumentTrack* const instrumentTrack, const Descriptor* const descriptor, const bool isPatchbay)
-    : AudioPlugin(descriptor, instrumentTrack, nullptr, Flag::IsSingleStreamed | Flag::IsMidiBased | Flag::IsNotBendable),
-      kIsPatchbay(isPatchbay),
-      fHandle(nullptr),
-      fDescriptor(isPatchbay ? carla_get_native_patchbay_plugin() : carla_get_native_rack_plugin()),
-      fMidiEventCount(0),
-      m_paramModels()
+	switch (configId)
+	{
+		case 0: return carla_get_native_patchbay_plugin(); // default
+		case 1: return carla_get_native_patchbay16_plugin();
+		case 2: return carla_get_native_patchbay32_plugin();
+		case 3: return carla_get_native_patchbay64_plugin();
+		default: return nullptr;
+	}
+}
+
+auto CarlaAudioPorts::channelName(proc_ch_t channel, bool isOutput) const -> QString
+{
+	assert(active());
+	if (m_descriptor->get_buffer_port_name)
+	{
+		const char* name = m_descriptor->get_buffer_port_name(m_handle, channel, isOutput);
+		return (!name || name[0] == '\0')
+			? PluginAudioPorts::channelName(channel, isOutput)
+			: name;
+	}
+
+	return PluginAudioPorts::channelName(channel, isOutput);
+}
+
+auto CarlaAudioPorts::configurationsImpl() const -> std::span<const AudioPortsConfiguration>
+{
+	static const auto configs = std::array {
+		AudioPortsConfiguration{0, tr("2x2").toStdString(), 2, 2},
+		AudioPortsConfiguration{1, tr("16x16").toStdString(), 16, 16},
+		AudioPortsConfiguration{2, tr("32x32").toStdString(), 32, 32},
+		AudioPortsConfiguration{3, tr("64x64").toStdString(), 64, 64}
+	};
+
+	return m_isPatchbay
+		? configs
+		: std::span<const AudioPortsConfiguration>{};
+}
+
+auto CarlaAudioPorts::setActiveConfigurationImpl(std::uint32_t configId) -> bool
+{
+	if (!m_isPatchbay)
+	{
+		// Carla Rack does not support audio port configurations
+		return false;
+	}
+
+	if (!getDescriptor(configId))
+	{
+		// Unknown configuration
+		return false;
+	}
+
+	// Schedule deactivation and port change for start of next period
+	deactivate();
+	m_scheduledConfigId = configId;
+
+	// TODO: Use std::future and launch on main thread or instrument loader thread?
+	//       Then in pre-process event, swap active and scheduled Carla instances,
+	//       deactivate and close the old Carla instance, then activate new Carla instance.
+
+}
+
+// -----------------------------------------------------------------------
+
+CarlaInstrument::CarlaInstrument(InstrumentTrack* const instrumentTrack,
+	const Descriptor* const descriptor, const bool isPatchbay)
+	: AudioPlugin(descriptor, instrumentTrack, nullptr,
+		Flag::IsSingleStreamed | Flag::IsMidiBased | Flag::IsNotBendable, isPatchbay)
+	, kIsPatchbay(isPatchbay)
+	, fHandle(nullptr)
+	, fDescriptor(isPatchbay ? carla_get_native_patchbay_plugin() : carla_get_native_rack_plugin())
+	, fMidiEventCount(0)
+	, m_paramModels()
 {
 	audioPorts().setChannelCounts(2, 2); // TODO: Port configurations
 
@@ -218,6 +290,8 @@ CarlaInstrument::CarlaInstrument(InstrumentTrack* const instrumentTrack, const D
 #endif
 
     connect(Engine::audioEngine(), SIGNAL(sampleRateChanged()), this, SLOT(sampleRateChanged()));
+
+	audioPorts().activate(fHandle, fDescriptor);
 }
 
 CarlaInstrument::~CarlaInstrument()
@@ -256,8 +330,9 @@ CarlaInstrument::~CarlaInstrument()
 
 uint32_t CarlaInstrument::handleGetBufferSize() const
 {
-	return static_cast<std::uint32_t>(audioPorts().frames());
-	//return Engine::audioEngine()->framesPerPeriod(); // TODO
+	auto buffers = audioPorts().constBuffers();
+	assert(buffers != nullptr);
+	return static_cast<std::uint32_t>(buffers->frames());
 }
 
 double CarlaInstrument::handleGetSampleRate() const

@@ -165,25 +165,26 @@ private:
 
 // -------------------------------------------------------------------
 
-class CARLABASE_EXPORT CarlaAudioPorts
-	: public PluginAudioPorts<AudioPortsConfig {
-		.kind = AudioDataKind::F32,
-		.interleaved = false,
-		.inplace = true,
-		.buffered = false
-	}>
+
+inline constexpr auto CarlaSettings = AudioPortsSettings {
+	.kind = AudioDataKind::F32,
+	.interleaved = false,
+	.inplace = true,
+	.buffered = false
+};
+
+
+class CARLABASE_EXPORT CarlaAudioPorts final
+	: public PluginAudioPorts<CarlaSettings>
 {
 public:
-	using PluginAudioPorts::PluginAudioPorts;
+	CarlaAudioPorts(bool isInstrument, Model* parent, bool isPatchbay)
+		: PluginAudioPorts{isInstrument, parent}
+		, m_isPatchbay{isPatchbay}
+	{
+	}
 
 	auto active() const -> bool override { return m_handle && m_descriptor; }
-
-	auto buffers() -> PluginAudioPorts::Buffer* override
-	{
-		return active()
-			? static_cast<PluginAudioPorts::Buffer*>(this)
-			: nullptr;
-	}
 
 	void activate(NativePluginHandle handle, const NativePluginDescriptor* descriptor)
 	{
@@ -197,27 +198,28 @@ public:
 		m_descriptor = nullptr;
 	}
 
-	auto channelName(proc_ch_t channel, bool isOutput) const -> QString override
+	auto popScheduledConfig() -> std::optional<std::uint32_t>
 	{
-		assert(active());
-		if (m_descriptor->get_buffer_port_name)
-		{
-			const char* name = m_descriptor->get_buffer_port_name(m_handle, channel, isOutput);
-			return (!name || name[0] == '\0')
-				? PluginAudioPorts::channelName(channel, isOutput)
-				: name;
-		}
-
-		return QString{};
+		return std::exchange(m_scheduledConfigId, std::nullopt);
 	}
 
+	auto getDescriptor(std::uint32_t configId) const -> const NativePluginDescriptor*;
+
 private:
+	auto channelName(proc_ch_t channel, bool isOutput) const -> QString override;
+	auto configurationsImpl() const -> std::span<const AudioPortsConfiguration> override;
+	auto setActiveConfigurationImpl(std::uint32_t configId) -> bool;
+
 	NativePluginHandle m_handle = nullptr;
 	const NativePluginDescriptor* m_descriptor = nullptr;
+	const bool m_isPatchbay = false;
+
+	std::optional<std::uint32_t> m_scheduledConfigId;
 };
 
 
-class CARLABASE_EXPORT CarlaInstrument : public AudioPlugin<Instrument, CarlaAudioPorts>
+class CARLABASE_EXPORT CarlaInstrument
+	: public AudioPlugin<Instrument, CarlaSettings, CarlaAudioPorts>
 {
     Q_OBJECT
 
@@ -256,6 +258,9 @@ private slots:
 
 private:
 	void processImpl(SplitAudioData<float> inOut) override;
+
+	auto start(std::uint32_t configId);
+	void stop();
 
     const bool kIsPatchbay;
 

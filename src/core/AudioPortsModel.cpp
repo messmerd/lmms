@@ -289,6 +289,17 @@ auto AudioPortsModel::instantiateView() const -> std::unique_ptr<gui::PinConnect
 	return std::make_unique<gui::PinConnector>(const_cast<AudioPortsModel*>(this));
 }
 
+auto AudioPortsModel::setActiveConfiguration(std::uint32_t configId) -> bool
+{
+	if (setActiveConfigurationImpl(configId))
+	{
+		m_activeConfigurationId = configId;
+		emit activeConfigurationChanged();
+		return true;
+	}
+	return false;
+}
+
 auto AudioPortsModel::getChannelCountText() const -> QString
 {
 	const auto inText = QString{"%1"}.arg(in().channelCount());

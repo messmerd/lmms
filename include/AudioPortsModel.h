@@ -75,7 +75,7 @@ class PinConnector;
 /**
  * 
  */
-struct AudioPortConfiguration
+struct AudioPortsConfiguration
 {
 	//! Unique, persistent identifier which can be saved/loaded from project file
 	std::uint32_t id;
@@ -208,20 +208,23 @@ public:
 	virtual auto instantiateView() const -> std::unique_ptr<gui::PinConnector>;
 
 	/**
-	 * Port configurations
+	 * Audio port configurations
 	 */
 
-	/**
-	 * Returns the number of port configurations or 0 if not supported.
-	 * Can override in custom audio port implementation.
-	 */
-	virtual auto portConfigurationsCount() const -> std::size_t { return 0; }
-
-	virtual auto portConfigurations() const -> std::span<const PortConfiguration>
+	//! Returns span of available configurations or empty span if unsupported
+	auto configurations() const -> std::span<const AudioPortsConfiguration>
 	{
-		throw std::runtime_error{"Port configurations are not implemented by this audio port"};
+		return configurationsImpl();
 	}
 
+	//! Returns the active configuration's ID, if there is one
+	auto activeConfigurationId() const -> std::optional<std::uint32_t>
+	{
+		return m_activeConfigurationId;
+	}
+
+	//! Sets the active configuration, returning true upon success
+	auto setActiveConfiguration(std::uint32_t configId) -> bool;
 
 
 	auto getChannelCountText() const -> QString;
@@ -236,8 +239,11 @@ signals:
 	//! Called when channel counts change (whether audio processor or track channel counts)
 	//void propertiesChanged(); // from Model
 
-	//! Called when the number of port configurations or their contents changed
-	void portConfigurationsChanged();
+	//! Audio port implementations should emit this when the number of port configurations or their contents changes
+	void availableConfigurationsChanged();
+
+	//! Called when the active audio port configuration changes
+	void activeConfigurationChanged();
 
 public slots:
 	void setTrackChannelCount(track_ch_t count);
@@ -257,6 +263,24 @@ protected:
 	 * otherwise the default channel names are used.
 	 */
 	virtual auto channelName(proc_ch_t channel, bool isOutput) const -> QString;
+
+	/**
+	 * Audio port implementations can override this to provide a list
+	 * of all currently available audio port configurations.
+	 */
+	virtual auto configurationsImpl() const -> std::span<const AudioPortsConfiguration> { return {}; }
+
+	/**
+	 * Audio port implementations can override this to use
+	 * a different default configuration.
+	 */
+	virtual auto defaultConfigurationId() const -> std::uint32_t { return 0; }
+
+	/*
+	 * Audio port implementations can override this to allow switching between audio port configurations.
+	 * Returns true upon success.
+	 */
+	virtual auto setActiveConfigurationImpl(std::uint32_t config) -> bool { return false; }
 
 	//! This value is <= to the total number of track channels (currently always 2)
 	track_ch_t m_trackChannelsUpperBound = DEFAULT_CHANNELS; // TODO: Need to recalculate when pins are set/unset
@@ -290,6 +314,8 @@ private:
 
 	Matrix m_in{this, false}; //!< LMMS --> audio processor
 	Matrix m_out{this, true}; //!< audio processor --> LMMS
+
+	std::optional<std::uint32_t> m_activeConfigurationId;
 
 	// TODO: When full routing is added, get LMMS channel counts from bus or audio router class
 	track_ch_t m_totalTrackChannels = DEFAULT_CHANNELS;
