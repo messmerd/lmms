@@ -377,7 +377,31 @@ public:
 		return const_cast<AudioPorts*>(this)->buffers();
 	}
 
+	/**
+	 * Constant-time, lock-free swap of current model and buffers with new ones.
+	 *
+	 * Only dynamically-allocated data from the model and buffers are swapped.
+	 * This allows them to be updated in a lock-free manner.
+	 *
+	 * Must never be called concurrently with the process method, so
+	 *   call in the preprocess method or during initialization.
+	 *
+	 * `newBuffers` holds the old buffers after this method returns.
+	 */
+	void swapAudioPorts(AudioPortsModel& newModel, Buffer& newBuffers)
+	{
+		this->swapModels(newModel);
+		this->swapBuffersImpl(newBuffers);
+	}
+
 	static constexpr auto audioPortsSettings() -> AudioPortsSettings { return settings; }
+
+
+protected:
+	virtual void swapBuffersImpl(Buffer& newBuffers)
+	{
+		throw std::runtime_error{"AudioPorts::swapBuffersImpl() is unimplemented"};
+	}
 };
 
 

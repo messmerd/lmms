@@ -32,6 +32,7 @@
 #include "Instrument.h"
 #include "InstrumentTrack.h"
 #include "PluginAudioPorts.h"
+#include "PreProcessor.h"
 
 namespace lmms
 {
@@ -333,6 +334,7 @@ private:
 template<class ParentT, AudioPortsSettings settings, class AudioPortsT>
 class AudioPlugin
 	: public detail::AudioPlugin<ParentT, settings, AudioPortsT>
+	, public PreProcessor
 {
 	static_assert(settings == AudioPortsT::audioPortsSettings());
 

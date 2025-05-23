@@ -55,6 +55,7 @@
 #include <QVBoxLayout>
 
 #include <cstring>
+#include <iostream>
 
 #include "embed.h"
 
@@ -148,9 +149,39 @@ static const char* host_ui_save_file(NativeHostHandle, bool isDir, const char* t
 
 // -----------------------------------------------------------------------
 
+auto CarlaAudioPorts::active() const -> bool
+{
+	return m_parent->fDescriptor && m_parent->fHandle;
+}
+
+auto CarlaAudioPorts::doConfigChangeIfNeeded() -> bool
+{
+	if (!m_newHandle)
+	{
+		// Nothing scheduled
+		return false;
+	}
+
+	// Let loader thread know we're in the preprocess step
+	m_configChangePreProcessSignal.test_and_set();
+	m_configChangePreProcessSignal.notify_one();
+
+	// Wait until loader thread sets flag back to false, indicating it
+	//    has swapped us to the new Carla instance
+	m_configChangeDoneSwappingSignal.wait(true);
+
+	// Reset for next time
+	m_configChangeDoneSwappingSignal.clear();
+	m_configChangePreProcessSignal.clear();
+	m_newDescriptor = nullptr;
+	m_newHandle = nullptr;
+
+	return true;
+}
+
 auto CarlaAudioPorts::getDescriptor(std::uint32_t configId) const -> const NativePluginDescriptor*
 {
-	if (!m_isPatchbay)
+	if (!m_parent->kIsPatchbay)
 	{
 		return carla_get_native_rack_plugin();
 	}
@@ -167,10 +198,11 @@ auto CarlaAudioPorts::getDescriptor(std::uint32_t configId) const -> const Nativ
 
 auto CarlaAudioPorts::channelName(proc_ch_t channel, bool isOutput) const -> QString
 {
-	assert(active());
-	if (m_descriptor->get_buffer_port_name)
+	assert(active()); // ???
+
+	if (m_parent->fDescriptor->get_buffer_port_name)
 	{
-		const char* name = m_descriptor->get_buffer_port_name(m_handle, channel, isOutput);
+		const char* name = m_parent->fDescriptor->get_buffer_port_name(m_parent->fHandle, channel, isOutput);
 		return (!name || name[0] == '\0')
 			? PluginAudioPorts::channelName(channel, isOutput)
 			: name;
@@ -188,33 +220,94 @@ auto CarlaAudioPorts::configurationsImpl() const -> std::span<const AudioPortsCo
 		AudioPortsConfiguration{3, tr("64x64").toStdString(), 64, 64}
 	};
 
-	return m_isPatchbay
+	return m_parent->kIsPatchbay
 		? configs
 		: std::span<const AudioPortsConfiguration>{};
 }
 
 auto CarlaAudioPorts::setActiveConfigurationImpl(std::uint32_t configId) -> bool
 {
-	if (!m_isPatchbay)
+	if (!m_parent->kIsPatchbay)
 	{
 		// Carla Rack does not support audio port configurations
 		return false;
 	}
 
-	if (!getDescriptor(configId))
+	const auto newDesc = getDescriptor(configId);
+	if (!newDesc)
 	{
 		// Unknown configuration
 		return false;
 	}
 
-	// Schedule deactivation and port change for start of next period
-	deactivate();
-	m_scheduledConfigId = configId;
+	if (m_configChangeInProgress.test_and_set())
+	{
+		// A new configuration is already being loaded
+		return false;
+	}
 
-	// TODO: Use std::future and launch on main thread or instrument loader thread?
-	//       Then in pre-process event, swap active and scheduled Carla instances,
-	//       deactivate and close the old Carla instance, then activate new Carla instance.
+	m_newDescriptor = newDesc;
 
+	auto loaderThread = std::thread {[this]() {
+		const auto ins = static_cast<proc_ch_t>(m_newDescriptor->audioIns);
+		const auto outs = static_cast<proc_ch_t>(m_newDescriptor->audioOuts);
+
+		// Allocate new audio buffers
+		auto newBuffer = Buffer{};
+		newBuffer.updateBuffers(ins, outs, buffers()->frames());
+
+		// Allocate new AudioPortsModel
+		auto newModel = AudioPortsModel{ins, outs, isInstrument(), nullptr};
+
+		// Instantiate new Carla instance
+		auto newHandle = m_newDescriptor->instantiate(&m_parent->fHost);
+		if (!newHandle)
+		{
+			std::cerr << "Failed to instantiate new Carla plugin\n";
+		}
+
+		if (newHandle != nullptr && m_newDescriptor->activate != nullptr)
+		{
+			m_newDescriptor->activate(newHandle);
+		}
+
+		// TODO: Set the state!
+
+		// Signal to preprocess method that the new instance is ready
+		m_newHandle = newHandle;
+
+		// Wait until signal from preprocess method before swapping in the new buffers
+		//   otherwise buffers could be swapped during processImpl which would be a data race
+		//   and potentially cause a crash
+		m_configChangePreProcessSignal.wait(false);
+
+		// Now it is safe to swap the models, buffers, and handles
+		// newModel and newBuffer (now the old model and old buffer) are deallocated at end of scope
+		swapAudioPorts(newModel, newBuffer);
+		auto oldDescriptor = std::exchange(m_parent->fDescriptor, m_newDescriptor);
+		auto oldHandle = std::exchange(m_parent->fHandle, m_newHandle);
+
+		// Tell preprocess method that the audio port is fully swapped over to the new Carla instance
+		m_configChangeDoneSwappingSignal.test_and_set();
+		m_configChangeDoneSwappingSignal.notify_one();
+
+		// Clean up old instance
+		if (!oldHandle) { return; }
+
+		if (oldDescriptor->deactivate)
+		{
+			oldDescriptor->deactivate(oldHandle);
+		}
+
+		if (oldDescriptor->cleanup)
+		{
+			oldDescriptor->cleanup(oldHandle);
+		}
+	}};
+
+	loaderThread.detach();
+
+	return true;
 }
 
 // -----------------------------------------------------------------------
@@ -222,7 +315,7 @@ auto CarlaAudioPorts::setActiveConfigurationImpl(std::uint32_t configId) -> bool
 CarlaInstrument::CarlaInstrument(InstrumentTrack* const instrumentTrack,
 	const Descriptor* const descriptor, const bool isPatchbay)
 	: AudioPlugin(descriptor, instrumentTrack, nullptr,
-		Flag::IsSingleStreamed | Flag::IsMidiBased | Flag::IsNotBendable, isPatchbay)
+		Flag::IsSingleStreamed | Flag::IsMidiBased | Flag::IsNotBendable, this)
 	, kIsPatchbay(isPatchbay)
 	, fHandle(nullptr)
 	, fDescriptor(isPatchbay ? carla_get_native_patchbay_plugin() : carla_get_native_rack_plugin())
@@ -290,8 +383,6 @@ CarlaInstrument::CarlaInstrument(InstrumentTrack* const instrumentTrack,
 #endif
 
     connect(Engine::audioEngine(), SIGNAL(sampleRateChanged()), this, SLOT(sampleRateChanged()));
-
-	audioPorts().activate(fHandle, fDescriptor);
 }
 
 CarlaInstrument::~CarlaInstrument()
@@ -573,13 +664,18 @@ void CarlaInstrument::loadSettings(const QDomElement& elem)
 #endif
 }
 
+void CarlaInstrument::preprocess()
+{
+	if (audioPorts().doConfigChangeIfNeeded())
+	{
+		// ...
+
+		audioPorts().configChangeDone();
+	}
+}
+
 void CarlaInstrument::processImpl(SplitAudioData<float> inOut)
 {
-	if (fHandle == nullptr)
-	{
-		return;
-	}
-
 	// set time info
 	Song * const s = Engine::getSong();
 	fTimeInfo.playing  = s->isPlaying();

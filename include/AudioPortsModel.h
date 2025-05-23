@@ -223,7 +223,11 @@ public:
 		return m_activeConfigurationId;
 	}
 
-	//! Sets the active configuration, returning true upon success
+	/**
+	 * Sets the active configuration, returning true upon success.
+	 * Only called when `configId` is different from the currently active config.
+	 * Never called from an audio thread.
+	 */
 	auto setActiveConfiguration(std::uint32_t configId) -> bool;
 
 
@@ -250,6 +254,8 @@ public slots:
 	void updateRoutedChannels(track_ch_t trackChannel);
 
 protected:
+	void swapModels(AudioPortsModel& newModel);
+
 	/**
 	 * To be implemented by the audio ports class.
 	 * Called when channel counts or sample rate changes.

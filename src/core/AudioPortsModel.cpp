@@ -25,9 +25,11 @@
 
 #include "AudioPortsModel.h"
 
+#include <QCoreApplication>
 #include <QDomDocument>
 #include <QDomElement>
 #include <QDebug>
+#include <QThread>
 #include <stdexcept>
 
 #include "AudioEngine.h"
@@ -282,6 +284,22 @@ void AudioPortsModel::updateDirectRouting()
 	}
 }
 
+void AudioPortsModel::swapModels(AudioPortsModel& newModel)
+{
+	// Swap all data that can be swapped (all non-self-referencing and non-const data)
+
+	std::swap(m_in.m_pins, newModel.m_in.m_pins);
+	std::swap(m_in.m_channelCount, newModel.m_in.m_channelCount);
+	std::swap(m_out.m_pins, newModel.m_out.m_pins);
+	std::swap(m_out.m_channelCount, newModel.m_out.m_channelCount);
+
+	std::swap(m_trackChannelsUpperBound, newModel.m_trackChannelsUpperBound);
+	std::swap(m_routedChannels, newModel.m_routedChannels);
+	std::swap(m_directRouting, newModel.m_directRouting);
+	std::swap(m_activeConfigurationId, newModel.m_activeConfigurationId); // ???
+	std::swap(m_totalTrackChannels, newModel.m_totalTrackChannels);
+}
+
 auto AudioPortsModel::instantiateView() const -> std::unique_ptr<gui::PinConnector>
 {
 	// This method does not modify AudioPortsModel, but it needs PinConnector to store
@@ -291,6 +309,9 @@ auto AudioPortsModel::instantiateView() const -> std::unique_ptr<gui::PinConnect
 
 auto AudioPortsModel::setActiveConfiguration(std::uint32_t configId) -> bool
 {
+	// Must not be on an audio thread
+	assert(QThread::currentThread() == QCoreApplication::instance()->thread());
+
 	if (setActiveConfigurationImpl(configId))
 	{
 		m_activeConfigurationId = configId;
