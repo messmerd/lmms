@@ -30,6 +30,7 @@
 #include <QThread>
 #include <samplerate.h>
 
+#include <list>
 #include <memory>
 #include <vector>
 
@@ -49,6 +50,7 @@ class AudioDevice;
 class MidiClient;
 class AudioBusHandle;
 class AudioEngineWorkerThread;
+class PreProcessor;
 
 constexpr fpp_t MINIMUM_BUFFER_SIZE = 32;
 constexpr fpp_t DEFAULT_BUFFER_SIZE = 256;
@@ -207,6 +209,11 @@ public:
 	}
 
 	void removePlayHandlesOfTypes(Track * track, PlayHandle::Types types);
+
+
+	// Pr-processor stuff
+	void addPreProcessor(PreProcessor* hook);
+	void removePreProcessor(PreProcessor* hook);
 
 
 	// methods providing information for other classes
@@ -409,6 +416,11 @@ private:
 	// FIFO stuff
 	Fifo * m_fifo;
 	fifoWriter * m_fifoWriter;
+
+	// Pre-process stuff
+	std::list<PreProcessor*> m_preprocessHooks;
+	LocklessList<PreProcessor*> m_preprocessHooksToAdd;
+	LocklessList<PreProcessor*> m_preprocessHooksToRemove;
 
 	AudioEngineProfiler m_profiler;
 
