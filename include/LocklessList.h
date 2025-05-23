@@ -87,6 +87,32 @@ public:
 		m_allocator->free( e );
 	}
 
+	//! Returns true if the element `e` was removed
+	bool remove(const T& e)
+	{
+		Element* eCurrent = this->first();
+		Element* ePrev = nullptr;
+		while (eCurrent)
+		{
+			if (eCurrent->value == e)
+			{
+				if (ePrev)
+				{
+					ePrev->next = eCurrent->next;
+				}
+				else
+				{
+					this->setFirst(eCurrent->next);
+				}
+				this->free(eCurrent);
+				return true;
+			}
+
+			ePrev = eCurrent;
+			eCurrent = eCurrent->next;
+		}
+		return false;
+	}
 
 private:
 	std::atomic<Element*> m_first;
