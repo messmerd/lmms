@@ -206,7 +206,7 @@ public:
 
 	void configChangeDone()
 	{
-		m_configChangeInProgress.clear();
+		m_inProgress.clear(std::memory_order::release);
 	}
 
 private:
@@ -219,9 +219,9 @@ private:
 	// For switching to a new audio port configuration
 	const NativePluginDescriptor* m_newDescriptor = nullptr;
 	NativePluginHandle m_newHandle = nullptr;
-	std::atomic_flag m_configChangeInProgress = false;
-	std::atomic_flag m_configChangePreProcessSignal = false;
-	std::atomic_flag m_configChangeDoneSwappingSignal = false;
+	std::atomic_flag m_inProgress = false;
+	std::atomic_flag m_configStartSignal = false;
+	std::atomic_flag m_configDoneSignal = false;
 };
 
 

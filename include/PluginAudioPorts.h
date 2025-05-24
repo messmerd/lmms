@@ -106,6 +106,16 @@ public:
 		m_channelsOut = channelsOut;
 	}
 
+	void swapBuffers(AudioPorts<settings>::Buffer& other) noexcept final
+	{
+		auto o = dynamic_cast<PluginAudioPortsBuffer&>(other);
+		std::swap(m_sourceBuffer, o.m_sourceBuffer);
+		std::swap(m_accessBuffer, o.m_accessBuffer);
+		std::swap(m_channelsIn, o.m_channelsIn);
+		std::swap(m_channelsOut, o.m_channelsOut);
+		std::swap(m_frames, o.m_frames);
+	}
+
 private:
 	//! All input buffers followed by all output buffers
 	std::vector<SampleT> m_sourceBuffer;
@@ -175,6 +185,15 @@ public:
 		m_channels = channelsOut;
 	}
 
+	void swapBuffers(AudioPorts<settings>::Buffer& other) noexcept final
+	{
+		auto o = dynamic_cast<PluginAudioPortsBuffer&>(other);
+		std::swap(m_sourceBuffer, o.m_sourceBuffer);
+		std::swap(m_accessBuffer, o.m_accessBuffer);
+		std::swap(m_channels, o.m_channels);
+		std::swap(m_frames, o.m_frames);
+	}
+
 private:
 	//! Input/output buffers
 	std::vector<SampleT> m_sourceBuffer;
@@ -211,6 +230,12 @@ public:
 		(void)channelsIn;
 		(void)channelsOut;
 		m_buffer.resize(frames);
+	}
+
+	void swapBuffers(AudioPorts<settings>::Buffer& other) noexcept final
+	{
+		auto o = dynamic_cast<PluginAudioPortsBuffer&>(other);
+		std::swap(m_buffer, o.m_buffer);
 	}
 
 private:

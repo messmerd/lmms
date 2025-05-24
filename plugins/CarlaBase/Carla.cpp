@@ -38,6 +38,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QCompleter>
+#include <QDebug>
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -163,16 +164,19 @@ auto CarlaAudioPorts::doConfigChangeIfNeeded() -> bool
 	}
 
 	// Let loader thread know we're in the preprocess step
-	m_configChangePreProcessSignal.test_and_set();
-	m_configChangePreProcessSignal.notify_one();
+	m_configStartSignal.test_and_set(std::memory_order::release);
+	m_configStartSignal.notify_one();
 
 	// Wait until loader thread sets flag back to false, indicating it
 	//    has swapped us to the new Carla instance
-	m_configChangeDoneSwappingSignal.wait(true);
+	while (!m_configDoneSignal.test(std::memory_order::acquire))
+	{
+		m_configDoneSignal.wait(true, std::memory_order::acquire);
+	}
 
 	// Reset for next time
-	m_configChangeDoneSwappingSignal.clear();
-	m_configChangePreProcessSignal.clear();
+	m_configDoneSignal.clear(std::memory_order::release);
+	m_configStartSignal.clear(std::memory_order::release);
 	m_newDescriptor = nullptr;
 	m_newHandle = nullptr;
 
@@ -227,9 +231,11 @@ auto CarlaAudioPorts::configurationsImpl() const -> std::span<const AudioPortsCo
 
 auto CarlaAudioPorts::setActiveConfigurationImpl(std::uint32_t configId) -> bool
 {
+	qDebug() << "CarlaAudioPorts::setActiveConfigurationImpl - BEGIN";
 	if (!m_parent->kIsPatchbay)
 	{
 		// Carla Rack does not support audio port configurations
+		qDebug() << "\tCarla rack";
 		return false;
 	}
 
@@ -237,75 +243,87 @@ auto CarlaAudioPorts::setActiveConfigurationImpl(std::uint32_t configId) -> bool
 	if (!newDesc)
 	{
 		// Unknown configuration
+		qDebug() << "\tUnknown config";
 		return false;
 	}
 
-	if (m_configChangeInProgress.test_and_set())
+	if (m_inProgress.test_and_set(std::memory_order::acquire))
 	{
 		// A new configuration is already being loaded
+		qDebug() << "\tA new configuration is already being loaded";
 		return false;
 	}
 
 	m_newDescriptor = newDesc;
+	qDebug() << "\tNew desc: name:" << m_newDescriptor->name << " ins:" << m_newDescriptor->audioIns << " outs:" << m_newDescriptor->audioOuts;
 
-	auto loaderThread = std::thread {[this]() {
-		const auto ins = static_cast<proc_ch_t>(m_newDescriptor->audioIns);
-		const auto outs = static_cast<proc_ch_t>(m_newDescriptor->audioOuts);
+	const auto ins = static_cast<proc_ch_t>(m_newDescriptor->audioIns);
+	const auto outs = static_cast<proc_ch_t>(m_newDescriptor->audioOuts);
 
-		// Allocate new audio buffers
-		auto newBuffer = Buffer{};
-		newBuffer.updateBuffers(ins, outs, buffers()->frames());
+	// Allocate new audio buffers
+	auto newBuffer = Buffer{};
+	newBuffer.updateBuffers(ins, outs, buffers()->frames());
 
-		// Allocate new AudioPortsModel
-		auto newModel = AudioPortsModel{ins, outs, isInstrument(), nullptr};
+	qDebug() << "\t\tbuffers allocated";
 
-		// Instantiate new Carla instance
-		auto newHandle = m_newDescriptor->instantiate(&m_parent->fHost);
-		if (!newHandle)
-		{
-			std::cerr << "Failed to instantiate new Carla plugin\n";
-		}
+	// Allocate new AudioPortsModel
+	auto dummyModel = Model{nullptr};
+	auto newModel = AudioPortsModel{ins, outs, isInstrument(), &dummyModel};
 
-		if (newHandle != nullptr && m_newDescriptor->activate != nullptr)
-		{
-			m_newDescriptor->activate(newHandle);
-		}
+	qDebug() << "\t\tmodel allocated";
 
-		// TODO: Set the state!
+	// Instantiate new Carla instance
+	auto newHandle = m_newDescriptor->instantiate(&m_parent->fHost);
+	if (!newHandle)
+	{
+		std::cerr << "Failed to instantiate new Carla plugin\n";
 
-		// Signal to preprocess method that the new instance is ready
-		m_newHandle = newHandle;
+	}
 
-		// Wait until signal from preprocess method before swapping in the new buffers
-		//   otherwise buffers could be swapped during processImpl which would be a data race
-		//   and potentially cause a crash
-		m_configChangePreProcessSignal.wait(false);
+	qDebug() << "\t\tCarla instantiated";
 
-		// Now it is safe to swap the models, buffers, and handles
-		// newModel and newBuffer (now the old model and old buffer) are deallocated at end of scope
-		swapAudioPorts(newModel, newBuffer);
-		auto oldDescriptor = std::exchange(m_parent->fDescriptor, m_newDescriptor);
-		auto oldHandle = std::exchange(m_parent->fHandle, m_newHandle);
+	if (newHandle != nullptr && m_newDescriptor->activate != nullptr)
+	{
+		m_newDescriptor->activate(newHandle);
+	}
 
-		// Tell preprocess method that the audio port is fully swapped over to the new Carla instance
-		m_configChangeDoneSwappingSignal.test_and_set();
-		m_configChangeDoneSwappingSignal.notify_one();
+	qDebug() << "\t\tCarla activated";
 
-		// Clean up old instance
-		if (!oldHandle) { return; }
+	// TODO: Set the state!
 
-		if (oldDescriptor->deactivate)
-		{
-			oldDescriptor->deactivate(oldHandle);
-		}
+	// Signal to preprocess method that the new Carla instance is ready
+	m_newHandle = newHandle;
 
-		if (oldDescriptor->cleanup)
-		{
-			oldDescriptor->cleanup(oldHandle);
-		}
-	}};
+	// Wait until start signal from preprocess method
+	while (!m_configStartSignal.test(std::memory_order::acquire))
+	{
+		m_configStartSignal.wait(false, std::memory_order::acquire);
+	}
 
-	loaderThread.detach();
+	// Now it is safe to swap the models, buffers, and handles
+	swapAudioPorts(newModel, newBuffer);
+	auto oldDescriptor = std::exchange(m_parent->fDescriptor, m_newDescriptor);
+	auto oldHandle = std::exchange(m_parent->fHandle, m_newHandle);
+
+	// Tell preprocess method that the audio port is fully swapped over to the new Carla instance
+	m_configDoneSignal.test_and_set(std::memory_order::release);
+	m_configDoneSignal.notify_one();
+
+	qDebug() << "Now cleaning up old instance...";
+
+	// Clean up old instance
+	if (!oldHandle) { return true; }
+
+	if (oldDescriptor->deactivate)
+	{
+		oldDescriptor->deactivate(oldHandle);
+	}
+
+	if (oldDescriptor->cleanup)
+	{
+		oldDescriptor->cleanup(oldHandle);
+	}
+	qDebug() << "\t\t...done!";
 
 	return true;
 }
@@ -457,6 +475,7 @@ void CarlaInstrument::handleUiClosed()
 intptr_t CarlaInstrument::handleDispatcher(const NativeHostDispatcherOpcode opcode, const int32_t index,
 	const intptr_t value, void* const ptr, const float opt)
 {
+	qDebug() << "CarlaInstrument::handleDispatcher";
     intptr_t ret = 0;
 
     // source/includes/CarlaNative.h

@@ -187,6 +187,11 @@ protected:
 		m_insOuts = m_accessBuffer.data();
 	}
 
+	void swapBuffers(AudioPorts<settings>::Buffer&) noexcept override
+	{
+		assert(false && "swapBuffers is not implemented for RemotePlugin's buffers yet");
+	}
+
 private:
 	auto remoteActive() const -> bool { return m_buffers != nullptr && m_remoteActive; }
 
@@ -281,6 +286,18 @@ protected:
 		{
 			if (!m_localBuffer) { m_localBuffer.emplace(); }
 			m_localBuffer->updateBuffers(channelsIn, channelsOut, frames);
+		}
+	}
+
+	void swapBuffers(AudioPorts<settings>::Buffer& other) noexcept override
+	{
+		if (isRemote())
+		{
+			RemotePluginAudioPorts<settings>::swapBuffers(other);
+		}
+		else
+		{
+			m_localBuffer.value().swapBuffers(other);
 		}
 	}
 

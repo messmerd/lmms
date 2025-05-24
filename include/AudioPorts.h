@@ -149,6 +149,9 @@ public:
 	virtual auto outputBuffer() -> AudioDataViewType<settings, true, false> = 0;
 	virtual auto frames() const -> fpp_t = 0;
 	virtual void updateBuffers(proc_ch_t channelsIn, proc_ch_t channelsOut, f_cnt_t frames) = 0;
+
+	//! Lock-free swap of buffer contents
+	virtual void swapBuffers(AudioPortsBuffer& other) noexcept = 0;
 };
 
 //! Statically in-place specialization
@@ -161,6 +164,9 @@ public:
 	virtual auto inputOutputBuffer() -> AudioDataViewType<settings, false, false> = 0;
 	virtual auto frames() const -> fpp_t = 0;
 	virtual void updateBuffers(proc_ch_t channelsIn, proc_ch_t channelsOut, f_cnt_t frames) = 0;
+
+	//! Lock-free swap of buffer contents
+	virtual void swapBuffers(AudioPortsBuffer& other) noexcept = 0;
 };
 
 
@@ -380,28 +386,26 @@ public:
 	/**
 	 * Constant-time, lock-free swap of current model and buffers with new ones.
 	 *
-	 * Only dynamically-allocated data from the model and buffers are swapped.
-	 * This allows them to be updated in a lock-free manner.
+	 * The purpose is to allow replacing the buffers and model (which contain
+	 * dynamically-allocated data members) with new ones in a lock-free manner
+	 * suitable for use in the preprocess method.
 	 *
 	 * Must never be called concurrently with the process method, so
-	 *   call in the preprocess method or during initialization.
+	 *   only call in the preprocess method or during initialization.
 	 *
-	 * `newBuffers` holds the old buffers after this method returns.
+	 * `otherModel` holds the old model after this method returns,
+	 * and `otherBuffers` holds the old buffers.
 	 */
-	void swapAudioPorts(AudioPortsModel& newModel, Buffer& newBuffers)
+	void swapAudioPorts(AudioPortsModel& otherModel, Buffer& otherBuffers)
 	{
-		this->swapModels(newModel);
-		this->swapBuffersImpl(newBuffers);
+		this->swapModels(otherModel);
+		if (auto buffers = this->buffers())
+		{
+			buffers->swapBuffers(otherBuffers);
+		}
 	}
 
 	static constexpr auto audioPortsSettings() -> AudioPortsSettings { return settings; }
-
-
-protected:
-	virtual void swapBuffersImpl(Buffer& newBuffers)
-	{
-		throw std::runtime_error{"AudioPorts::swapBuffersImpl() is unimplemented"};
-	}
 };
 
 

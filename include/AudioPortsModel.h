@@ -30,6 +30,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <future>
 #include <memory>
 #include <optional>
 #include <type_traits>
@@ -224,11 +225,10 @@ public:
 	}
 
 	/**
-	 * Sets the active configuration, returning true upon success.
-	 * Only called when `configId` is different from the currently active config.
-	 * Never called from an audio thread.
+	 * Sets the active configuration, returning true if successful.
+	 * Do not call from an audio thread.
 	 */
-	auto setActiveConfiguration(std::uint32_t configId) -> bool;
+	auto setActiveConfiguration(std::uint32_t configId) -> std::future<bool>;
 
 
 	auto getChannelCountText() const -> QString;
@@ -254,7 +254,7 @@ public slots:
 	void updateRoutedChannels(track_ch_t trackChannel);
 
 protected:
-	void swapModels(AudioPortsModel& newModel);
+	void swapModels(AudioPortsModel& other);
 
 	/**
 	 * To be implemented by the audio ports class.
@@ -285,8 +285,20 @@ protected:
 	/*
 	 * Audio port implementations can override this to allow switching between audio port configurations.
 	 * Returns true upon success.
+	 * Only called when `configId` is different from the currently active config.
+	 * Never called from an audio thread.
 	 */
 	virtual auto setActiveConfigurationImpl(std::uint32_t config) -> bool { return false; }
+
+	/**
+	 * Audio port implementations can override this to customize the launch policy used
+	 * when `setActiveConfigurationImpl` is called.
+	 *
+	 * By default, it is called on a separate thread so that the GUI doesn't freeze while
+	 * the configuration is being changed. But if `setActiveConfigurationImpl` is known to be
+	 * fast, you may want to override this with `std::launch::deferred` to call it on the GUI thread.
+	 */
+	virtual auto configurationChangeLaunchPolicy() const -> std::launch { return std::launch::async; }
 
 	//! This value is <= to the total number of track channels (currently always 2)
 	track_ch_t m_trackChannelsUpperBound = DEFAULT_CHANNELS; // TODO: Need to recalculate when pins are set/unset

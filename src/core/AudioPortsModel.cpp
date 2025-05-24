@@ -284,20 +284,20 @@ void AudioPortsModel::updateDirectRouting()
 	}
 }
 
-void AudioPortsModel::swapModels(AudioPortsModel& newModel)
+void AudioPortsModel::swapModels(AudioPortsModel& other)
 {
 	// Swap all data that can be swapped (all non-self-referencing and non-const data)
 
-	std::swap(m_in.m_pins, newModel.m_in.m_pins);
-	std::swap(m_in.m_channelCount, newModel.m_in.m_channelCount);
-	std::swap(m_out.m_pins, newModel.m_out.m_pins);
-	std::swap(m_out.m_channelCount, newModel.m_out.m_channelCount);
+	std::swap(m_in.m_pins, other.m_in.m_pins);
+	std::swap(m_in.m_channelCount, other.m_in.m_channelCount);
+	std::swap(m_out.m_pins, other.m_out.m_pins);
+	std::swap(m_out.m_channelCount, other.m_out.m_channelCount);
 
-	std::swap(m_trackChannelsUpperBound, newModel.m_trackChannelsUpperBound);
-	std::swap(m_routedChannels, newModel.m_routedChannels);
-	std::swap(m_directRouting, newModel.m_directRouting);
-	std::swap(m_activeConfigurationId, newModel.m_activeConfigurationId); // ???
-	std::swap(m_totalTrackChannels, newModel.m_totalTrackChannels);
+	std::swap(m_trackChannelsUpperBound, other.m_trackChannelsUpperBound);
+	std::swap(m_routedChannels, other.m_routedChannels);
+	std::swap(m_directRouting, other.m_directRouting);
+	std::swap(m_activeConfigurationId, other.m_activeConfigurationId); // ???
+	std::swap(m_totalTrackChannels, other.m_totalTrackChannels);
 }
 
 auto AudioPortsModel::instantiateView() const -> std::unique_ptr<gui::PinConnector>
@@ -307,18 +307,35 @@ auto AudioPortsModel::instantiateView() const -> std::unique_ptr<gui::PinConnect
 	return std::make_unique<gui::PinConnector>(const_cast<AudioPortsModel*>(this));
 }
 
-auto AudioPortsModel::setActiveConfiguration(std::uint32_t configId) -> bool
+auto AudioPortsModel::setActiveConfiguration(std::uint32_t configId) -> std::future<bool>
 {
+	qDebug() << "AudioPortsModel::setActiveConfiguration - BEGIN";
+	qDebug() << "\tconfigId =" << configId;
+
 	// Must not be on an audio thread
 	assert(QThread::currentThread() == QCoreApplication::instance()->thread());
 
-	if (setActiveConfigurationImpl(configId))
+	if (configId == activeConfigurationId())
 	{
-		m_activeConfigurationId = configId;
-		emit activeConfigurationChanged();
-		return true;
+		qDebug() << "\tAlready active";
+		// Already active
+		return std::async(std::launch::deferred, [](){ return true; });
 	}
-	return false;
+
+	qDebug() << "\tCalling impl...";
+
+	return std::async(configurationChangeLaunchPolicy(), [=]() {
+		if (setActiveConfigurationImpl(configId))
+		{
+			qDebug() << "\t...Impl returned true - config changed";
+			m_activeConfigurationId = configId;
+			emit activeConfigurationChanged();
+			return true;
+		}
+
+		qDebug() << "\t...Impl returned false";
+		return false;
+	});
 }
 
 auto AudioPortsModel::getChannelCountText() const -> QString
