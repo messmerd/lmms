@@ -30,6 +30,7 @@
 #include <QDomElement>
 #include <QDebug>
 #include <QThread>
+#include <algorithm>
 #include <stdexcept>
 
 #include "AudioEngine.h"
@@ -297,6 +298,7 @@ void AudioPortsModel::swapModels(AudioPortsModel& other)
 	std::swap(m_routedChannels, other.m_routedChannels);
 	std::swap(m_directRouting, other.m_directRouting);
 	std::swap(m_activeConfigurationId, other.m_activeConfigurationId); // ???
+	std::swap(m_activeConfiguration, other.m_activeConfiguration); // ???
 	std::swap(m_totalTrackChannels, other.m_totalTrackChannels);
 }
 
@@ -307,12 +309,28 @@ auto AudioPortsModel::instantiateView() const -> std::unique_ptr<gui::PinConnect
 	return std::make_unique<gui::PinConnector>(const_cast<AudioPortsModel*>(this));
 }
 
+auto AudioPortsModel::findConfiguration(std::uint32_t configId) const -> const AudioPortsConfiguration*
+{
+	const auto configs = configurations();
+	const auto it = std::ranges::find(configs, configId, &AudioPortsConfiguration::id);
+	return it != configs.end() ? &*it : nullptr;
+}
+
 auto AudioPortsModel::setActiveConfiguration(std::uint32_t configId) -> std::future<bool>
 {
 	qDebug() << "AudioPortsModel::setActiveConfiguration - BEGIN";
 	qDebug() << "\tconfigId =" << configId;
 
-	// Must not be on an audio thread
+	if (activeConfigurationId() == std::nullopt)
+	{
+		// Initialization
+		m_activeConfigurationId = configId;
+		m_activeConfiguration = findConfiguration(configId);
+		assert(m_activeConfiguration != nullptr);
+		return std::async(std::launch::deferred, [](){ return true; });
+	}
+
+	// Must not be on an audio thread TODO: Add better way to check this
 	assert(QThread::currentThread() == QCoreApplication::instance()->thread());
 
 	if (configId == activeConfigurationId())
@@ -324,12 +342,26 @@ auto AudioPortsModel::setActiveConfiguration(std::uint32_t configId) -> std::fut
 
 	qDebug() << "\tCalling impl...";
 
-	return std::async(configurationChangeLaunchPolicy(), [=]() {
+	return std::async(configurationChangeLaunchPolicy(), [=, this]() {
 		if (setActiveConfigurationImpl(configId))
 		{
 			qDebug() << "\t...Impl returned true - config changed";
 			m_activeConfigurationId = configId;
-			emit activeConfigurationChanged();
+
+			const auto newConfig = findConfiguration(configId);
+			assert(newConfig != nullptr);
+
+			if (!m_activeConfiguration
+				|| newConfig->inputs != m_activeConfiguration->inputs
+				|| newConfig->outputs != m_activeConfiguration->outputs)
+			{
+				// Channel counts changed
+				m_activeConfiguration = newConfig;
+				emit propertiesChanged();
+				return true;
+			}
+
+			m_activeConfiguration = newConfig;
 			return true;
 		}
 

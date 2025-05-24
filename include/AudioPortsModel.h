@@ -224,6 +224,14 @@ public:
 		return m_activeConfigurationId;
 	}
 
+	//! Returns the active configuration, if there is one
+	auto activeConfiguration() const -> const AudioPortsConfiguration*
+	{
+		return m_activeConfiguration;
+	}
+
+	auto findConfiguration(std::uint32_t configId) const -> const AudioPortsConfiguration*;
+
 	/**
 	 * Sets the active configuration, returning true if successful.
 	 * Do not call from an audio thread.
@@ -247,7 +255,7 @@ signals:
 	void availableConfigurationsChanged();
 
 	//! Called when the active audio port configuration changes
-	void activeConfigurationChanged();
+	//void activeConfigurationChanged();
 
 public slots:
 	void setTrackChannelCount(track_ch_t count);
@@ -271,16 +279,16 @@ protected:
 	virtual auto channelName(proc_ch_t channel, bool isOutput) const -> QString;
 
 	/**
+	 * Audio port implementations must override this to support custom audio port configurations.
+	 * Return the default configuration ID if supported, otherwise return std::nullopt.
+	 */
+	virtual auto defaultConfigurationId() const -> std::optional<std::uint32_t> { return std::nullopt; }
+
+	/**
 	 * Audio port implementations can override this to provide a list
 	 * of all currently available audio port configurations.
 	 */
 	virtual auto configurationsImpl() const -> std::span<const AudioPortsConfiguration> { return {}; }
-
-	/**
-	 * Audio port implementations can override this to use
-	 * a different default configuration.
-	 */
-	virtual auto defaultConfigurationId() const -> std::uint32_t { return 0; }
 
 	/*
 	 * Audio port implementations can override this to allow switching between audio port configurations.
@@ -333,7 +341,9 @@ private:
 	Matrix m_in{this, false}; //!< LMMS --> audio processor
 	Matrix m_out{this, true}; //!< audio processor --> LMMS
 
+	// TODO: Remove m_activeConfigurationId and just use m_activeConfiguration?
 	std::optional<std::uint32_t> m_activeConfigurationId;
+	const AudioPortsConfiguration* m_activeConfiguration = nullptr; // cache
 
 	// TODO: When full routing is added, get LMMS channel counts from bus or audio router class
 	track_ch_t m_totalTrackChannels = DEFAULT_CHANNELS;

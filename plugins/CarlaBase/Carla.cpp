@@ -475,7 +475,6 @@ void CarlaInstrument::handleUiClosed()
 intptr_t CarlaInstrument::handleDispatcher(const NativeHostDispatcherOpcode opcode, const int32_t index,
 	const intptr_t value, void* const ptr, const float opt)
 {
-	qDebug() << "CarlaInstrument::handleDispatcher";
     intptr_t ret = 0;
 
     // source/includes/CarlaNative.h

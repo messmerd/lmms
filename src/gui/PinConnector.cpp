@@ -35,6 +35,7 @@
 #include <QStyle>
 #include <algorithm>
 #include <chrono>
+#include <iostream>
 
 #include "FontHelper.h"
 #include "GuiApplication.h"
@@ -128,11 +129,10 @@ PinConnector::PinConnector(AudioPortsModel* model)
 	sp.setRetainSizeWhenHidden(true);
 	m_scrollArea->setSizePolicy(sp);
 
-	updateProperties();
-	updateConfigurations();
-
 	m_subWindow->setMinimumSize(MinimumAllowedWindowSize);
-	m_subWindow->resize(m_subWindow->maximumSize());
+
+	updateConfigurations();
+	updateProperties();
 
 	m_scrollArea->show();
 }
@@ -284,9 +284,14 @@ void PinConnector::configurationSelected(int index)
 	auto model = castModel<AudioPortsModel>();
 	assert(model != nullptr);
 
-	const auto oldConfigId = model->activeConfigurationId().value();
-	const auto configId = static_cast<std::uint32_t>(m_configSelector->itemData(index).toULongLong());
+	const auto oldConfigId = model->activeConfigurationId();
+	if (!oldConfigId)
+	{
+		// No configuration
+		return;
+	}
 
+	const auto configId = static_cast<std::uint32_t>(m_configSelector->itemData(index).toULongLong());
 	if (oldConfigId == configId)
 	{
 		// Nothing changed
@@ -303,28 +308,31 @@ void PinConnector::configurationSelected(int index)
 		if (!success)
 		{
 			// Error occurred - roll back to old config
+			std::cerr << "An error occurred while changing the audio port configuration\n";
+
 			const auto configs = model->configurations();
 
-			auto it = std::ranges::find(configs, oldConfigId, &AudioPortsConfiguration::id);
+			auto it = std::ranges::find(configs, *oldConfigId, &AudioPortsConfiguration::id);
 			assert(it != configs.end());
 
 			m_configSelector->setCurrentIndex(std::distance(configs.begin(), it));
 		}
+
 		m_configSelector->setEnabled(true);
 	};
 
 	// Get the result (if deferred) or wait a little bit and see if ready
 	if (future.wait_for(std::chrono::seconds(0)) == std::future_status::deferred
-		|| future.wait_for(std::chrono::milliseconds(100)) == std::future_status::ready)
+		|| future.wait_for(std::chrono::milliseconds(1000)) == std::future_status::ready)
 	{
 		readyHandler(future.get());
 		return;
 	}
 
-	// Still not ready - launch monitor thread
+	// Still not ready - launch monitor thread FIXME: Might not work correctly
 	std::thread([this, readyHandler, future = std::move(future)]() mutable {
 		future.wait();
-		QMetaObject::invokeMethod(m_configSelector, [&, this]() {
+		QMetaObject::invokeMethod(m_configSelector, [this, readyHandler, future = std::move(future)]() mutable {
 			readyHandler(future.get());
 		}, Qt::QueuedConnection);
 	}).detach();
@@ -378,6 +386,7 @@ void PinConnector::updateProperties()
 	const auto windowSize = getMaximumWindowSize();
 	m_scrollArea->resize(windowSize);
 	m_subWindow->setMaximumSize(windowSize);
+	m_subWindow->resize(m_subWindow->maximumSize());
 
 	update();
 }

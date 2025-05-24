@@ -211,6 +211,8 @@ public:
 
 private:
 	auto channelName(proc_ch_t channel, bool isOutput) const -> QString override;
+
+	auto defaultConfigurationId() const -> std::optional<std::uint32_t> { return 0; }
 	auto configurationsImpl() const -> std::span<const AudioPortsConfiguration> override;
 	auto setActiveConfigurationImpl(std::uint32_t configId) -> bool;
 

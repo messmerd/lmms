@@ -352,6 +352,11 @@ public:
 			buffers->updateBuffers(in().channelCount(), out().channelCount(),
 				Engine::audioEngine()->framesPerPeriod());
 		}
+
+		if (auto configId = this->defaultConfigurationId())
+		{
+			this->setActiveConfiguration(*configId);
+		}
 	}
 
 	auto model() const -> const AudioPortsModel&
