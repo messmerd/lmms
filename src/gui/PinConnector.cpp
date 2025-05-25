@@ -25,12 +25,17 @@
 #include "PinConnector.h"
 
 #include <QBoxLayout>
+#include <QComboBox>
+#include <QDebug>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSizePolicy>
 #include <QStyle>
+#include <algorithm>
+#include <chrono>
+#include <iostream>
 
 #include "FontHelper.h"
 #include "GuiApplication.h"
@@ -45,6 +50,7 @@ namespace lmms::gui
 namespace
 {
 
+constexpr auto ConfigSelectorSize = QSize{112, 20};
 constexpr auto CenterMargin = QSize{32, 0};
 constexpr auto WindowMarginTop = QSize{0, 112};
 constexpr auto WindowMarginBottom = QSize{0, 16};
@@ -65,6 +71,7 @@ PinConnector::PinConnector(AudioPortsModel* model)
 
 	assert(model != nullptr);
 	connect(model, &AudioPortsModel::propertiesChanged, this, &PinConnector::updateProperties);
+	connect(model, &AudioPortsModel::availableConfigurationsChanged, this, &PinConnector::updateConfigurations);
 
 	const Model* parentModel = model->parentModel();
 	assert(parentModel != nullptr);
@@ -103,6 +110,14 @@ PinConnector::PinConnector(AudioPortsModel* model)
 	vLayout->addLayout(hLayout);
 	vLayout->addSpacing(WindowMarginBottom.height());
 
+	// Audio ports config drop down
+	m_configSelector = new QComboBox{};
+	m_configSelector->setFixedSize(ConfigSelectorSize);
+	m_configSelector->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+	connect(m_configSelector, static_cast<void(QComboBox::*)(int)>(&QComboBox::activated),
+		this, &PinConnector::configurationSelected);
+	vLayout->addWidget(m_configSelector, 0, Qt::AlignBottom | Qt::AlignLeft);
+
 	// Add widget to the scroll area
 	m_scrollArea->setWidget(this);
 	m_scrollArea->setWidgetResizable(true);
@@ -117,10 +132,10 @@ PinConnector::PinConnector(AudioPortsModel* model)
 	sp.setRetainSizeWhenHidden(true);
 	m_scrollArea->setSizePolicy(sp);
 
-	updateProperties();
-
 	m_subWindow->setMinimumSize(MinimumAllowedWindowSize);
-	m_subWindow->resize(m_subWindow->maximumSize());
+
+	updateConfigurations();
+	updateProperties();
 
 	m_scrollArea->show();
 }
@@ -142,7 +157,14 @@ auto PinConnector::sizeHint() const -> QSize
 		std::max(inSize.height(), outSize.height())
 	};
 
-	return WindowMarginTotal + centerMargin + combinedMatrixSize;
+	auto model = castModel<AudioPortsModel>();
+	assert(model != nullptr);
+
+	const auto configSelectorSize = model->activeConfiguration()
+		? QSize{0, ConfigSelectorSize.height()}
+		: QSize{0, 0};
+
+	return WindowMarginTotal + centerMargin + combinedMatrixSize + configSelectorSize;
 }
 
 auto PinConnector::minimumSizeHint() const -> QSize
@@ -265,6 +287,67 @@ void PinConnector::paintEvent(QPaintEvent*)
 	p.restore();
 }
 
+void PinConnector::configurationSelected(int index)
+{
+	assert(index != -1);
+
+	auto model = castModel<AudioPortsModel>();
+	assert(model != nullptr);
+
+	const auto oldConfigId = model->activeConfigurationId();
+	if (!oldConfigId)
+	{
+		// No configuration
+		return;
+	}
+
+	const auto configId = static_cast<std::uint32_t>(m_configSelector->itemData(index).toULongLong());
+	if (oldConfigId == configId)
+	{
+		// Nothing changed
+		return;
+	}
+
+	// Disable combo box until the configuration is applied
+	m_configSelector->setEnabled(false);
+
+	// Get future for setting new active configuration
+	auto future = model->setActiveConfiguration(configId);
+
+	auto readyHandler = [this, model, oldConfigId](bool success) {
+		if (!success)
+		{
+			// Error occurred - roll back to old config
+			std::cerr << "An error occurred while changing the audio port configuration\n";
+
+			const auto configs = model->configurations();
+
+			auto it = std::ranges::find(configs, *oldConfigId, &AudioPortsConfiguration::id);
+			assert(it != configs.end());
+
+			m_configSelector->setCurrentIndex(std::distance(configs.begin(), it));
+		}
+
+		m_configSelector->setEnabled(true);
+	};
+
+	// Get the result (if deferred) or wait a little bit and see if ready
+	if (future.wait_for(std::chrono::seconds(0)) == std::future_status::deferred
+		|| future.wait_for(std::chrono::milliseconds(1000)) == std::future_status::ready)
+	{
+		readyHandler(future.get());
+		return;
+	}
+
+	// Still not ready - launch monitor thread FIXME: Might not work correctly
+	std::thread([this, readyHandler, future = std::move(future)]() mutable {
+		future.wait();
+		QMetaObject::invokeMethod(m_configSelector, [this, readyHandler, future = std::move(future)]() mutable {
+			readyHandler(future.get());
+		}, Qt::QueuedConnection);
+	}).detach();
+}
+
 auto PinConnector::trackChannelName(const AudioPortsModel& model, track_ch_t channel) const -> QString
 {
 	// TODO: Custom track channel names?
@@ -313,8 +396,40 @@ void PinConnector::updateProperties()
 	const auto windowSize = getMaximumWindowSize();
 	m_scrollArea->resize(windowSize);
 	m_subWindow->setMaximumSize(windowSize);
+	m_subWindow->resize(m_subWindow->maximumSize());
 
 	update();
+}
+
+void PinConnector::updateConfigurations()
+{
+	qDebug() << "PinConnector::updateConfigurations() - BEGIN";
+	m_configSelector->clear();
+
+	auto model = castModel<AudioPortsModel>();
+	assert(model != nullptr);
+
+	const auto configs = model->configurations();
+	for (std::size_t idx = 0; idx < configs.size(); ++idx)
+	{
+		const auto& config = configs[idx];
+		auto text = tr("%1 [%2 in/%3 out]")
+			.arg(QString::fromStdString(config.name))
+			.arg(config.inputs)
+			.arg(config.outputs);
+
+		qDebug().nospace() << "\tadding action '" << text << "'";
+
+		m_configSelector->addItem(std::move(text), config.id);
+
+		if (model->activeConfigurationId() == config.id)
+		{
+			m_configSelector->setCurrentIndex(static_cast<int>(idx));
+		}
+	}
+
+	m_configSelector->setEnabled(!configs.empty());
+	m_configSelector->setVisible(!configs.empty());
 }
 
 //////////////////////////////////////////////
@@ -466,6 +581,16 @@ void PinConnector::MatrixView::updateProperties(const PinConnector* view)
 
 	const auto formatText = m_matrix->isOutput() ? tr("%1 output(s) to LMMS") : tr("LMMS to %1 input(s)");
 	setToolTip(formatText.arg(parentModel->fullDisplayName()));
+}
+
+void PinConnector::MatrixView::updateChannelNames()
+{
+	m_channelNames.clear();
+	m_channelNames.reserve(m_matrix->channelCount());
+	for (proc_ch_t idx = 0; m_matrix->channelCount(); ++idx)
+	{
+		m_channelNames.emplace_back(m_matrix->channelName(idx));
+	}
 }
 
 auto PinConnector::MatrixView::getPin(const QPoint& mousePos) -> std::optional<std::pair<track_ch_t, proc_ch_t>>

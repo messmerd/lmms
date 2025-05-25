@@ -25,9 +25,12 @@
 
 #include "AudioPortsModel.h"
 
+#include <QCoreApplication>
 #include <QDomDocument>
 #include <QDomElement>
 #include <QDebug>
+#include <QThread>
+#include <algorithm>
 #include <stdexcept>
 
 #include "AudioEngine.h"
@@ -282,11 +285,89 @@ void AudioPortsModel::updateDirectRouting()
 	}
 }
 
+void AudioPortsModel::swapModels(AudioPortsModel& other)
+{
+	// Swap all data that can be swapped (all non-self-referencing and non-const data)
+
+	std::swap(m_in.m_pins, other.m_in.m_pins);
+	std::swap(m_in.m_channelCount, other.m_in.m_channelCount);
+	std::swap(m_out.m_pins, other.m_out.m_pins);
+	std::swap(m_out.m_channelCount, other.m_out.m_channelCount);
+
+	std::swap(m_trackChannelsUpperBound, other.m_trackChannelsUpperBound);
+	std::swap(m_routedChannels, other.m_routedChannels);
+	std::swap(m_directRouting, other.m_directRouting);
+	std::swap(m_activeConfigurationId, other.m_activeConfigurationId); // ???
+	std::swap(m_activeConfiguration, other.m_activeConfiguration); // ???
+	std::swap(m_totalTrackChannels, other.m_totalTrackChannels);
+}
+
 auto AudioPortsModel::instantiateView() const -> std::unique_ptr<gui::PinConnector>
 {
 	// This method does not modify AudioPortsModel, but it needs PinConnector to store
 	// a mutable pointer to the AudioPortsModel, hence the const_cast.
 	return std::make_unique<gui::PinConnector>(const_cast<AudioPortsModel*>(this));
+}
+
+auto AudioPortsModel::findConfiguration(std::uint32_t configId) const -> const AudioPortsConfiguration*
+{
+	const auto configs = configurations();
+	const auto it = std::ranges::find(configs, configId, &AudioPortsConfiguration::id);
+	return it != configs.end() ? &*it : nullptr;
+}
+
+auto AudioPortsModel::setActiveConfiguration(std::uint32_t configId) -> std::future<bool>
+{
+	qDebug() << "AudioPortsModel::setActiveConfiguration - BEGIN";
+	qDebug() << "\tconfigId =" << configId;
+
+	if (activeConfigurationId() == std::nullopt)
+	{
+		// Initialization
+		m_activeConfigurationId = configId;
+		m_activeConfiguration = findConfiguration(configId);
+		assert(m_activeConfiguration != nullptr);
+		return std::async(std::launch::deferred, [](){ return true; });
+	}
+
+	// Must not be on an audio thread TODO: Add better way to check this
+	assert(QThread::currentThread() == QCoreApplication::instance()->thread());
+
+	if (configId == activeConfigurationId())
+	{
+		qDebug() << "\tAlready active";
+		// Already active
+		return std::async(std::launch::deferred, [](){ return true; });
+	}
+
+	qDebug() << "\tCalling impl...";
+
+	return std::async(configurationChangeLaunchPolicy(), [=, this]() {
+		if (setActiveConfigurationImpl(configId))
+		{
+			qDebug() << "\t...Impl returned true - config changed";
+			m_activeConfigurationId = configId;
+
+			const auto newConfig = findConfiguration(configId);
+			assert(newConfig != nullptr);
+
+			if (!m_activeConfiguration
+				|| newConfig->inputs != m_activeConfiguration->inputs
+				|| newConfig->outputs != m_activeConfiguration->outputs)
+			{
+				// Channel counts changed
+				m_activeConfiguration = newConfig;
+				emit propertiesChanged();
+				return true;
+			}
+
+			m_activeConfiguration = newConfig;
+			return true;
+		}
+
+		qDebug() << "\t...Impl returned false";
+		return false;
+	});
 }
 
 auto AudioPortsModel::getChannelCountText() const -> QString

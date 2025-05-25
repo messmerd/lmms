@@ -34,6 +34,7 @@
 #include "AudioPortsModel.h"
 #include "ModelView.h"
 
+class QComboBox;
 class QScrollArea;
 
 namespace lmms
@@ -65,6 +66,9 @@ public:
 protected:
 	void paintEvent(QPaintEvent* pe) override;
 
+private slots:
+	void configurationSelected(int index);
+
 private:
 	class MatrixView;
 
@@ -72,6 +76,7 @@ private:
 	auto getSpacerWidth() const -> int;
 	auto getMaximumWindowSize() const -> QSize;
 	void updateProperties();
+	void updateConfigurations();
 
 	SubWindow* m_subWindow = nullptr;
 	QScrollArea* m_scrollArea = nullptr;
@@ -79,6 +84,8 @@ private:
 
 	MatrixView* m_inView = nullptr;
 	MatrixView* m_outView = nullptr;
+
+	QComboBox* m_configSelector = nullptr;
 
 	QColor m_backgroundColor;
 };
@@ -112,12 +119,15 @@ public:
 
 public slots:
 	void updateProperties(const PinConnector* view);
+	void updateChannelNames();
 
 private:
 	auto getPin(const QPoint& mousePos) -> std::optional<std::pair<track_ch_t, proc_ch_t>>;
 	auto getColor(track_ch_t trackChannel, proc_ch_t processorChannel) -> QColor;
 
 	AudioPortsModel::Matrix* m_matrix = nullptr;
+
+	std::vector<QString> m_channelNames;
 
 	QColor m_lineColor;
 	QColor m_enabledColor;

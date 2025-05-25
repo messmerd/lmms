@@ -149,6 +149,9 @@ public:
 	virtual auto outputBuffer() -> AudioDataViewType<settings, true, false> = 0;
 	virtual auto frames() const -> fpp_t = 0;
 	virtual void updateBuffers(proc_ch_t channelsIn, proc_ch_t channelsOut, f_cnt_t frames) = 0;
+
+	//! Lock-free swap of buffer contents
+	virtual void swapBuffers(AudioPortsBuffer& other) noexcept = 0;
 };
 
 //! Statically in-place specialization
@@ -161,6 +164,9 @@ public:
 	virtual auto inputOutputBuffer() -> AudioDataViewType<settings, false, false> = 0;
 	virtual auto frames() const -> fpp_t = 0;
 	virtual void updateBuffers(proc_ch_t channelsIn, proc_ch_t channelsOut, f_cnt_t frames) = 0;
+
+	//! Lock-free swap of buffer contents
+	virtual void swapBuffers(AudioPortsBuffer& other) noexcept = 0;
 };
 
 
@@ -346,6 +352,11 @@ public:
 			buffers->updateBuffers(in().channelCount(), out().channelCount(),
 				Engine::audioEngine()->framesPerPeriod());
 		}
+
+		if (auto configId = this->defaultConfigurationId())
+		{
+			this->setActiveConfiguration(*configId);
+		}
 	}
 
 	auto model() const -> const AudioPortsModel&
@@ -361,14 +372,43 @@ public:
 	//! Returns an audio port router
 	auto getRouter() const -> Router { return Router{*this}; }
 
-	//! Returns nullptr if the port is unavailable (i.e. Vestige with no plugin loaded)
-	virtual auto buffers() -> Buffer* = 0;
-
 	/**
 	 * Returns true if the audio port can be used.
 	 * Custom audio ports with an unusable state (i.e. a "plugin not loaded" state) should override this.
 	 */
 	virtual auto active() const -> bool { return true; }
+
+	//! Returns nullptr if the buffers are unavailable (i.e. Vestige with no plugin loaded)
+	virtual auto buffers() -> Buffer* = 0;
+
+	//! Returns nullptr if the buffers are unavailable (i.e. Vestige with no plugin loaded)
+	auto constBuffers() const -> const Buffer*
+	{
+		// const cast to avoid duplicate code - should be safe since buffers() doesn't modify
+		return const_cast<AudioPorts*>(this)->buffers();
+	}
+
+	/**
+	 * Constant-time, lock-free swap of current model and buffers with new ones.
+	 *
+	 * The purpose is to allow replacing the buffers and model (which contain
+	 * dynamically-allocated data members) with new ones in a lock-free manner
+	 * suitable for use in the preprocess method.
+	 *
+	 * Must never be called concurrently with the process method, so
+	 *   only call in the preprocess method or during initialization.
+	 *
+	 * `otherModel` holds the old model after this method returns,
+	 * and `otherBuffers` holds the old buffers.
+	 */
+	void swapAudioPorts(AudioPortsModel& otherModel, Buffer& otherBuffers)
+	{
+		this->swapModels(otherModel);
+		if (auto buffers = this->buffers())
+		{
+			buffers->swapBuffers(otherBuffers);
+		}
+	}
 
 	static constexpr auto audioPortsSettings() -> AudioPortsSettings { return settings; }
 };

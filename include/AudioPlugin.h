@@ -32,6 +32,7 @@
 #include "Instrument.h"
 #include "InstrumentTrack.h"
 #include "PluginAudioPorts.h"
+#include "PreProcessor.h"
 
 namespace lmms
 {
@@ -188,12 +189,14 @@ protected:
 
 	void playImpl(std::span<SampleFrame> inOut) final
 	{
-		auto buffers = m_audioPorts.buffers();
-		if (!buffers)
+		if (!m_audioPorts.active())
 		{
 			// Plugin is not running
 			return;
 		}
+
+		auto buffers = m_audioPorts.buffers();
+		assert(buffers != nullptr);
 
 		SampleFrame* temp = inOut.data();
 		const auto bus = AudioBus<SampleFrame>{&temp, 1, inOut.size()};
@@ -251,7 +254,7 @@ protected:
 
 	auto processAudioBufferImpl(std::span<SampleFrame> inOut) -> bool final
 	{
-		if (isSleeping())
+		if (isSleeping() || !m_audioPorts.active())
 		{
 			this->processBypassedImpl();
 			return false;
@@ -331,6 +334,7 @@ private:
 template<class ParentT, AudioPortsSettings settings, class AudioPortsT>
 class AudioPlugin
 	: public detail::AudioPlugin<ParentT, settings, AudioPortsT>
+	, public PreProcessor
 {
 	static_assert(settings == AudioPortsT::audioPortsSettings());
 
@@ -380,6 +384,17 @@ private:
 
 	AudioPortSerializer m_serializer{this};
 };
+
+/**
+ * Same as `AudioPlugin` but the audio port is passed as a template template parameter.
+ *
+ * @tparam ParentT Either `Instrument` or `Effect`
+ * @tparam settings Compile-time settings to customize `AudioPlugin`
+ * @tparam AudioPortsT The plugin's audio port - must fully implement `AudioPorts`
+ */
+template<class ParentT, AudioPortsSettings settings,
+	template<AudioPortsSettings> class AudioPortsT = PluginAudioPorts>
+using AudioPluginExt = AudioPlugin<ParentT, settings, AudioPortsT<settings>>;
 
 
 /**

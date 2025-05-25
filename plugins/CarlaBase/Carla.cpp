@@ -38,6 +38,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QCompleter>
+#include <QDebug>
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -55,6 +56,7 @@
 #include <QVBoxLayout>
 
 #include <cstring>
+#include <iostream>
 
 #include "embed.h"
 
@@ -148,15 +150,198 @@ static const char* host_ui_save_file(NativeHostHandle, bool isDir, const char* t
 
 // -----------------------------------------------------------------------
 
-
-CarlaInstrument::CarlaInstrument(InstrumentTrack* const instrumentTrack, const Descriptor* const descriptor, const bool isPatchbay)
-    : Instrument(descriptor, instrumentTrack, nullptr, Flag::IsSingleStreamed | Flag::IsMidiBased | Flag::IsNotBendable),
-      kIsPatchbay(isPatchbay),
-      fHandle(nullptr),
-      fDescriptor(isPatchbay ? carla_get_native_patchbay_plugin() : carla_get_native_rack_plugin()),
-      fMidiEventCount(0),
-      m_paramModels()
+auto CarlaAudioPorts::active() const -> bool
 {
+	return m_parent->fDescriptor && m_parent->fHandle;
+}
+
+auto CarlaAudioPorts::doConfigChangeIfNeeded() -> bool
+{
+	if (!m_newHandle)
+	{
+		// Nothing scheduled
+		return false;
+	}
+
+	// Let loader thread know we're in the preprocess step
+	m_configStartSignal.test_and_set(std::memory_order::release);
+	m_configStartSignal.notify_one();
+
+	// Wait until loader thread sets flag back to false, indicating it
+	//    has swapped us to the new Carla instance
+	while (!m_configDoneSignal.test(std::memory_order::acquire))
+	{
+		m_configDoneSignal.wait(true, std::memory_order::acquire);
+	}
+
+	// Reset for next time
+	m_configDoneSignal.clear(std::memory_order::release);
+	m_configStartSignal.clear(std::memory_order::release);
+	m_newDescriptor = nullptr;
+	m_newHandle = nullptr;
+
+	return true;
+}
+
+auto CarlaAudioPorts::getDescriptor(std::uint32_t configId) const -> const NativePluginDescriptor*
+{
+	if (!m_parent->kIsPatchbay)
+	{
+		return carla_get_native_rack_plugin();
+	}
+
+	switch (configId)
+	{
+		case 0: return carla_get_native_patchbay_plugin(); // default
+		case 1: return carla_get_native_patchbay16_plugin();
+		case 2: return carla_get_native_patchbay32_plugin();
+		case 3: return carla_get_native_patchbay64_plugin();
+		default: return nullptr;
+	}
+}
+
+auto CarlaAudioPorts::channelName(proc_ch_t channel, bool isOutput) const -> QString
+{
+	assert(active()); // ???
+
+	if (m_parent->fDescriptor->get_buffer_port_name)
+	{
+		const char* name = m_parent->fDescriptor->get_buffer_port_name(m_parent->fHandle, channel, isOutput);
+		return (!name || name[0] == '\0')
+			? PluginAudioPorts::channelName(channel, isOutput)
+			: name;
+	}
+
+	return PluginAudioPorts::channelName(channel, isOutput);
+}
+
+auto CarlaAudioPorts::configurationsImpl() const -> std::span<const AudioPortsConfiguration>
+{
+	static const auto configs = std::array {
+		AudioPortsConfiguration{0, tr("2x2").toStdString(), 2, 2},
+		AudioPortsConfiguration{1, tr("16x16").toStdString(), 16, 16},
+		AudioPortsConfiguration{2, tr("32x32").toStdString(), 32, 32},
+		AudioPortsConfiguration{3, tr("64x64").toStdString(), 64, 64}
+	};
+
+	return m_parent->kIsPatchbay
+		? configs
+		: std::span<const AudioPortsConfiguration>{};
+}
+
+auto CarlaAudioPorts::setActiveConfigurationImpl(std::uint32_t configId) -> bool
+{
+	qDebug() << "CarlaAudioPorts::setActiveConfigurationImpl - BEGIN";
+	if (!m_parent->kIsPatchbay)
+	{
+		// Carla Rack does not support audio port configurations
+		qDebug() << "\tCarla rack";
+		return false;
+	}
+
+	const auto newDesc = getDescriptor(configId);
+	if (!newDesc)
+	{
+		// Unknown configuration
+		qDebug() << "\tUnknown config";
+		return false;
+	}
+
+	if (m_inProgress.test_and_set(std::memory_order::acquire))
+	{
+		// A new configuration is already being loaded
+		qDebug() << "\tA new configuration is already being loaded";
+		return false;
+	}
+
+	m_newDescriptor = newDesc;
+	qDebug() << "\tNew desc: name:" << m_newDescriptor->name << " ins:" << m_newDescriptor->audioIns << " outs:" << m_newDescriptor->audioOuts;
+
+	const auto ins = static_cast<proc_ch_t>(m_newDescriptor->audioIns);
+	const auto outs = static_cast<proc_ch_t>(m_newDescriptor->audioOuts);
+
+	// Allocate new audio buffers
+	auto newBuffer = Buffer{};
+	newBuffer.updateBuffers(ins, outs, buffers()->frames());
+
+	qDebug() << "\t\tbuffers allocated";
+
+	// Allocate new AudioPortsModel
+	auto dummyModel = Model{nullptr};
+	auto newModel = AudioPortsModel{ins, outs, isInstrument(), &dummyModel};
+
+	qDebug() << "\t\tmodel allocated";
+
+	// Instantiate new Carla instance
+	auto newHandle = m_newDescriptor->instantiate(&m_parent->fHost);
+	if (!newHandle)
+	{
+		std::cerr << "Failed to instantiate new Carla plugin\n";
+
+	}
+
+	qDebug() << "\t\tCarla instantiated";
+
+	if (newHandle != nullptr && m_newDescriptor->activate != nullptr)
+	{
+		m_newDescriptor->activate(newHandle);
+	}
+
+	qDebug() << "\t\tCarla activated";
+
+	// TODO: Set the state!
+
+	// Signal to preprocess method that the new Carla instance is ready
+	m_newHandle = newHandle;
+
+	// Wait until start signal from preprocess method
+	while (!m_configStartSignal.test(std::memory_order::acquire))
+	{
+		m_configStartSignal.wait(false, std::memory_order::acquire);
+	}
+
+	// Now it is safe to swap the models, buffers, and handles
+	swapAudioPorts(newModel, newBuffer);
+	auto oldDescriptor = std::exchange(m_parent->fDescriptor, m_newDescriptor);
+	auto oldHandle = std::exchange(m_parent->fHandle, m_newHandle);
+
+	// Tell preprocess method that the audio port is fully swapped over to the new Carla instance
+	m_configDoneSignal.test_and_set(std::memory_order::release);
+	m_configDoneSignal.notify_one();
+
+	qDebug() << "Now cleaning up old instance...";
+
+	// Clean up old instance
+	if (!oldHandle) { return true; }
+
+	if (oldDescriptor->deactivate)
+	{
+		oldDescriptor->deactivate(oldHandle);
+	}
+
+	if (oldDescriptor->cleanup)
+	{
+		oldDescriptor->cleanup(oldHandle);
+	}
+	qDebug() << "\t\t...done!";
+
+	return true;
+}
+
+// -----------------------------------------------------------------------
+
+CarlaInstrument::CarlaInstrument(InstrumentTrack* const instrumentTrack,
+	const Descriptor* const descriptor, const bool isPatchbay)
+	: AudioPlugin(descriptor, instrumentTrack, nullptr,
+		Flag::IsSingleStreamed | Flag::IsMidiBased | Flag::IsNotBendable, this)
+	, kIsPatchbay(isPatchbay)
+	, fHandle(nullptr)
+	, fDescriptor(isPatchbay ? carla_get_native_patchbay_plugin() : carla_get_native_rack_plugin())
+	, fMidiEventCount(0)
+	, m_paramModels()
+{
+	audioPorts().setChannelCounts(2, 2); // TODO: Port configurations
+
     fHost.handle      = this;
     fHost.uiName      = nullptr;
     fHost.uiParentId  = 0;
@@ -254,7 +439,9 @@ CarlaInstrument::~CarlaInstrument()
 
 uint32_t CarlaInstrument::handleGetBufferSize() const
 {
-    return Engine::audioEngine()->framesPerPeriod();
+	auto buffers = audioPorts().constBuffers();
+	assert(buffers != nullptr);
+	return static_cast<std::uint32_t>(buffers->frames());
 }
 
 double CarlaInstrument::handleGetSampleRate() const
@@ -495,61 +682,47 @@ void CarlaInstrument::loadSettings(const QDomElement& elem)
 #endif
 }
 
-void CarlaInstrument::playImpl(std::span<SampleFrame> out)
+void CarlaInstrument::preprocess()
 {
-    const auto bufsize = static_cast<std::uint32_t>(out.size());
+	if (audioPorts().doConfigChangeIfNeeded())
+	{
+		// ...
 
-	zeroSampleFrames(out.data(), bufsize);
+		audioPorts().configChangeDone();
+	}
+}
 
-    if (fHandle == nullptr)
-    {
-        return;
-    }
+void CarlaInstrument::processImpl(SplitAudioData<float> inOut)
+{
+	// set time info
+	Song * const s = Engine::getSong();
+	fTimeInfo.playing  = s->isPlaying();
+	fTimeInfo.frame    = s->getPlayPos(s->playMode()).frames(Engine::framesPerTick());
+	fTimeInfo.usecs    = s->getMilliseconds()*1000;
+	fTimeInfo.bbt.bar  = s->getBars() + 1;
+	fTimeInfo.bbt.beat = s->getBeat() + 1;
+	fTimeInfo.bbt.tick = s->getBeatTicks();
+	fTimeInfo.bbt.barStartTick   = ticksPerBeat*s->getTimeSigModel().getNumerator()*s->getBars();
+	fTimeInfo.bbt.beatsPerBar    = s->getTimeSigModel().getNumerator();
+	fTimeInfo.bbt.beatType       = s->getTimeSigModel().getDenominator();
+	fTimeInfo.bbt.ticksPerBeat   = ticksPerBeat;
+	fTimeInfo.bbt.beatsPerMinute = s->getTempo();
 
-    // set time info
-    Song * const s = Engine::getSong();
-    fTimeInfo.playing  = s->isPlaying();
-    fTimeInfo.frame    = s->getPlayPos(s->playMode()).frames(Engine::framesPerTick());
-    fTimeInfo.usecs    = s->getMilliseconds()*1000;
-    fTimeInfo.bbt.bar  = s->getBars() + 1;
-    fTimeInfo.bbt.beat = s->getBeat() + 1;
-    fTimeInfo.bbt.tick = s->getBeatTicks();
-    fTimeInfo.bbt.barStartTick   = ticksPerBeat*s->getTimeSigModel().getNumerator()*s->getBars();
-    fTimeInfo.bbt.beatsPerBar    = s->getTimeSigModel().getNumerator();
-    fTimeInfo.bbt.beatType       = s->getTimeSigModel().getDenominator();
-    fTimeInfo.bbt.ticksPerBeat   = ticksPerBeat;
-    fTimeInfo.bbt.beatsPerMinute = s->getTempo();
+	const auto buffer = const_cast<float**>(inOut.data());
+	const auto frames = static_cast<std::uint32_t>(inOut.frames());
 
-#ifndef _MSC_VER
-    float buf1[bufsize];
-    float buf2[bufsize];
-#else
-    float *buf1 = static_cast<float *>(_alloca(bufsize * sizeof(float)));
-    float *buf2 = static_cast<float *>(_alloca(bufsize * sizeof(float)));
-#endif
-
-    float* rBuf[] = { buf1, buf2 };
-    std::memset(buf1, 0, sizeof(float)*bufsize);
-    std::memset(buf2, 0, sizeof(float)*bufsize);
-
-    {
-        const QMutexLocker ml(&fMutex);
+	{
+		const QMutexLocker ml(&fMutex);
 // TODO FIXME this is just here so it compiles.
 // https://github.com/falkTX/Carla/blob/8bceb9ed173a10b29038f8abb4383710c0e497c1/source/includes/CarlaNative.h
 //     FIXME for v3.0, use const for the input buffer
 #if CARLA_VERSION_HEX >= CARLA_VERSION_HEX_3
-        fDescriptor->process(fHandle, (const float**)rBuf, rBuf, bufsize, fMidiEvents, fMidiEventCount);
+		fDescriptor->process(fHandle, const_cast<const float**>(buffer), buffer, frames, fMidiEvents, fMidiEventCount);
 #else
-        fDescriptor->process(fHandle, rBuf, rBuf, bufsize, fMidiEvents, fMidiEventCount);
+		fDescriptor->process(fHandle, buffer, buffer, frames, fMidiEvents, fMidiEventCount);
 #endif
-        fMidiEventCount = 0;
-    }
-
-    for (uint i=0; i < bufsize; ++i)
-    {
-        out[i][0] = buf1[i];
-        out[i][1] = buf2[i];
-    }
+		fMidiEventCount = 0;
+	}
 }
 
 bool CarlaInstrument::handleMidiEvent(const MidiEvent& event, const TimePos&, f_cnt_t offset)

@@ -36,6 +36,7 @@
 #include "EnvelopeAndLfoParameters.h"
 #include "NotePlayHandle.h"
 #include "ConfigManager.h"
+#include "PreProcessor.h"
 
 // platform-specific audio-interface-classes
 #include "AudioAlsa.h"
@@ -86,6 +87,8 @@ AudioEngine::AudioEngine( bool renderOnly ) :
 	m_audioDev( nullptr ),
 	m_oldAudioDev( nullptr ),
 	m_audioDevStartFailed( false ),
+	m_preprocessHooksToAdd{PreProcessor::MaxNumber}, // TODO: This creates a maximum number of plugins which can be loaded at once
+	m_preprocessHooksToRemove{PreProcessor::MaxNumber},
 	m_profiler(),
 	m_clearSignal(false)
 {
@@ -326,6 +329,33 @@ void AudioEngine::renderStageNoteSetup()
 		LocklessListElement * next = e->next;
 		m_newPlayHandles.free( e );
 		e = next;
+	}
+
+	// Remove old pre-process hooks
+	for (auto* e = m_preprocessHooksToRemove.popList(); e;)
+	{
+		// TODO: Improve LocklessList API
+		m_preprocessHooks.erase(e->value->getPreProcessRemovalKey());
+		auto* next = e->next;
+		m_preprocessHooksToRemove.free(e);
+		e = next;
+	}
+
+	// Add new pre-process hooks
+	for (auto* e = m_preprocessHooksToAdd.popList(); e;)
+	{
+		// TODO: Improve LocklessList API
+		m_preprocessHooks.push_front(e->value);
+		e->value->setPreProcessRemovalKey(m_preprocessHooks.begin());
+		auto* next = e->next;
+		m_preprocessHooksToAdd.free(e);
+		e = next;
+	}
+
+	// Call pre-process hooks
+	for (PreProcessor* p : m_preprocessHooks)
+	{
+		p->preprocess(); // FIXME: Crashes after deleting instrument
 	}
 }
 
@@ -598,27 +628,9 @@ void AudioEngine::removePlayHandle(PlayHandle * ph)
 	if (ph->affinityMatters() && ph->affinity() == QThread::currentThread())
 	{
 		ph->audioBusHandle()->removePlayHandle(ph);
-		bool removedFromList = false;
-		// Check m_newPlayHandles first because doing it the other way around
-		// creates a race condition
-		for( LocklessListElement * e = m_newPlayHandles.first(),
-				* ePrev = nullptr; e; ePrev = e, e = e->next )
-		{
-			if (e->value == ph)
-			{
-				if( ePrev )
-				{
-					ePrev->next = e->next;
-				}
-				else
-				{
-					m_newPlayHandles.setFirst( e->next );
-				}
-				m_newPlayHandles.free( e );
-				removedFromList = true;
-				break;
-			}
-		}
+
+		bool removedFromList = m_newPlayHandles.remove(ph);
+
 		// Now check m_playHandles
 		PlayHandleList::Iterator it = std::find(m_playHandles.begin(), m_playHandles.end(), ph);
 		if (it != m_playHandles.end())
@@ -672,8 +684,17 @@ void AudioEngine::removePlayHandlesOfTypes(Track * track, PlayHandle::Types type
 	doneChangeInModel();
 }
 
+void AudioEngine::addPreProcessor(PreProcessor* hook)
+{
+	// TODO: Use requestChangeInModel()?
+	m_preprocessHooksToAdd.push(hook);
+}
 
-
+void AudioEngine::removePreProcessor(PreProcessor* hook)
+{
+	// TODO: Use requestChangeInModel()?
+	m_preprocessHooksToRemove.remove(hook);
+}
 
 void AudioEngine::requestChangeInModel()
 {

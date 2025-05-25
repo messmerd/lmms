@@ -29,6 +29,7 @@
 #define CARLA_MIN_PARAM_VERSION 0x020090
 #define CARLA_VERSION_HEX_3 0x30000
 
+#include <atomic>
 #include <vector>
 
 // qt
@@ -54,8 +55,8 @@
 #endif
 
 // lmms/include/
+#include "AudioPlugin.h"
 #include "AutomatableModel.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "SubWindow.h"
 
@@ -165,13 +166,74 @@ private:
 
 // -------------------------------------------------------------------
 
-// TODO: Add support for pin connector and variable number of audio input/output ports
-class CARLABASE_EXPORT CarlaInstrument : public Instrument
+
+inline constexpr auto CarlaSettings = AudioPortsSettings {
+	.kind = AudioDataKind::F32,
+	.interleaved = false,
+	.inplace = true,
+	.buffered = false
+};
+
+class CarlaInstrument;
+
+class CARLABASE_EXPORT CarlaAudioPorts final
+	: public PluginAudioPorts<CarlaSettings>
+{
+public:
+	CarlaAudioPorts(bool isInstrument, Model* parentModel, CarlaInstrument* parent)
+		: PluginAudioPorts{isInstrument, parentModel}
+		, m_parent{parent}
+	{
+	}
+
+	auto active() const -> bool override;
+
+	/*
+	void activate(const CarlaHandle& handle)
+	{
+		m_currentHandle = handle;
+	}
+
+	void deactivate()
+	{
+		m_currentHandle = {};
+	}
+	*/
+
+	auto doConfigChangeIfNeeded() -> bool;
+
+	auto getDescriptor(std::uint32_t configId) const -> const NativePluginDescriptor*;
+
+	void configChangeDone()
+	{
+		m_inProgress.clear(std::memory_order::release);
+	}
+
+private:
+	auto channelName(proc_ch_t channel, bool isOutput) const -> QString override;
+
+	auto defaultConfigurationId() const -> std::optional<std::uint32_t> { return 0; }
+	auto configurationsImpl() const -> std::span<const AudioPortsConfiguration> override;
+	auto setActiveConfigurationImpl(std::uint32_t configId) -> bool;
+
+	CarlaInstrument* m_parent = nullptr;
+
+	// For switching to a new audio port configuration
+	const NativePluginDescriptor* m_newDescriptor = nullptr;
+	NativePluginHandle m_newHandle = nullptr;
+	std::atomic_flag m_inProgress = false;
+	std::atomic_flag m_configStartSignal = false;
+	std::atomic_flag m_configDoneSignal = false;
+};
+
+
+class CARLABASE_EXPORT CarlaInstrument
+	: public AudioPlugin<Instrument, CarlaSettings, CarlaAudioPorts>
 {
     Q_OBJECT
 
 public:
-    static const uint32_t kMaxMidiEvents = 512;
+    static constexpr uint32_t kMaxMidiEvents = 512;
 
     CarlaInstrument(InstrumentTrack* const instrumentTrack, const Descriptor* const descriptor, const bool isPatchbay);
     ~CarlaInstrument() override;
@@ -192,6 +254,8 @@ public:
     bool handleMidiEvent(const MidiEvent& event, const TimePos& time, f_cnt_t offset) override;
     gui::PluginView* instantiateView(QWidget* parent) override;
 
+	friend class CarlaAudioPorts;
+
 signals:
     void uiClosed();
     void paramsUpdated();
@@ -204,7 +268,9 @@ private slots:
     void updateParamModel(uint32_t index);
 
 private:
-	void playImpl(std::span<SampleFrame> out) override;
+	void preprocess() override;
+	void processImpl(SplitAudioData<float> inOut) override;
+
 
     const bool kIsPatchbay;
 
