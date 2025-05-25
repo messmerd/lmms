@@ -50,6 +50,7 @@ namespace lmms::gui
 namespace
 {
 
+constexpr auto ConfigSelectorSize = QSize{112, 20};
 constexpr auto CenterMargin = QSize{32, 0};
 constexpr auto WindowMarginTop = QSize{0, 112};
 constexpr auto WindowMarginBottom = QSize{0, 16};
@@ -107,13 +108,15 @@ PinConnector::PinConnector(AudioPortsModel* model)
 	auto vLayout = new QVBoxLayout{this};
 	vLayout->addStretch(1);
 	vLayout->addLayout(hLayout);
+	vLayout->addSpacing(WindowMarginBottom.height());
 
 	// Audio ports config drop down
 	m_configSelector = new QComboBox{};
+	m_configSelector->setFixedSize(ConfigSelectorSize);
+	m_configSelector->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 	connect(m_configSelector, static_cast<void(QComboBox::*)(int)>(&QComboBox::activated),
 		this, &PinConnector::configurationSelected);
-	vLayout->addWidget(m_configSelector);
-	vLayout->addSpacing(WindowMarginBottom.height());
+	vLayout->addWidget(m_configSelector, 0, Qt::AlignBottom | Qt::AlignLeft);
 
 	// Add widget to the scroll area
 	m_scrollArea->setWidget(this);
@@ -154,7 +157,14 @@ auto PinConnector::sizeHint() const -> QSize
 		std::max(inSize.height(), outSize.height())
 	};
 
-	return WindowMarginTotal + centerMargin + combinedMatrixSize;
+	auto model = castModel<AudioPortsModel>();
+	assert(model != nullptr);
+
+	const auto configSelectorSize = model->activeConfiguration()
+		? QSize{0, ConfigSelectorSize.height()}
+		: QSize{0, 0};
+
+	return WindowMarginTotal + centerMargin + combinedMatrixSize + configSelectorSize;
 }
 
 auto PinConnector::minimumSizeHint() const -> QSize

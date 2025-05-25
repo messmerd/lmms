@@ -221,9 +221,9 @@ void InstrumentTrackView::togglePinConnector()
 	if (!m_pinConnectorView)
 	{
 		m_pinConnectorView = ap->instantiateView();
-		connect(ap, &AudioPortsModel::destroyed, [this]() {
-			m_pinConnectorView.reset();
-		});
+		//connect(ap, &AudioPortsModel::destroyed, [this]() {
+		//	m_pinConnectorView.reset(); // FIXME: heap-use-after-free
+		//});
 	}
 	else
 	{

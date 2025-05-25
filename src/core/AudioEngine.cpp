@@ -355,7 +355,7 @@ void AudioEngine::renderStageNoteSetup()
 	// Call pre-process hooks
 	for (PreProcessor* p : m_preprocessHooks)
 	{
-		p->preprocess();
+		p->preprocess(); // FIXME: Crashes after deleting instrument
 	}
 }
 
