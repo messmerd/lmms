@@ -32,7 +32,7 @@
 #include <QMutexLocker>
 #include <samplerate.h>
 
-#include "Instrument.h"
+#include "AudioPlugin.h"
 #include "PixmapButton.h"
 #include "InstrumentView.h"
 #include "Knob.h"
@@ -231,7 +231,7 @@ public:
 
 
 
-class GigInstrument : public Instrument
+class GigInstrument : public DefaultSingleStreamedInstrument
 {
 	Q_OBJECT
 
@@ -268,8 +268,8 @@ public slots:
 
 
 private:
-	void playImpl(std::span<SampleFrame> out) override;
-	void playNoteImpl(NotePlayHandle* _n, std::span<SampleFrame> out) override;
+	void processImpl(std::span<SampleFrame> out) override;
+	void handleNoteImpl(NotePlayHandle* nph) override;
 
 	// The GIG file and instrument we're using
 	GigInstance * m_instance;

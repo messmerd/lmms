@@ -29,8 +29,8 @@
 
 #include <stk/Instrmnt.h>
 
+#include "AudioPlugin.h"
 #include "ComboBox.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "Knob.h"
 #include "NotePlayHandle.h"
@@ -181,7 +181,7 @@ protected:
 
 
 
-class MalletsInstrument : public Instrument
+class MalletsInstrument : public DefaultMultiStreamedInstrument
 {
 	Q_OBJECT
 public:
@@ -199,7 +199,7 @@ public:
 
 
 private:
-	void playNoteImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
+	void processImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
 
 	FloatModel m_hardnessModel;
 	FloatModel m_positionModel;

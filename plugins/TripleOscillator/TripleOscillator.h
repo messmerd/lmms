@@ -28,7 +28,7 @@
 
 #include <memory>
 
-#include "Instrument.h"
+#include "AudioPlugin.h"
 #include "InstrumentView.h"
 #include "AutomatableModel.h"
 #include "OscillatorConstants.h"
@@ -104,7 +104,7 @@ private slots:
 
 
 
-class TripleOscillator : public Instrument
+class TripleOscillator : public DefaultMultiStreamedInstrument
 {
 	Q_OBJECT
 public:
@@ -131,7 +131,7 @@ protected slots:
 
 
 private:
-	void playNoteImpl(NotePlayHandle* _n, std::span<SampleFrame> out) override;
+	void processImpl(NotePlayHandle* _n, std::span<SampleFrame> out) override;
 
 	OscillatorObject * m_osc[NUM_OF_OSCILLATORS];
 

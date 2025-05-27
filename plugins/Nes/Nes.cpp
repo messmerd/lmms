@@ -481,7 +481,7 @@ void NesObject::updatePitch()
 
 
 NesInstrument::NesInstrument( InstrumentTrack * instrumentTrack ) :
-	Instrument(&nes_plugin_descriptor, instrumentTrack),
+	AudioPlugin(&nes_plugin_descriptor, instrumentTrack),
 	m_ch1Enabled(true, this, tr("Channel 1 enable")),
 	m_ch1Crs( 0.f, -24.f, 24.f, 1.f, this, tr( "Channel 1 coarse detune" ) ),
 	m_ch1Volume( 15.f, 0.f, 15.f, 1.f, this, tr( "Channel 1 volume" ) ),
@@ -545,11 +545,11 @@ NesInstrument::NesInstrument( InstrumentTrack * instrumentTrack ) :
 
 
 
-void NesInstrument::playNoteImpl(NotePlayHandle* n, std::span<SampleFrame> out)
+void NesInstrument::processImpl(NotePlayHandle* n, std::span<SampleFrame> out)
 {
 	const fpp_t frames = n->framesLeftForCurrentPeriod();
 	const f_cnt_t offset = n->noteOffset();
-	
+
 	if (!n->m_pluginData)
 	{
 		auto nes = new NesObject(this, Engine::audioEngine()->outputSampleRate(), n);
@@ -559,7 +559,7 @@ void NesInstrument::playNoteImpl(NotePlayHandle* n, std::span<SampleFrame> out)
 	auto nes = static_cast<NesObject*>(n->m_pluginData);
 
 	nes->renderOutput(out.data() + offset, frames);
-	
+
 	applyRelease(out.data(), n);
 }
 

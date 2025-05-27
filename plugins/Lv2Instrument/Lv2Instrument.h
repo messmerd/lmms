@@ -28,7 +28,7 @@
 #include <QString>
 #include <array>
 
-#include "Instrument.h"
+#include "AudioPlugin.h"
 #include "InstrumentView.h"
 #include "Lv2ControlBase.h"
 #include "Lv2ViewBase.h"
@@ -48,8 +48,8 @@ class Lv2InsView;
 
 }
 
-// TODO: Add support for pin connector and a variable number of audio input/output ports
-class Lv2Instrument : public Instrument, public Lv2ControlBase
+// TODO: Add multi-channel support
+class Lv2Instrument : public DefaultSingleStreamedMidiInstrument, public Lv2ControlBase
 {
 	Q_OBJECT
 signals:
@@ -76,12 +76,12 @@ public:
 	*/
 	bool hasNoteInput() const override { return Lv2ControlBase::hasNoteInput(); }
 #ifdef LV2_INSTRUMENT_USE_MIDI
-	bool handleMidiEvent(const MidiEvent &event,
+	bool handleMidiEventImpl(const MidiEvent &event,
 		const TimePos &time = TimePos(), f_cnt_t offset = 0) override;
 #else
-	void playNoteImpl(NotePlayHandle* nph, std::span<SampleFrame>) override;
+	void handleNoteImpl(NotePlayHandle* nph) override;
 #endif
-	void playImpl(std::span<SampleFrame> out) override;
+	void processImpl(std::span<SampleFrame> out) override;
 
 	/*
 		misc

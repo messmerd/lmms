@@ -80,7 +80,7 @@ PLUGIN_EXPORT Plugin * lmms_plugin_main( Model *m, void * )
 
 
 PatmanInstrument::PatmanInstrument( InstrumentTrack * _instrument_track ) :
-	Instrument(&patman_plugin_descriptor, _instrument_track),
+	AudioPlugin(&patman_plugin_descriptor, _instrument_track),
 	m_loopedModel( true, this ),
 	m_tunedModel( true, this )
 {
@@ -133,7 +133,7 @@ QString PatmanInstrument::nodeName() const
 
 
 
-void PatmanInstrument::playNoteImpl(NotePlayHandle* _n, std::span<SampleFrame> out)
+void PatmanInstrument::processImpl(NotePlayHandle* _n, std::span<SampleFrame> out)
 {
 	if( m_patchFile == "" )
 	{

@@ -117,7 +117,7 @@ VoiceObject::VoiceObject( Model * _parent, int _idx ) :
 
 
 SidInstrument::SidInstrument( InstrumentTrack * _instrument_track ) :
-	Instrument(&sid_plugin_descriptor, _instrument_track),
+	AudioPlugin(&sid_plugin_descriptor, _instrument_track),
 	// filter
 	m_filterFCModel( 1024.0f, 0.0f, 2047.0f, 1.0f, this, tr( "Cutoff frequency" ) ),
 	m_filterResonanceModel( 8.0f, 0.0f, 15.0f, 1.0f, this, tr( "Resonance" ) ),
@@ -289,7 +289,7 @@ static int sid_fillbuffer(unsigned char* sidreg, reSID::SID *sid, int tdelta, sh
 
 
 // TODO: The real sample type is `short` and there is only one output channel
-void SidInstrument::playNoteImpl(NotePlayHandle* _n, std::span<SampleFrame> out)
+void SidInstrument::processImpl(NotePlayHandle* _n, std::span<SampleFrame> out)
 {
 	const int clockrate = C64_PAL_CYCLES_PER_SEC;
 	const int samplerate = Engine::audioEngine()->outputSampleRate();

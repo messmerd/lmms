@@ -69,7 +69,7 @@ signals:
 
 
 class ZynAddSubFxInstrument
-	: public AudioPluginExt<Instrument, AudioPortsSettings {
+	: public AudioPluginExt<SingleStreamedMidiInstrument, AudioPortsSettings {
 			.kind = AudioDataKind::F32,
 			.interleaved = false,
 			.inputs = 0,
@@ -81,7 +81,7 @@ public:
 	ZynAddSubFxInstrument( InstrumentTrack * _instrument_track );
 	~ZynAddSubFxInstrument() override;
 
-	bool handleMidiEvent( const MidiEvent& event, const TimePos& time = TimePos(), f_cnt_t offset = 0 ) override;
+	bool handleMidiEventImpl(const MidiEvent& event, const TimePos& time, f_cnt_t offset) override;
 
 	void saveSettings( QDomDocument & _doc, QDomElement & _parent ) override;
 	void loadSettings( const QDomElement & _this ) override;

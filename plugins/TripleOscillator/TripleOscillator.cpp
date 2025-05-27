@@ -213,7 +213,7 @@ void OscillatorObject::updateUseWaveTable()
 
 
 TripleOscillator::TripleOscillator( InstrumentTrack * _instrument_track ) :
-	Instrument(&tripleoscillator_plugin_descriptor, _instrument_track)
+	AudioPlugin(&tripleoscillator_plugin_descriptor, _instrument_track)
 {
 	for( int i = 0; i < NUM_OF_OSCILLATORS; ++i )
 	{
@@ -303,7 +303,7 @@ QString TripleOscillator::nodeName() const
 
 
 
-void TripleOscillator::playNoteImpl(NotePlayHandle* _n, std::span<SampleFrame> out)
+void TripleOscillator::processImpl(NotePlayHandle* _n, std::span<SampleFrame> out)
 {
 	if (!_n->m_pluginData)
 	{

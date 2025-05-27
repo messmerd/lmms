@@ -32,7 +32,7 @@
 #include <QMutex>
 #include <samplerate.h>
 
-#include "Instrument.h"
+#include "AudioPlugin.h"
 #include "InstrumentView.h"
 #include "LcdSpinBox.h"
 
@@ -55,7 +55,7 @@ class PatchesDialog;
 } // namespace gui
 
 
-class Sf2Instrument : public Instrument
+class Sf2Instrument : public DefaultSingleStreamedInstrument
 {
 	Q_OBJECT
 	mapPropertyFromModel(int,getBank,setBank,m_bankNum);
@@ -99,8 +99,8 @@ public slots:
 	void updateTuning();
 
 private:
-	void playImpl(std::span<SampleFrame> out) override;
-	void playNoteImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
+	void processImpl(std::span<SampleFrame> out) override;
+	void handleNoteImpl(NotePlayHandle* nph) override;
 
 	SRC_STATE * m_srcState;
 

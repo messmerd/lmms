@@ -165,10 +165,6 @@ VestigeInstrument::VestigeInstrument( InstrumentTrack * _instrument_track ) :
 	knobFModel( nullptr ),
 	p_subWindow( nullptr )
 {
-	// now we need a play-handle which cares for calling play()
-	auto iph = new InstrumentPlayHandle(this, _instrument_track);
-	Engine::audioEngine()->addPlayHandle( iph );
-
 	connect( ConfigManager::inst(), SIGNAL( valueChanged(QString,QString,QString) ),
 			 this, SLOT( handleConfigChange(QString, QString, QString) ),
 			 Qt::QueuedConnection );
@@ -418,7 +414,7 @@ void VestigeInstrument::processImpl()
 
 
 
-bool VestigeInstrument::handleMidiEvent( const MidiEvent& event, const TimePos& time, f_cnt_t offset )
+bool VestigeInstrument::handleMidiEventImpl(const MidiEvent& event, const TimePos& time, f_cnt_t offset)
 {
 	m_pluginMutex.lock();
 	if( m_plugin != nullptr )

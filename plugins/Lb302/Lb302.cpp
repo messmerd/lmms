@@ -280,7 +280,7 @@ static float computeDecayFactor(float decayTimeInSeconds, float targetedAttenuat
 }
 
 Lb302Synth::Lb302Synth( InstrumentTrack * _instrumentTrack ) :
-	Instrument(&lb302_plugin_descriptor, _instrumentTrack, nullptr, Flag::IsSingleStreamed),
+	AudioPlugin(&lb302_plugin_descriptor, _instrumentTrack, nullptr, Flag::IsSingleStreamed),
 	vcf_cut_knob( 0.75f, 0.0f, 1.5f, 0.005f, this, tr( "VCF Cutoff Frequency" ) ),
 	vcf_res_knob( 0.75f, 0.0f, 1.25f, 0.005f, this, tr( "VCF Resonance" ) ),
 	vcf_mod_knob( 0.1f, 0.0f, 1.0f, 0.005f, this, tr( "VCF Envelope Mod" ) ),
@@ -353,9 +353,6 @@ Lb302Synth::Lb302Synth( InstrumentTrack * _instrumentTrack ) :
 	new_freq = false;
 
 	filterChanged();
-
-	auto iph = new InstrumentPlayHandle(this, _instrumentTrack);
-	Engine::audioEngine()->addPlayHandle( iph );
 }
 
 
@@ -730,7 +727,7 @@ void Lb302Synth::initSlide()
 }
 
 
-void Lb302Synth::playNoteImpl(NotePlayHandle* _n, std::span<SampleFrame>)
+void Lb302Synth::handleNoteImpl(NotePlayHandle* _n)
 {
 	if( _n->isMasterNote() || ( _n->hasParent() && _n->isReleased() ) )
 	{
@@ -789,7 +786,7 @@ void Lb302Synth::processNote( NotePlayHandle * _n )
 
 
 
-void Lb302Synth::playImpl(std::span<SampleFrame> out)
+void Lb302Synth::processImpl(std::span<SampleFrame> out)
 {
 	m_notesMutex.lock();
 	while( ! m_notes.isEmpty() )

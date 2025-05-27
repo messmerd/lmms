@@ -82,7 +82,7 @@ Plugin::Descriptor PLUGIN_EXPORT gigplayer_plugin_descriptor =
 
 
 GigInstrument::GigInstrument( InstrumentTrack * _instrument_track ) :
-	Instrument(&gigplayer_plugin_descriptor, _instrument_track, nullptr, Flag::IsSingleStreamed | Flag::IsNotBendable),
+	AudioPlugin(&gigplayer_plugin_descriptor, _instrument_track, nullptr, Flag::IsSingleStreamed | Flag::IsNotBendable),
 	m_instance( nullptr ),
 	m_instrument( nullptr ),
 	m_filename( "" ),
@@ -93,9 +93,6 @@ GigInstrument::GigInstrument( InstrumentTrack * _instrument_track ) :
 	m_RandomSeed( 0 ),
 	m_currentKeyDimension( 0 )
 {
-	auto iph = new InstrumentPlayHandle(this, _instrument_track);
-	Engine::audioEngine()->addPlayHandle( iph );
-
 	updateSampleRate();
 
 	connect( &m_bankNum, SIGNAL( dataChanged() ), this, SLOT( updatePatch() ) );
@@ -290,11 +287,11 @@ QString GigInstrument::getCurrentPatchName()
 
 
 // A key has been pressed
-void GigInstrument::playNoteImpl(NotePlayHandle* _n, std::span<SampleFrame>)
+void GigInstrument::handleNoteImpl(NotePlayHandle* nph)
 {
 	const float LOG440 = 2.643452676f;
 
-	int midiNote = (int) floor( 12.0 * ( log2( _n->unpitchedFrequency() ) - LOG440 ) - 4.0 );
+	int midiNote = (int) floor( 12.0 * ( log2( nph->unpitchedFrequency() ) - LOG440 ) - 4.0 );
 
 	// out of range?
 	if( midiNote <= 0 || midiNote >= 128 )
@@ -302,17 +299,17 @@ void GigInstrument::playNoteImpl(NotePlayHandle* _n, std::span<SampleFrame>)
 		return;
 	}
 
-	if (!_n->m_pluginData)
+	if (!nph->m_pluginData)
 	{
 		auto pluginData = new GIGPluginData;
 		pluginData->midiNote = midiNote;
-		_n->m_pluginData = pluginData;
+		nph->m_pluginData = pluginData;
 
 		const int baseVelocity = instrumentTrack()->midiPort()->baseVelocity();
-		const uint velocity = _n->midiVelocity( baseVelocity );
+		const uint velocity = nph->midiVelocity( baseVelocity );
 
 		QMutexLocker locker( &m_notesMutex );
-		m_notes.push_back( GigNote( midiNote, velocity, _n->unpitchedFrequency(), pluginData ) );
+		m_notes.push_back( GigNote( midiNote, velocity, nph->unpitchedFrequency(), pluginData ) );
 	}
 }
 
@@ -321,9 +318,9 @@ void GigInstrument::playNoteImpl(NotePlayHandle* _n, std::span<SampleFrame>)
 
 // Process the notes and output a certain number of frames (e.g. 256, set in
 // the preferences)
-void GigInstrument::playImpl(std::span<SampleFrame> out)
+void GigInstrument::processImpl(std::span<SampleFrame> out)
 {
-	const fpp_t frames = Engine::audioEngine()->framesPerPeriod();
+	const fpp_t frames = out.size();
 	const auto rate = Engine::audioEngine()->outputSampleRate();
 
 	// Initialize to zeros
@@ -442,7 +439,7 @@ void GigInstrument::playImpl(std::span<SampleFrame> out)
 			}
 
 			// Load this note's data
-			SampleFrame sampleData[samples];
+			SampleFrame sampleData[samples]; // TODO: Remove VLA
 			loadSample(sample, sampleData, samples);
 
 			// Apply ADSR using a copy so if we don't use these samples when
@@ -459,7 +456,7 @@ void GigInstrument::playImpl(std::span<SampleFrame> out)
 			// Output the data resampling if needed
 			if( resample == true )
 			{
-				SampleFrame convertBuf[frames];
+				SampleFrame convertBuf[frames]; // TODO: Remove VLA
 
 				// Only output if resampling is successful (note that "used" is output)
 				if (sample.convertSampleRate(*sampleData, *convertBuf, samples, frames, freq_factor, used))

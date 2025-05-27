@@ -31,6 +31,7 @@
 #include "DummyInstrument.h"
 #include "Engine.h"
 #include "InstrumentTrack.h"
+#include "InstrumentPlayHandle.h"
 #include "LmmsTypes.h"
 
 namespace lmms
@@ -57,8 +58,15 @@ Instrument *Instrument::instantiate(const QString &_plugin_name,
 		Q_ASSERT(!key);
 	// copy from above // TODO! common cleaner func
 	Plugin * p = Plugin::instantiateWithKey(_plugin_name, _instrument_track, key, keyFromDnd);
-	if(dynamic_cast<Instrument *>(p))
-		return dynamic_cast<Instrument *>(p);
+	if (auto inst = dynamic_cast<Instrument*>(p))
+	{
+		if (auto ssInst = dynamic_cast<SingleStreamedInstrument*>(inst))
+		{
+			auto iph = new InstrumentPlayHandle{ssInst};
+			Engine::audioEngine()->addPlayHandle(iph);
+		}
+		return inst;
+	}
 	delete p;
 	return( new DummyInstrument( _instrument_track ) );
 }

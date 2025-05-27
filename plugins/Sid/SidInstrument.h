@@ -79,7 +79,7 @@ private:
 	friend class gui::SidInstrumentView;
 } ;
 
-class SidInstrument : public Instrument
+class SidInstrument : public DefaultMultiStreamedInstrument
 {
 	Q_OBJECT
 public:
@@ -118,7 +118,7 @@ public:
 	void updateKnobToolTip();*/
 
 private:
-	void playNoteImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
+	void processImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
 
 	// voices
 	VoiceObject * m_voice[3];

@@ -28,8 +28,8 @@
 
 #include <vector>
 
+#include "AudioPlugin.h"
 #include "ComboBoxModel.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "AutomatableModel.h"
 #include "TempoSyncKnob.h"
@@ -317,7 +317,7 @@ private:
 	std::vector<float> m_env[2];
 };
 
-class MonstroInstrument : public Instrument
+class MonstroInstrument : public DefaultMultiStreamedInstrument
 {
 	Q_OBJECT
 
@@ -437,7 +437,7 @@ protected:
 	int m_counterMax;
 
 private:
-	void playNoteImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
+	void processImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
 
 	inline float leftCh( float _vol, float _pan )
 	{

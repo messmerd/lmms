@@ -29,8 +29,8 @@
 #include <fftw3.h>
 #include <stdexcept>
 
+#include "AudioPlugin.h"
 #include "AutomatableModel.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "Note.h"
 #include "Sample.h"
@@ -61,7 +61,7 @@ private:
 	SRC_STATE* m_resamplingState;
 };
 
-class SlicerT : public Instrument
+class SlicerT : public DefaultMultiStreamedInstrument
 {
 	Q_OBJECT
 
@@ -91,7 +91,7 @@ public:
 	std::vector<Note> getMidi();
 
 private:
-	void playNoteImpl(NotePlayHandle* handle, std::span<SampleFrame> out) override;
+	void processImpl(NotePlayHandle* handle, std::span<SampleFrame> out) override;
 
 	FloatModel m_noteThreshold;
 	FloatModel m_fadeOutFrames;

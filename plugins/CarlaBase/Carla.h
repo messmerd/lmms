@@ -54,8 +54,8 @@
 #endif
 
 // lmms/include/
+#include "AudioPlugin.h"
 #include "AutomatableModel.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "SubWindow.h"
 
@@ -165,8 +165,8 @@ private:
 
 // -------------------------------------------------------------------
 
-// TODO: Add support for pin connector and variable number of audio input/output ports
-class CARLABASE_EXPORT CarlaInstrument : public Instrument
+// TODO: Add multi-channel support
+class CARLABASE_EXPORT CarlaInstrument : public DefaultSingleStreamedMidiInstrument
 {
     Q_OBJECT
 
@@ -189,7 +189,6 @@ public:
     QString nodeName() const override;
     void saveSettings(QDomDocument& doc, QDomElement& parent) override;
     void loadSettings(const QDomElement& elem) override;
-    bool handleMidiEvent(const MidiEvent& event, const TimePos& time, f_cnt_t offset) override;
     gui::PluginView* instantiateView(QWidget* parent) override;
 
 signals:
@@ -204,7 +203,8 @@ private slots:
     void updateParamModel(uint32_t index);
 
 private:
-	void playImpl(std::span<SampleFrame> out) override;
+	void processImpl(std::span<SampleFrame> out) override;
+	bool handleMidiEventImpl(const MidiEvent& event, const TimePos& time, f_cnt_t offset) override;
 
     const bool kIsPatchbay;
 

@@ -30,8 +30,8 @@
 
 #include <array>
 
+#include "AudioPlugin.h"
 #include "AutomatableModel.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 
 namespace lmms
@@ -172,7 +172,7 @@ public:
 	}
 };
 
-class SfxrInstrument : public Instrument
+class SfxrInstrument : public DefaultMultiStreamedInstrument
 {
 	Q_OBJECT
 public:
@@ -193,7 +193,7 @@ public:
 
 
 private:
-	void playNoteImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
+	void processImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
 
 	SfxrZeroToOneFloatModel m_attModel;
 	SfxrZeroToOneFloatModel m_holdModel;

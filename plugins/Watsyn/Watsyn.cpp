@@ -248,7 +248,7 @@ void WatsynObject::renderOutput( fpp_t _frames )
 
 
 WatsynInstrument::WatsynInstrument( InstrumentTrack * _instrument_track ) :
-		Instrument(&watsyn_plugin_descriptor, _instrument_track),
+		AudioPlugin(&watsyn_plugin_descriptor, _instrument_track),
 
 		a1_vol( 100.0f, 0.0f, 200.0f, 0.1f, this, tr( "Volume A1" ) ),
 		a2_vol( 100.0f, 0.0f, 200.0f, 0.1f, this, tr( "Volume A2" ) ),
@@ -341,7 +341,7 @@ WatsynInstrument::WatsynInstrument( InstrumentTrack * _instrument_track ) :
 }
 
 
-void WatsynInstrument::playNoteImpl(NotePlayHandle* _n, std::span<SampleFrame> out)
+void WatsynInstrument::processImpl(NotePlayHandle* _n, std::span<SampleFrame> out)
 {
 	if (!_n->m_pluginData)
 	{

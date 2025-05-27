@@ -322,7 +322,7 @@ bool SfxrSynth::isPlaying() const
 
 
 SfxrInstrument::SfxrInstrument( InstrumentTrack * _instrument_track ) :
-	Instrument(&sfxr_plugin_descriptor, _instrument_track),
+	AudioPlugin(&sfxr_plugin_descriptor, _instrument_track),
 	m_attModel(0.0f, this, "Attack Time"),
 	m_holdModel(0.3f, this, "Sustain Time"),
 	m_susModel(0.0f, this, "Sustain Punch"),
@@ -443,7 +443,7 @@ QString SfxrInstrument::nodeName() const
 
 
 
-void SfxrInstrument::playNoteImpl(NotePlayHandle* _n, std::span<SampleFrame> out)
+void SfxrInstrument::processImpl(NotePlayHandle* _n, std::span<SampleFrame> out)
 {
 	float currentSampleRate = Engine::audioEngine()->outputSampleRate();
 
