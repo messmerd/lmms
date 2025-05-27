@@ -26,7 +26,7 @@
 #ifndef WATSYN_H
 #define WATSYN_H
 
-#include "Instrument.h"
+#include "AudioPlugin.h"
 #include "InstrumentView.h"
 #include "Graph.h"
 #include "AutomatableModel.h"
@@ -132,7 +132,7 @@ private:
 	float m_B2wave [WAVELEN];
 };
 
-class WatsynInstrument : public Instrument
+class WatsynInstrument : public DefaultMultiStreamedInstrument
 {
 	Q_OBJECT
 public:
@@ -173,7 +173,7 @@ protected:
 	float m_rfreq [NUM_OSCS];
 
 private:
-	void playNoteImpl(NotePlayHandle* _n, std::span<SampleFrame> out) override;
+	void processImpl(NotePlayHandle* _n, std::span<SampleFrame> out) override;
 
 	inline float leftCh( float _vol, float _pan )
 	{

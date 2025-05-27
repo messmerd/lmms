@@ -586,7 +586,18 @@ void InstrumentTrack::playNote(NotePlayHandle* n, std::span<SampleFrame> working
 	if( n->isMasterNote() == false && m_instrument != nullptr )
 	{
 		// all is done, so now lets play the note!
-		m_instrument->playNote( n, workingBuffer );
+		if (auto ssInst = dynamic_cast<SingleStreamedInstrument*>(m_instrument))
+		{
+			ssInst->handleNote(n);
+		}
+		else if (auto msInst = dynamic_cast<MultiStreamedInstrument*>(m_instrument))
+		{
+			msInst->processCore(n, workingBuffer);
+		}
+		else
+		{
+			throw std::runtime_error{"InstrumentTrack::playNote - unexpected!"};
+		}
 
 		// This is effectively the same as checking if workingBuffer is not a nullptr.
 		// Calling processAudioBuffer with a nullptr leads to crashes. Hence the check.

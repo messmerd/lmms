@@ -28,8 +28,8 @@
 
 #include <Blip_Buffer.h>
 
+#include "AudioPlugin.h"
 #include "AutomatableModel.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "Graph.h"
 
@@ -47,7 +47,7 @@ class Knob;
 }
 
 
-class FreeBoyInstrument : public Instrument
+class FreeBoyInstrument : public DefaultMultiStreamedInstrument
 {
 	Q_OBJECT
 public:
@@ -72,7 +72,7 @@ public:
 	void updateKnobToolTip();*/
 
 private:
-	void playNoteImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
+	void processImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
 
 	FloatModel m_ch1SweepTimeModel;
 	BoolModel m_ch1SweepDirModel;

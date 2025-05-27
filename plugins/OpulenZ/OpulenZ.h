@@ -27,8 +27,8 @@
 
 #include <QMutex>
 
+#include "AudioPlugin.h"
 #include "AutomatableModel.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 
 class Copl;
@@ -54,7 +54,7 @@ class automatableButtonGroup;
 // The "normal" range for LMMS pitchbends
 #define DEFAULT_BEND_CENTS 100
 
-class OpulenzInstrument : public Instrument
+class OpulenzInstrument : public DefaultSingleStreamedMidiInstrument
 {
 	Q_OBJECT
 public:
@@ -63,8 +63,6 @@ public:
 
 	QString nodeName() const override;
 	gui::PluginView* instantiateView( QWidget * _parent ) override;
-
-	bool handleMidiEvent( const MidiEvent& event, const TimePos& time, f_cnt_t offset = 0 ) override;
 
 	void saveSettings( QDomDocument & _doc, QDomElement & _this ) override;
 	void loadSettings( const QDomElement & _this ) override;
@@ -121,7 +119,8 @@ private slots:
 	void loadGMPatch();
 
 private:
-	void playImpl(std::span<SampleFrame> out) override;
+	void processImpl(std::span<SampleFrame> out) override;
+	bool handleMidiEventImpl(const MidiEvent& event, const TimePos& time, f_cnt_t offset) override;
 
 	Copl *theEmulator;
 	QString storedname;

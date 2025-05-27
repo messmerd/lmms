@@ -46,11 +46,6 @@ public:
 
 	~DummyInstrument() override = default;
 
-	void playNoteImpl(NotePlayHandle*, std::span<SampleFrame> buffer) override
-	{
-		zeroSampleFrames(buffer.data(), buffer.size());
-	}
-
 	void saveSettings( QDomDocument &, QDomElement & ) override
 	{
 	}
@@ -68,7 +63,12 @@ public:
 	{
 		return new gui::InstrumentViewFixedSize( this, _parent );
 	}
-} ;
+
+	void deleteNotePluginData(NotePlayHandle*) override {}
+
+	bool isSingleStreamed() const override { return false; }
+	bool isMidiBased() const override { return false; }
+};
 
 
 } // namespace lmms

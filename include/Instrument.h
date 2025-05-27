@@ -66,35 +66,22 @@ public:
 			Flags flags = Flag::NoFlags);
 	~Instrument() override = default;
 
-	// if the plugin doesn't play each note, it can create an instrument-
-	// play-handle and re-implement this method, so that it mixes its
-	// output buffer only once per audio engine period
-	void play(std::span<SampleFrame> out)
+	//! Receives all incoming MIDI events; Return true if event was handled
+	auto handleMidiEvent(const MidiEvent& event, const TimePos& time = TimePos(), f_cnt_t offset = 0) -> bool
 	{
-		playImpl(out);
-	}
-
-	void playNote(NotePlayHandle* notesToPlay, std::span<SampleFrame> out)
-	{
-		playNoteImpl(notesToPlay, out);
+		return handleMidiEventImpl(event, time, offset);
 	}
 
 	// --------------------------------------------------------------------
 	// functions that can/should be re-implemented:
 	// --------------------------------------------------------------------
 
-	//! Receives all incoming MIDI events; Return true if event was handled.
-	virtual bool handleMidiEvent(const MidiEvent&, const TimePos& = TimePos(), f_cnt_t offset = 0)
-	{
-		return true;
-	}
-
 	/**
 	 * Needed for deleting plugin-specific-data of a note - plugin has to
 	 * cast void-ptr so that the plugin-data is deleted properly
 	 * (call of dtor if it's a class etc.)
 	 */
-	virtual void deleteNotePluginData(NotePlayHandle* noteToPlay) {}
+	virtual void deleteNotePluginData(NotePlayHandle* nph) = 0;
 
 	/**
 	 * Get number of sample-frames that should be used when playing beat
@@ -126,16 +113,16 @@ public:
 
 	sample_rate_t getSampleRate() const;
 
-	bool isSingleStreamed() const
-	{
-		return m_flags.testFlag(Instrument::Flag::IsSingleStreamed);
-	}
+	virtual bool isSingleStreamed() const = 0;
+	//{
+	//	return m_flags.testFlag(Instrument::Flag::IsSingleStreamed);
+	//}
 
 	//! Returns whether the instrument is MIDI-based or NotePlayHandle-based
-	bool isMidiBased() const
-	{
-		return m_flags.testFlag(Instrument::Flag::IsMidiBased);
-	}
+	virtual bool isMidiBased() const = 0;
+	//{
+	//	return m_flags.testFlag(Instrument::Flag::IsMidiBased);
+	//}
 
 	bool isBendable() const
 	{
@@ -170,11 +157,11 @@ public:
 
 
 protected:
-	//! To be implemented by AudioPlugin or plugin implementation
-	virtual void playImpl(std::span<SampleFrame> out) {}
-
-	//! To be implemented by AudioPlugin or plugin implementation
-	virtual void playNoteImpl(NotePlayHandle* notesToPlay, std::span<SampleFrame> out) {}
+	//! Receives all incoming MIDI events; Return true if event was handled
+	virtual auto handleMidiEventImpl(const MidiEvent& event, const TimePos& time, f_cnt_t offset) -> bool
+	{
+		return true;
+	}
 
 	// fade in to prevent clicks
 	void applyFadeIn(SampleFrame* buf, NotePlayHandle * n);
@@ -194,6 +181,77 @@ private:
 
 
 LMMS_DECLARE_OPERATORS_FOR_FLAGS(Instrument::Flag)
+
+
+class LMMS_EXPORT SingleStreamedInstrument : public Instrument
+{
+public:
+	using Instrument::Instrument;
+
+	void processCore(std::span<SampleFrame> coreInOut)
+	{
+		processCoreImpl(coreInOut);
+	}
+
+	void handleNote(NotePlayHandle* nph)
+	{
+		handleNoteImpl(nph);
+	}
+
+protected:
+	//! Called after `handleNoteImpl` is called for all NPHs (?)
+	virtual void processCoreImpl(std::span<SampleFrame> coreInOut) = 0;
+
+	//! Called for each playing NPH (?). Does not process audio.
+	virtual void handleNoteImpl(NotePlayHandle* nph) = 0;
+
+	auto isSingleStreamed() const -> bool final { return true; }
+	auto isMidiBased() const -> bool override { return false; }
+};
+
+class LMMS_EXPORT SingleStreamedMidiInstrument : public SingleStreamedInstrument
+{
+public:
+	using SingleStreamedInstrument::SingleStreamedInstrument;
+
+protected:
+	//! Receives all incoming MIDI events; Return true if event was handled. TODO: Is this thread-safe?
+	virtual auto handleMidiEventImpl(const MidiEvent& event, const TimePos& time, f_cnt_t offset) -> bool = 0;
+
+	//! Called for each playing NPH (?). Does not process audio.
+	void handleNoteImpl(NotePlayHandle* nph) override {}
+
+	//! Single-streamed MIDI-based instruments probably don't need to use this
+	void deleteNotePluginData(NotePlayHandle* nph) override {}
+
+	auto isMidiBased() const -> bool final { return true; }
+};
+
+// TODO: This will be tricky...
+class LMMS_EXPORT MultiStreamedInstrument : public Instrument
+{
+public:
+	using Instrument::Instrument;
+
+	//! Called for each playing NPH (?). Processes audio.
+	void processCore(NotePlayHandle* nph, std::span<SampleFrame> coreInOut)
+	{
+		processCoreImpl(nph, coreInOut);
+	}
+
+protected:
+	//! Called for each playing NPH (?).
+	virtual void processCoreImpl(NotePlayHandle* nph, std::span<SampleFrame> coreInOut) = 0;
+
+	// TODO: Use these so that plugin implementations don't need to?
+	// 	const fpp_t frames = nph->framesLeftForCurrentPeriod();
+	// const f_cnt_t offset = nph->noteOffset();
+
+	auto isSingleStreamed() const -> bool final { return false; }
+	auto isMidiBased() const -> bool final { return false; } // TODO: Even though none currently are, could multi-streamed instruments be midi-based?
+};
+
+
 
 
 } // namespace lmms

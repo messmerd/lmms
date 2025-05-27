@@ -76,7 +76,7 @@ public:
 };
 
 class VestigeInstrument
-	: public AudioPlugin<Instrument, VestigeSettings, VestigeAudioPorts>
+	: public AudioPlugin<SingleStreamedMidiInstrument, VestigeSettings, VestigeAudioPorts>
 {
 	Q_OBJECT
 public:
@@ -90,7 +90,7 @@ public:
 
 	void loadFile(const QString& _file) override;
 
-	bool handleMidiEvent(const MidiEvent& event, const TimePos& time, f_cnt_t offset = 0) override;
+	bool handleMidiEventImpl(const MidiEvent& event, const TimePos& time, f_cnt_t offset = 0) override;
 
 	gui::PluginView* instantiateView(QWidget* _parent) override;
 

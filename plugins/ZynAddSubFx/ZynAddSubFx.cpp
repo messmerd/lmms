@@ -132,10 +132,6 @@ ZynAddSubFxInstrument::ZynAddSubFxInstrument(
 	connect( &m_resBandwidthModel, SIGNAL( dataChanged() ),
 			this, SLOT( updateResBandwidth() ), Qt::DirectConnection );
 
-	// now we need a play-handle which cares for calling play()
-	auto iph = new InstrumentPlayHandle(this, _instrumentTrack);
-	Engine::audioEngine()->addPlayHandle( iph );
-
 	connect( Engine::audioEngine(), SIGNAL( sampleRateChanged() ),
 			this, SLOT( reloadPlugin() ) );
 
@@ -344,7 +340,7 @@ void ZynAddSubFxInstrument::processImpl()
 
 
 
-bool ZynAddSubFxInstrument::handleMidiEvent( const MidiEvent& event, const TimePos& time, f_cnt_t offset )
+bool ZynAddSubFxInstrument::handleMidiEventImpl(const MidiEvent& event, const TimePos& time, f_cnt_t offset)
 {
 	// do not forward external MIDI Control Change events if the according
 	// LED is not checked

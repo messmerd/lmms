@@ -33,11 +33,11 @@ namespace lmms
 {
 
 
-InstrumentPlayHandle::InstrumentPlayHandle(Instrument * instrument, InstrumentTrack* instrumentTrack) :
-	PlayHandle(Type::InstrumentPlayHandle),
-	m_instrument(instrument)
+InstrumentPlayHandle::InstrumentPlayHandle(SingleStreamedInstrument* instrument)
+	: PlayHandle(Type::InstrumentPlayHandle)
+	, m_instrument(instrument)
 {
-	setAudioBusHandle(instrumentTrack->audioBusHandle());
+	setAudioBusHandle(instrument->instrumentTrack()->audioBusHandle());
 }
 
 void InstrumentPlayHandle::play(std::span<SampleFrame> buffer)
@@ -62,7 +62,7 @@ void InstrumentPlayHandle::play(std::span<SampleFrame> buffer)
 	}
 	while (nphsLeft);
 
-	m_instrument->play(buffer);
+	m_instrument->processCore(buffer);
 
 	// Process the audio buffer that the instrument has just worked on...
 	instrumentTrack->processAudioBuffer(buffer.data(), buffer.size(), nullptr);

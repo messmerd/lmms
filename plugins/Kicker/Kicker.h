@@ -26,8 +26,8 @@
 #ifndef LMMS_KICKER_H
 #define LMMS_KICKER_H
 
+#include "AudioPlugin.h"
 #include "AutomatableModel.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "TempoSyncKnobModel.h"
 
@@ -48,7 +48,7 @@ class KickerInstrumentView;
 }
 
 
-class KickerInstrument : public Instrument
+class KickerInstrument : public DefaultMultiStreamedInstrument
 {
 	Q_OBJECT
 public:
@@ -71,7 +71,7 @@ public:
 
 
 private:
-	void playNoteImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
+	void processImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
 
 	FloatModel m_startFreqModel;
 	FloatModel m_endFreqModel;

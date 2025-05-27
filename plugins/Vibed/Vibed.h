@@ -25,7 +25,7 @@
 #ifndef LMMS_VIBED_H
 #define LMMS_VIBED_H
 
-#include "Instrument.h"
+#include "AudioPlugin.h"
 #include "InstrumentView.h"
 #include "NineButtonSelector.h"
 #include "Knob.h"
@@ -50,7 +50,7 @@ class LedCheckBox;
 class VibedView;
 }
 
-class Vibed : public Instrument
+class Vibed : public DefaultMultiStreamedInstrument
 {
 	Q_OBJECT
 public:
@@ -67,7 +67,7 @@ public:
 	gui::PluginView* instantiateView(QWidget* parent) override;
 
 private:
-	void playNoteImpl(NotePlayHandle* n, std::span<SampleFrame> out) override;
+	void processImpl(NotePlayHandle* n, std::span<SampleFrame> out) override;
 
 	class StringContainer;
 

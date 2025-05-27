@@ -31,13 +31,13 @@
 namespace lmms
 {
 
-class Instrument;
+class SingleStreamedInstrument;
 class InstrumentTrack;
 
 class LMMS_EXPORT InstrumentPlayHandle : public PlayHandle
 {
 public:
-	InstrumentPlayHandle(Instrument * instrument, InstrumentTrack* instrumentTrack);
+	InstrumentPlayHandle(SingleStreamedInstrument* instrument);
 
 	~InstrumentPlayHandle() override = default;
 
@@ -51,7 +51,7 @@ public:
 	bool isFromTrack(const Track* track) const override;
 
 private:
-	Instrument* m_instrument;
+	SingleStreamedInstrument* m_instrument;
 };
 
 } // namespace lmms

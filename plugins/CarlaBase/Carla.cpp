@@ -150,7 +150,7 @@ static const char* host_ui_save_file(NativeHostHandle, bool isDir, const char* t
 
 
 CarlaInstrument::CarlaInstrument(InstrumentTrack* const instrumentTrack, const Descriptor* const descriptor, const bool isPatchbay)
-    : Instrument(descriptor, instrumentTrack, nullptr, Flag::IsSingleStreamed | Flag::IsMidiBased | Flag::IsNotBendable),
+    : AudioPlugin(descriptor, instrumentTrack, nullptr, Flag::IsSingleStreamed | Flag::IsMidiBased | Flag::IsNotBendable),
       kIsPatchbay(isPatchbay),
       fHandle(nullptr),
       fDescriptor(isPatchbay ? carla_get_native_patchbay_plugin() : carla_get_native_rack_plugin()),
@@ -192,10 +192,6 @@ CarlaInstrument::CarlaInstrument(InstrumentTrack* const instrumentTrack, const D
 
     if (fHandle != nullptr && fDescriptor->activate != nullptr)
         fDescriptor->activate(fHandle);
-
-    // we need a play-handle which cares for calling play(), TODO: Move responsibility for this to AudioPlugin
-	auto iph = new InstrumentPlayHandle(this, instrumentTrack);
-	Engine::audioEngine()->addPlayHandle( iph );
 
 #if CARLA_VERSION_HEX >= CARLA_MIN_PARAM_VERSION
     // text filter completion
@@ -495,7 +491,7 @@ void CarlaInstrument::loadSettings(const QDomElement& elem)
 #endif
 }
 
-void CarlaInstrument::playImpl(std::span<SampleFrame> out)
+void CarlaInstrument::processImpl(std::span<SampleFrame> out)
 {
     const auto bufsize = static_cast<std::uint32_t>(out.size());
 
@@ -552,7 +548,7 @@ void CarlaInstrument::playImpl(std::span<SampleFrame> out)
     }
 }
 
-bool CarlaInstrument::handleMidiEvent(const MidiEvent& event, const TimePos&, f_cnt_t offset)
+bool CarlaInstrument::handleMidiEventImpl(const MidiEvent& event, const TimePos&, f_cnt_t offset)
 {
     const QMutexLocker ml(&fMutex);
 

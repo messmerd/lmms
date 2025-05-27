@@ -26,7 +26,7 @@
 #ifndef PATMAN_H
 #define PATMAN_H
 
-#include "Instrument.h"
+#include "AudioPlugin.h"
 #include "InstrumentView.h"
 #include "Sample.h"
 #include "SampleBuffer.h"
@@ -52,7 +52,7 @@ class PatmanView;
 #define MODES_CLAMPED	( 1 << 7 )
 
 
-class PatmanInstrument : public Instrument
+class PatmanInstrument : public DefaultMultiStreamedInstrument
 {
 	Q_OBJECT
 public:
@@ -81,7 +81,7 @@ public slots:
 
 
 private:
-	void playNoteImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
+	void processImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
 
 	struct handle_data
 	{

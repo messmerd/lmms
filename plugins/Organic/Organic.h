@@ -27,7 +27,7 @@
 
 #include <QString>
 
-#include "Instrument.h"
+#include "AudioPlugin.h"
 #include "InstrumentView.h"
 #include "AutomatableModel.h"
 
@@ -117,7 +117,7 @@ private slots:
 } ;
 
 
-class OrganicInstrument : public Instrument
+class OrganicInstrument : public DefaultMultiStreamedInstrument
 {
 	Q_OBJECT
 public:
@@ -140,7 +140,7 @@ public slots:
 
 
 private:
-	void playNoteImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
+	void processImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
 
 	float inline waveshape(float in, float amount);
 
