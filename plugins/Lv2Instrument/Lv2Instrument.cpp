@@ -73,7 +73,7 @@ Plugin::Descriptor PLUGIN_EXPORT lv2instrument_plugin_descriptor =
 
 Lv2Instrument::Lv2Instrument(InstrumentTrack *instrumentTrackArg,
 	Descriptor::SubPluginFeatures::Key *key) :
-	Instrument(&lv2instrument_plugin_descriptor, instrumentTrackArg, key,
+	AudioPlugin(&lv2instrument_plugin_descriptor, instrumentTrackArg, key,
 #ifdef LV2_INSTRUMENT_USE_MIDI
 		Flag::IsSingleStreamed | Flag::IsMidiBased
 #else
@@ -88,10 +88,6 @@ Lv2Instrument::Lv2Instrument(InstrumentTrack *instrumentTrackArg,
 		this, SLOT(updatePitchRange()), Qt::DirectConnection);
 	connect(Engine::audioEngine(), &AudioEngine::sampleRateChanged,
 		this, &Lv2Instrument::onSampleRateChanged);
-
-	// now we need a play-handle which cares for calling play()
-	auto iph = new InstrumentPlayHandle(this, instrumentTrackArg);
-	Engine::audioEngine()->addPlayHandle(iph);
 }
 
 
@@ -162,7 +158,7 @@ void Lv2Instrument::loadFile(const QString &file)
 
 
 #ifdef LV2_INSTRUMENT_USE_MIDI
-bool Lv2Instrument::handleMidiEvent(
+bool Lv2Instrument::handleMidiEventImpl(
 	const MidiEvent &event, const TimePos &time, f_cnt_t offset)
 {
 	// this function can be called from GUI threads while the plugin is running
@@ -185,7 +181,7 @@ void Lv2Instrument::playNoteImpl(NotePlayHandle *nph, std::span<SampleFrame>)
 
 
 
-void Lv2Instrument::playImpl(std::span<SampleFrame> out)
+void Lv2Instrument::processImpl(std::span<SampleFrame> out)
 {
 	copyModelsFromLmms();
 

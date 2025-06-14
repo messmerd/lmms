@@ -94,7 +94,7 @@ QMutex OpulenzInstrument::emulatorMutex;
 const auto adlib_opadd = std::array<unsigned int, OPL2_VOICES>{0x00, 0x01, 0x02, 0x08, 0x09, 0x0A, 0x10, 0x11, 0x12};
 
 OpulenzInstrument::OpulenzInstrument( InstrumentTrack * _instrument_track ) :
-	Instrument(&opulenz_plugin_descriptor, _instrument_track, nullptr, Flag::IsSingleStreamed | Flag::IsMidiBased),
+	AudioPlugin(&opulenz_plugin_descriptor, _instrument_track, nullptr, Flag::IsSingleStreamed | Flag::IsMidiBased),
 	m_patchModel( 0, 0, 127, this, tr( "Patch" ) ),
 	op1_a_mdl(14.0, 0.0, 15.0, 1.0, this, tr( "Op 1 attack" )  ),
 	op1_d_mdl(14.0, 0.0, 15.0, 1.0, this, tr( "Op 1 decay" )   ),
@@ -212,10 +212,6 @@ OpulenzInstrument::OpulenzInstrument( InstrumentTrack * _instrument_track ) :
 	MOD_CON( fm_mdl );
 	MOD_CON( vib_depth_mdl );
 	MOD_CON( trem_depth_mdl );
-
-	// Connect the plugin to the audio engine...
-	auto iph = new InstrumentPlayHandle(this, _instrument_track);
-	Engine::audioEngine()->addPlayHandle( iph );
 }
 
 OpulenzInstrument::~OpulenzInstrument() {
@@ -291,7 +287,7 @@ int OpulenzInstrument::pushVoice(int v) {
 	return i;
 }
 
-bool OpulenzInstrument::handleMidiEvent( const MidiEvent& event, const TimePos& time, f_cnt_t offset )
+bool OpulenzInstrument::handleMidiEventImpl(const MidiEvent& event, const TimePos& time, f_cnt_t offset)
 {
 	emulatorMutex.lock();
 
@@ -389,7 +385,7 @@ gui::PluginView* OpulenzInstrument::instantiateView( QWidget * _parent )
 }
 
 
-void OpulenzInstrument::playImpl(std::span<SampleFrame> out)
+void OpulenzInstrument::processImpl(std::span<SampleFrame> out)
 {
 	emulatorMutex.lock();
 	theEmulator->update(renderbuffer, frameCount);

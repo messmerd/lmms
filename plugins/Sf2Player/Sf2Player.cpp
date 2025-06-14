@@ -122,7 +122,7 @@ struct Sf2PluginData
 
 
 Sf2Instrument::Sf2Instrument( InstrumentTrack * _instrument_track ) :
-	Instrument(&sf2player_plugin_descriptor, _instrument_track, nullptr, Flag::IsSingleStreamed),
+	AudioPlugin(&sf2player_plugin_descriptor, _instrument_track, nullptr, Flag::IsSingleStreamed),
 	m_srcState( nullptr ),
 	m_synth(nullptr),
 	m_font( nullptr ),
@@ -220,9 +220,6 @@ Sf2Instrument::Sf2Instrument( InstrumentTrack * _instrument_track ) :
 	connect(instrumentTrack()->microtuner()->keymapModel(), &Model::dataChanged, this, &Sf2Instrument::updateTuning, Qt::DirectConnection);
 	connect(instrumentTrack()->microtuner()->keyRangeImportModel(), &Model::dataChanged, this, &Sf2Instrument::updateTuning, Qt::DirectConnection);
 	connect(instrumentTrack()->baseNoteModel(), &Model::dataChanged, this, &Sf2Instrument::updateTuning, Qt::DirectConnection);
-
-	auto iph = new InstrumentPlayHandle(this, _instrument_track);
-	Engine::audioEngine()->addPlayHandle( iph );
 }
 
 
@@ -661,7 +658,7 @@ void Sf2Instrument::reloadSynth()
 
 
 
-void Sf2Instrument::playNoteImpl(NotePlayHandle* _n, std::span<SampleFrame>)
+void Sf2Instrument::handleNoteImpl(NotePlayHandle* _n)
 {
 	if( _n->isMasterNote() || ( _n->hasParent() && _n->isReleased() ) )
 	{
@@ -796,7 +793,7 @@ void Sf2Instrument::noteOff( Sf2PluginData * n )
 }
 
 
-void Sf2Instrument::playImpl(std::span<SampleFrame> out)
+void Sf2Instrument::processImpl(std::span<SampleFrame> out)
 {
 	// set midi pitch for this period
 	const int currentMidiPitch = instrumentTrack()->midiPitch();

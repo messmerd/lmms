@@ -27,7 +27,7 @@
 
 #include <cmath>
 
-#include "Instrument.h"
+#include "AudioPlugin.h"
 #include "InstrumentView.h"
 #include "AutomatableModel.h"
 #include "PixmapButton.h"
@@ -197,7 +197,7 @@ private:
 };
 
 
-class NesInstrument : public Instrument
+class NesInstrument : public DefaultMultiStreamedInstrument
 {
 	Q_OBJECT
 public:
@@ -231,7 +231,7 @@ protected:
 	float m_freq3;
 	
 private:
-	void playNoteImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
+	void processImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
 
 	// channel 1
 	BoolModel	m_ch1Enabled;

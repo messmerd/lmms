@@ -68,7 +68,7 @@ Plugin::Descriptor PLUGIN_EXPORT audiofileprocessor_plugin_descriptor =
 
 
 AudioFileProcessor::AudioFileProcessor( InstrumentTrack * _instrument_track ) :
-	Instrument(&audiofileprocessor_plugin_descriptor, _instrument_track),
+	AudioPlugin(&audiofileprocessor_plugin_descriptor, _instrument_track),
 	m_ampModel( 100, 0, 500, 1, this, tr( "Amplify" ) ),
 	m_startPointModel( 0, 0, 1, 0.0000001f, this, tr( "Start of sample" ) ),
 	m_endPointModel( 1, 0, 1, 0.0000001f, this, tr( "End of sample" ) ),
@@ -105,7 +105,7 @@ AudioFileProcessor::AudioFileProcessor( InstrumentTrack * _instrument_track ) :
 
 
 
-void AudioFileProcessor::playNoteImpl(NotePlayHandle* nph, std::span<SampleFrame> out)
+void AudioFileProcessor::processImpl(NotePlayHandle* nph, std::span<SampleFrame> out)
 {
 	const fpp_t frames = nph->framesLeftForCurrentPeriod();
 	const f_cnt_t offset = nph->noteOffset();

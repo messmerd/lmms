@@ -26,6 +26,7 @@
 #ifndef LMMS_AUDIO_PLUGIN_H
 #define LMMS_AUDIO_PLUGIN_H
 
+#include <concepts>
 #include <type_traits>
 
 #include "Effect.h"
@@ -58,54 +59,81 @@ template<class ParentT, AudioPortsSettings settings,
 	bool inplace = settings.inplace, bool buffered = settings.buffered>
 class AudioProcessingMethod;
 
-//! Instrument specialization
+//! SingleStreamedInstrument specialization
 template<AudioPortsSettings settings>
-class AudioProcessingMethod<Instrument, settings, false, false>
+class AudioProcessingMethod<SingleStreamedInstrument, settings, false, false>
 {
 	using InBufferT = GetAudioBufferViewType<settings, false, true>;
 	using OutBufferT = GetAudioBufferViewType<settings, true, false>;
 
 protected:
-	//! The main audio processing method for NotePlayHandle-based Instruments
-	//! NOTE: NotePlayHandle-based instruments are currently unsupported
-	//virtual void processImpl(NotePlayHandle* nph, InBufferT in, OutBufferT out) {}
-
-	//! The main audio processing method for MIDI-based Instruments
+	//! The main audio processing method for single-streamed instruments
 	virtual void processImpl(InBufferT in, OutBufferT out) = 0;
 };
 
-//! Instrument specialization (in-place)
+//! SingleStreamedInstrument specialization (in-place)
 template<AudioPortsSettings settings>
-class AudioProcessingMethod<Instrument, settings, true, false>
+class AudioProcessingMethod<SingleStreamedInstrument, settings, true, false>
 {
 	using InOutBufferT = GetAudioBufferViewType<settings, false, false>;
 
 protected:
-	//! The main audio processing method for NotePlayHandle-based Instruments
-	//! NOTE: NotePlayHandle-based instruments are currently unsupported
-	//virtual void processImpl(NotePlayHandle* nph, InOutBufferT inOut) {}
-
-	//! The main audio processing method for MIDI-based Instruments
+	//! The main audio processing method for single-streamed instruments
 	virtual void processImpl(InOutBufferT inOut) = 0;
 };
 
-//! Instrument specialization (buffered)
+//! SingleStreamedInstrument specialization (buffered)
 template<AudioPortsSettings settings, bool inplace>
-class AudioProcessingMethod<Instrument, settings, inplace, true>
+class AudioProcessingMethod<SingleStreamedInstrument, settings, inplace, true>
 {
 protected:
 	/**
-	 * The main audio processing method for NotePlayHandle-based Instruments.
-	 * The implementation knows how to provide the working buffers.
-	 * NOTE: NotePlayHandle-based instruments are currently unsupported
-	 */
-	//virtual void processImpl(NotePlayHandle* nph) {}
-
-	/**
-	 * The main audio processing method for MIDI-based Instruments.
+	 * The main audio processing method for single-streamed instruments.
 	 * The implementation knows how to provide the working buffers.
 	 */
 	virtual void processImpl() = 0;
+};
+
+//! SingleStreamedMidiInstrument specialization (same as SingleStreamedInstrument)
+template<AudioPortsSettings settings, bool inplace, bool buffered>
+class AudioProcessingMethod<SingleStreamedMidiInstrument, settings, inplace, buffered>
+	: public AudioProcessingMethod<SingleStreamedInstrument, settings, inplace, buffered>
+{
+};
+
+//! MultiStreamedInstrument specialization
+template<AudioPortsSettings settings>
+class AudioProcessingMethod<MultiStreamedInstrument, settings, false, false>
+{
+	using InBufferT = AudioDataViewType<settings, false, true>;
+	using OutBufferT = AudioDataViewType<settings, true, false>;
+
+protected:
+	//! The main audio processing method for multi-streamed instruments
+	virtual void processImpl(NotePlayHandle* nph, InBufferT in, OutBufferT out) = 0;
+};
+
+//! MultiStreamedInstrument specialization (in-place)
+template<AudioPortsSettings settings>
+class AudioProcessingMethod<MultiStreamedInstrument, settings, true, false>
+{
+	using InOutBufferT = AudioDataViewType<settings, false, false>;
+
+protected:
+	//! The main audio processing method for multi-streamed instruments
+	virtual void processImpl(NotePlayHandle* nph, InOutBufferT inOut) = 0;
+};
+
+//! MultiStreamedInstrument specialization (buffered)
+template<AudioPortsSettings settings, bool inplace>
+class AudioProcessingMethod<MultiStreamedInstrument, settings, inplace, true>
+{
+protected:
+	/**
+	 * The main audio processing method for multi-streamed instruments.
+	 * The implementation knows how to provide the working buffers.
+	 */
+	virtual void processImpl(NotePlayHandle* nph) = 0;
 };
 
 //! Effect specialization
@@ -157,11 +185,11 @@ class AudioPlugin
 	static_assert(always_false_v<ParentT>, "ParentT must be either Instrument or Effect");
 };
 
-//! Instrument specialization
-template<AudioPortsSettings settings, class AudioPortsT>
-class AudioPlugin<Instrument, settings, AudioPortsT>
-	: public Instrument
-	, public AudioProcessingMethod<Instrument, settings>
+//! SingleStreamedInstrument / SingleStreamedMidiInstrument specialization
+template<std::derived_from<SingleStreamedInstrument> InstrumentT, AudioPortsSettings settings, class AudioPortsT>
+class AudioPlugin<InstrumentT, settings, AudioPortsT>
+	: public InstrumentT
+	, public AudioProcessingMethod<InstrumentT, settings>
 {
 public:
 	template<typename... AudioPortsArgsT>
@@ -169,7 +197,7 @@ public:
 		const Plugin::Descriptor::SubPluginFeatures::Key* key = nullptr,
 		Instrument::Flags flags = Instrument::Flag::NoFlags,
 		AudioPortsArgsT&&... audioPortArgs)
-		: Instrument{desc, parent, key, flags}
+		: InstrumentT{desc, parent, key, flags}
 		, m_audioPorts{true, this, std::forward<AudioPortsArgsT>(audioPortArgs)...}
 	{
 		m_audioPorts.init();
@@ -186,7 +214,7 @@ protected:
 			: nullptr;
 	}
 
-	void playImpl(std::span<SampleFrame> inOut) final
+	void processCoreImpl(std::span<SampleFrame> coreInOut) final
 	{
 		if (!m_audioPorts.active())
 		{
@@ -197,8 +225,8 @@ protected:
 		auto buffers = m_audioPorts.buffers();
 		assert(buffers != nullptr);
 
-		SampleFrame* temp = inOut.data();
-		const auto bus = AudioBus<SampleFrame>{&temp, 1, inOut.size()};
+		SampleFrame* temp = coreInOut.data();
+		const auto bus = AudioBus<SampleFrame>{&temp, 1, coreInOut.size()};
 		auto router = m_audioPorts.getRouter();
 
 		router.process(bus, *buffers, [this](auto... buffers) {
@@ -206,17 +234,61 @@ protected:
 		});
 	}
 
-	void playNoteImpl(NotePlayHandle* notesToPlay, std::span<SampleFrame> inOut) final
+private:
+	AudioPortsT m_audioPorts;
+};
+
+//! MultiStreamedInstrument specialization
+template<AudioPortsSettings settings, class AudioPortsT>
+class AudioPlugin<MultiStreamedInstrument, settings, AudioPortsT>
+	: public MultiStreamedInstrument
+	, public AudioProcessingMethod<MultiStreamedInstrument, settings>
+{
+public:
+	template<typename... AudioPortsArgsT>
+	AudioPlugin(const Plugin::Descriptor* desc, InstrumentTrack* parent = nullptr,
+		const Plugin::Descriptor::SubPluginFeatures::Key* key = nullptr,
+		Instrument::Flags flags = Instrument::Flag::NoFlags,
+		AudioPortsArgsT&&... audioPortArgs)
+		: MultiStreamedInstrument{desc, parent, key, flags}
+		, m_audioPorts{true, this, std::forward<AudioPortsArgsT>(audioPortArgs)...}
 	{
-		/**
-		 * NOTE: Only MIDI-based instruments are currently supported by AudioPlugin.
-		 * NotePlayHandle-based instruments use buffers from their play handles, and more work
-		 * would be needed to integrate that system with the AudioPorts::Buffer system
-		 * used by AudioPlugin. AudioPorts::Buffer is also not thread-safe.
-		 *
-		 * The `Instrument::playNote()` method is still called for MIDI-based instruments when
-		 * notes are played, so this method is a no-op.
-		 */
+		m_audioPorts.init();
+	}
+
+protected:
+	auto audioPorts() -> AudioPortsT& { return m_audioPorts; }
+	auto audioPorts() const -> const AudioPortsT& { return m_audioPorts; }
+
+	auto audioPortsModel() const -> const AudioPortsModel* final
+	{
+		// TODO: Enable pin connector GUI once multi-stream instrument buffers
+		//       are supported. The default pin connector routing works with
+		//       multi-stream instruments only because the "direct routing"
+		//       optimization sidesteps the need for plugin buffers.
+		return nullptr;
+	}
+
+	void processCoreImpl(NotePlayHandle* nph, std::span<SampleFrame> coreInOut) final
+	{
+		if (!m_audioPorts.active())
+		{
+			// Plugin is not running
+			return;
+		}
+
+		// TODO: Need to use NPH buffer here
+
+		auto buffers = m_audioPorts.buffers();
+		assert(buffers != nullptr);
+
+		SampleFrame* temp = coreInOut.data();
+		const auto bus = AudioBus<SampleFrame>{&temp, 1, coreInOut.size()};
+		auto router = m_audioPorts.getRouter();
+
+		router.process(bus, *buffers, [=, this](auto... buffers) {
+			this->processImpl(nph, buffers...);
+		});
 	}
 
 private:
@@ -326,7 +398,7 @@ private:
  *
  * A `processImpl` interface method is provided which must be implemented by the plugin implementation.
  *
- * @tparam ParentT Either `Instrument` or `Effect`
+ * @tparam ParentT `SingleStreamedInstrument`, `SingleStreamedMidiInstrument`, `MultiStreamedInstrument`, or `Effect`
  * @tparam settings Compile-time settings to customize `AudioPlugin`
  * @tparam AudioPortsT The plugin's audio port - must fully implement `AudioPorts`
  */
@@ -385,7 +457,7 @@ private:
 /**
  * Same as `AudioPlugin` but the audio port is passed as a template template parameter.
  *
- * @tparam ParentT Either `Instrument` or `Effect`
+ * @tparam ParentT `SingleStreamedInstrument`, `SingleStreamedMidiInstrument`, `MultiStreamedInstrument`, or `Effect`
  * @tparam settings Compile-time settings to customize `AudioPlugin`
  * @tparam AudioPortsT The plugin's audio port - must fully implement `AudioPorts`
  */
@@ -394,8 +466,23 @@ template<class ParentT, AudioPortsSettings settings,
 using AudioPluginExt = AudioPlugin<ParentT, settings, AudioPortsT<settings>>;
 
 
-// NOTE: NotePlayHandle-based instruments are not supported yet
-using DefaultMidiInstrument = AudioPluginExt<Instrument, AudioPortsSettings {
+using DefaultSingleStreamedInstrument = AudioPluginExt<SingleStreamedInstrument, AudioPortsSettings {
+	.kind = AudioDataKind::SampleFrame,
+	.interleaved = true,
+	.inputs = 0,
+	.outputs = 2,
+	.inplace = true,
+	.buffered = false }>;
+
+using DefaultSingleStreamedMidiInstrument = AudioPluginExt<SingleStreamedMidiInstrument, AudioPortsSettings {
+	.kind = AudioDataKind::SampleFrame,
+	.interleaved = true,
+	.inputs = 0,
+	.outputs = 2,
+	.inplace = true,
+	.buffered = false }>;
+
+using DefaultMultiStreamedInstrument = AudioPluginExt<MultiStreamedInstrument, AudioPortsSettings {
 	.kind = AudioDataKind::SampleFrame,
 	.interleaved = true,
 	.inputs = 0,

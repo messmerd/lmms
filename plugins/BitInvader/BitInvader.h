@@ -27,8 +27,8 @@
 #ifndef BIT_INVADER_H
 #define BIT_INVADER_H
 
+#include "AudioPlugin.h"
 #include "AutomatableModel.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "Graph.h"
 
@@ -67,7 +67,7 @@ private:
 	
 } ;
 
-class BitInvader : public Instrument
+class BitInvader : public DefaultMultiStreamedInstrument
 {
 	Q_OBJECT
 public:
@@ -98,7 +98,7 @@ protected slots:
 
 
 private:
-	void playNoteImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
+	void processImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
 
 	FloatModel  m_sampleLength;
 	graphModel  m_graph;

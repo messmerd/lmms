@@ -32,8 +32,8 @@
 #ifndef LB302_H
 #define LB302_H
 
+#include "AudioPlugin.h"
 #include "DspEffectLibrary.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 #include "NotePlayHandle.h"
 #include <QMutex>
@@ -145,7 +145,7 @@ public:
 };
 
 
-class Lb302Synth : public Instrument
+class Lb302Synth : public DefaultSingleStreamedInstrument
 {
 	Q_OBJECT
 public:
@@ -162,8 +162,8 @@ public:
 	gui::PluginView* instantiateView( QWidget * _parent ) override;
 
 private:
-	void playImpl(std::span<SampleFrame> out) override;
-	void playNoteImpl(NotePlayHandle* _n, std::span<SampleFrame> out) override;
+	void processImpl(std::span<SampleFrame> out) override;
+	void handleNoteImpl(NotePlayHandle* nph) override;
 
 	void processNote( NotePlayHandle * n );
 

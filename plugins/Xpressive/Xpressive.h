@@ -29,8 +29,8 @@
 
 #include <QTextEdit>
 
+#include "AudioPlugin.h"
 #include "Graph.h"
-#include "Instrument.h"
 #include "InstrumentView.h"
 
 #include "ExprSynth.h"
@@ -61,7 +61,7 @@ class XpressiveView;
 
 
 
-class Xpressive : public Instrument
+class Xpressive : public DefaultMultiStreamedInstrument
 {
 	Q_OBJECT
 public:
@@ -112,7 +112,7 @@ protected slots:
 
 
 private:
-	void playNoteImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
+	void processImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
 
 	graphModel  m_graphO1;
 	graphModel  m_graphO2;

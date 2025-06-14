@@ -26,9 +26,9 @@
 #ifndef LMMS_AUDIO_FILE_PROCESSOR_H
 #define LMMS_AUDIO_FILE_PROCESSOR_H
 
+#include "AudioPlugin.h"
 #include "AutomatableModel.h"
 #include "ComboBoxModel.h"
-#include "Instrument.h"
 #include "Sample.h"
 #include "LmmsTypes.h"
 
@@ -36,7 +36,7 @@
 namespace lmms
 {
 
-class AudioFileProcessor : public Instrument
+class AudioFileProcessor : public DefaultMultiStreamedInstrument
 {
 	Q_OBJECT
 public:
@@ -90,7 +90,7 @@ signals:
 	void sampleUpdated();
 
 private:
-	void playNoteImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
+	void processImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
 
 	Sample m_sample;
 

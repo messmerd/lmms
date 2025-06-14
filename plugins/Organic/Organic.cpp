@@ -72,7 +72,7 @@ float * OrganicInstrument::s_harmonics = nullptr;
 
 
 OrganicInstrument::OrganicInstrument( InstrumentTrack * _instrument_track ) :
-	Instrument(&organic_plugin_descriptor, _instrument_track),
+	AudioPlugin(&organic_plugin_descriptor, _instrument_track),
 	m_modulationAlgo(static_cast<int>(Oscillator::ModulationAlgo::SignalMix),
 		static_cast<int>(Oscillator::ModulationAlgo::SignalMix),
 		static_cast<int>(Oscillator::ModulationAlgo::SignalMix)),
@@ -220,7 +220,7 @@ QString OrganicInstrument::nodeName() const
 
 
 
-void OrganicInstrument::playNoteImpl(NotePlayHandle* _n, std::span<SampleFrame> out)
+void OrganicInstrument::processImpl(NotePlayHandle* _n, std::span<SampleFrame> out)
 {
 	const fpp_t frames = _n->framesLeftForCurrentPeriod();
 	const f_cnt_t offset = _n->noteOffset();
