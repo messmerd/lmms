@@ -209,9 +209,10 @@ jobs:
       - name: Set up environment
         run: |
           if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
+            echo "/usr/local/bin" >> $GITHUB_PATH
             echo "BREW=arch -x86_64 /usr/local/bin/brew" >> $GITHUB_ENV
-            echo "CMAKE=arch -x86_64 cmake" >> $GITHUB_ENV
-            echo "CTEST=arch -x86_64 ctest" >> $GITHUB_ENV
+            echo "CMAKE=arch -x86_64 /usr/local/bin/cmake" >> $GITHUB_ENV
+            echo "CTEST=arch -x86_64 /usr/local/bin/ctest" >> $GITHUB_ENV
           else
             echo "BREW=brew" >> $GITHUB_ENV
             echo "CMAKE=cmake" >> $GITHUB_ENV
@@ -248,6 +249,9 @@ jobs:
             # which causes `brew link` to fail when installing Carla's Python 3.13 dependency
             $BREW install python@3.13 || true
             $BREW link --overwrite python@3.13 || true
+
+            # Install x86_64 CMake
+            $BREW install cmake
           fi
           $BREW bundle install --verbose
           npm update -g npm
