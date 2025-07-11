@@ -209,7 +209,7 @@ jobs:
       - name: Set up environment
         run: |
           if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
-            echo "BREW=arch -x86_64 brew" >> $GITHUB_ENV
+            echo "BREW=arch -x86_64 /usr/local/bin/brew" >> $GITHUB_ENV
             echo "CMAKE=arch -x86_64 cmake" >> $GITHUB_ENV
             echo "CTEST=arch -x86_64 ctest" >> $GITHUB_ENV
           else
