@@ -243,6 +243,12 @@ jobs:
           path: ~/Library/Caches/ccache
       - name: Install dependencies
         run: |
+          if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
+            # Workaround for pre-existing Python 3.13 symlink conflict on GitHub Actions build runner,
+            # which causes `brew link` to fail when installing Carla's Python 3.13 dependency
+            arch -x86_64 $BREW install python@3.13 || true
+            arch -x86_64 $BREW link --overwrite python@3.13 || true
+          fi
           $BREW bundle install --verbose
           npm update -g npm
           npm install --location=global appdmg
