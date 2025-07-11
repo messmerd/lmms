@@ -181,7 +181,7 @@ jobs:
         arch: [ x86_64, arm64 ]
         include:
           - arch: x86_64
-            os: macos-15
+            os: macos-15-large
             xcode: "16.4"
             minimum_deployment_target: "10.13"
           - arch: arm64
