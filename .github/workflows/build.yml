@@ -181,7 +181,7 @@ jobs:
         arch: [ x86_64, arm64 ]
         include:
           - arch: x86_64
-            os: macos-15-large
+            os: macos-15
             xcode: "16.4"
             minimum_deployment_target: "10.13"
           - arch: arm64
@@ -206,6 +206,17 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Test Rosetta Homebrew from /usr/local
+        if: matrix.arch == 'x86_64'
+        run: |
+          /usr/local/bin/brew --version
+      - name: Set HOMEBREW_PREFIX
+        run: |
+          if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
+            echo "HOMEBREW_PREFIX=/usr/local" >> $GITHUB_ENV
+          else
+            echo "HOMEBREW_PREFIX=/opt/homebrew" >> $GITHUB_ENV
+          fi
       - name: Clean up Homebrew download cache
         run: rm -rf ~/Library/Caches/Homebrew/downloads
       - name: Restore Homebrew download cache
@@ -227,7 +238,7 @@ jobs:
           path: ~/Library/Caches/ccache
       - name: Install dependencies
         run: |
-          brew bundle install --verbose
+          arch -${{ matrix.arch }} $HOMEBREW_PREFIX/bin/brew bundle install --verbose
           npm update -g npm
           npm install --location=global appdmg
         env:
@@ -238,21 +249,21 @@ jobs:
         run: |
           ccache --zero-stats
           mkdir build
-          cmake -S . \
+          arch -${{ matrix.arch }} cmake -S . \
                 -B build \
                 -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
                 -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ matrix.minimum_deployment_target }} \
                 $CMAKE_OPTS \
                 -DUSE_WERROR=OFF
       - name: Build
-        run: cmake --build build
+        run: arch -${{ matrix.arch }} cmake --build build
       - name: Run tests
         run: |
           cd build/tests
-          ctest --output-on-failure -j3
+          arch -${{ matrix.arch }} ctest --output-on-failure -j3
       - name: Package
         run: |
-          cmake --build build --target package
+          arch -${{ matrix.arch }} cmake --build build --target package
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
