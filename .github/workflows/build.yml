@@ -219,11 +219,11 @@ jobs:
       - name: Cache ccache data
         uses: actions/cache@v3
         with:
-          key: "ccache-${{ github.job }}-${{ matrix.arch }}-${{ github.ref }}\
-            -${{ github.run_id }}"
+          key: "ccache-${{ github.job }}-${{ matrix.arch }}-${{ matrix.minimum_deployment_target }}\
+            -${{ github.ref }}-${{ github.run_id }}"
           restore-keys: |
-            ccache-${{ github.job }}-${{ matrix.arch }}-${{ github.ref }}-
-            ccache-${{ github.job }}-${{ matrix.arch }}-
+            ccache-${{ github.job }}-${{ matrix.arch }}-${{ matrix.minimum_deployment_target }}-${{ github.ref }}-
+            ccache-${{ github.job }}-${{ matrix.arch }}-${{ matrix.minimum_deployment_target }}-
           path: ~/Library/Caches/ccache
       - name: Install dependencies
         run: |
