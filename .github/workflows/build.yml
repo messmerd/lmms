@@ -211,7 +211,8 @@ jobs:
         run: |
           if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
             echo "HOMEBREW_PREFIX=${{ env.HOMEBREW_X86_64_PREFIX }}" >> $GITHUB_ENV
-            echo "${{ env.HOMEBREW_X86_64_PREFIX }}/bin" >> $GITHUB_PATH
+            echo "HOMEBREW_REPOSITORY=${{ env.HOMEBREW_X86_64_PREFIX }}" >> $GITHUB_ENV
+            echo "HOMEBREW_CELLAR=${{ env.HOMEBREW_X86_64_PREFIX }}/Cellar" >> $GITHUB_ENV
             echo "BREW=arch -x86_64 ${{ env.HOMEBREW_X86_64_PREFIX }}/bin/brew" >> $GITHUB_ENV
             echo "CTEST=arch -x86_64 ${{ env.HOMEBREW_X86_64_PREFIX }}/bin/ctest" >> $GITHUB_ENV
           else
@@ -224,28 +225,28 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            ${{ env.HOMEBREW_PREFIX }}/Cellar
-            ${{ env.HOMEBREW_PREFIX }}/opt
-            ${{ env.HOMEBREW_PREFIX }}/bin
-            ${{ env.HOMEBREW_PREFIX }}/lib
-            ${{ env.HOMEBREW_PREFIX }}/Homebrew
+            $HOMEBREW_PREFIX/Cellar
+            $HOMEBREW_PREFIX/opt
+            $HOMEBREW_PREFIX/bin
+            $HOMEBREW_PREFIX/lib
+            $HOMEBREW_PREFIX/Homebrew
           key: n/a - only restore from restore-keys
           restore-keys: |
             ${{ github.job }}-${{ matrix.arch }}-homebrew-
       - name: Set up Homebrew for x86_64
         if: matrix.arch == 'x86_64'
         run: |
+          echo "$HOMEBREW_PREFIX/bin" >> $GITHUB_PATH
           if [[ "$CACHE_HIT" != "true" ]]; then
-            # Install Homebrew
-            arch -x86_64 /bin/bash -c \
-              "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-            sudo mv /usr/local/Homebrew ${{ env.HOMEBREW_X86_64_PREFIX }}
+            # Install Homebrew in custom prefix
+            mkdir -p "$HOMEBREW_PREFIX"
+            curl -L https://github.com/Homebrew/brew/tarball/main \
+              | tar xz --strip-components=1 -C "$HOMEBREW_PREFIX"
+            $BREW update --force --quiet
+            chmod -R go-w "$HOMEBREW_PREFIX/share/zsh"
           fi
-          # Symlink to brew in custom installation directory
-          sudo rm -f /usr/local/bin/brew
-          ln -s ${{ env.HOMEBREW_X86_64_PREFIX }}/bin/brew /usr/local/bin/brew
-          chmod +x ${{ env.HOMEBREW_X86_64_PREFIX }}/bin/brew
-          chmod +x /usr/local/bin/brew
+          # Sanity check
+          $BREW --version
         env:
           CACHE_HIT: ${{ steps.cache-homebrew.outputs.cache-hit }}
       - name: Install Homebrew packages
@@ -311,11 +312,11 @@ jobs:
         with:
           key: ${{ env.key }}
           path: |
-            ${{ env.HOMEBREW_PREFIX }}/Cellar
-            ${{ env.HOMEBREW_PREFIX }}/opt
-            ${{ env.HOMEBREW_PREFIX }}/bin
-            ${{ env.HOMEBREW_PREFIX }}/lib
-            ${{ env.HOMEBREW_PREFIX }}/Homebrew
+            $HOMEBREW_PREFIX/Cellar
+            $HOMEBREW_PREFIX/opt
+            $HOMEBREW_PREFIX/bin
+            $HOMEBREW_PREFIX/lib
+            $HOMEBREW_PREFIX/Homebrew
         env:
           key: "${{ github.job }}-${{ matrix.arch }}-homebrew\
             -${{ hashFiles('Brewfile.lock.json') }}"
