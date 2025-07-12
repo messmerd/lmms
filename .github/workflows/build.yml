@@ -242,9 +242,10 @@ jobs:
             sudo mv /usr/local/Homebrew ${{ env.HOMEBREW_X86_64_PREFIX }}
           fi
           # Symlink to brew in custom installation directory
-          chmod +x ${{ env.HOMEBREW_X86_64_PREFIX }}/bin/brew
           sudo rm -f /usr/local/bin/brew
           ln -s ${{ env.HOMEBREW_X86_64_PREFIX }}/bin/brew /usr/local/bin/brew
+          chmod +x ${{ env.HOMEBREW_X86_64_PREFIX }}/bin/brew
+          chmod +x /usr/local/bin/brew
         env:
           CACHE_HIT: ${{ steps.cache-homebrew.outputs.cache-hit }}
       - name: Install Homebrew packages
