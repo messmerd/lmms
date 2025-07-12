@@ -200,7 +200,6 @@ jobs:
       CCACHE_NOCOMPRESS: 1
       MAKEFLAGS: -j3
       DEVELOPER_DIR: /Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer
-      HOMEBREW_X86_64_PREFIX: ~/homebrew-${{ matrix.arch }}
     steps:
       - name: Check out
         uses: actions/checkout@v3
@@ -210,11 +209,12 @@ jobs:
       - name: Set up environment
         run: |
           if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
-            echo "HOMEBREW_PREFIX=${{ env.HOMEBREW_X86_64_PREFIX }}" >> $GITHUB_ENV
-            echo "HOMEBREW_REPOSITORY=${{ env.HOMEBREW_X86_64_PREFIX }}" >> $GITHUB_ENV
-            echo "HOMEBREW_CELLAR=${{ env.HOMEBREW_X86_64_PREFIX }}/Cellar" >> $GITHUB_ENV
-            echo "BREW=arch -x86_64 ${{ env.HOMEBREW_X86_64_PREFIX }}/bin/brew" >> $GITHUB_ENV
-            echo "CTEST=arch -x86_64 ${{ env.HOMEBREW_X86_64_PREFIX }}/bin/ctest" >> $GITHUB_ENV
+            prefix="$HOME/homebrew-${{ matrix.arch }}"
+            echo "HOMEBREW_PREFIX=$prefix" >> $GITHUB_ENV
+            echo "HOMEBREW_REPOSITORY=$prefix" >> $GITHUB_ENV
+            echo "HOMEBREW_CELLAR=$prefix/Cellar" >> $GITHUB_ENV
+            echo "BREW=arch -x86_64 $prefix/bin/brew" >> $GITHUB_ENV
+            echo "CTEST=arch -x86_64 $prefix/bin/ctest" >> $GITHUB_ENV
           else
             echo "HOMEBREW_PREFIX=/opt/homebrew" >> $GITHUB_ENV
             echo "BREW=brew" >> $GITHUB_ENV
@@ -280,7 +280,7 @@ jobs:
                 -B build \
                 -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
                 -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ matrix.minimum_deployment_target }} \
-                -DCMAKE_PREFIX_PATH="$($BREW --prefix)" \
+                -DCMAKE_PREFIX_PATH="$HOMEBREW_PREFIX" \
                 $CMAKE_OPTS \
                 -DUSE_WERROR=OFF
       - name: Build
