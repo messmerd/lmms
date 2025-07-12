@@ -200,6 +200,7 @@ jobs:
       CCACHE_NOCOMPRESS: 1
       MAKEFLAGS: -j3
       DEVELOPER_DIR: /Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer
+      HOMEBREW_X86_64_PREFIX: ~/homebrew-${{ matrix.arch }}
     steps:
       - name: Check out
         uses: actions/checkout@v3
@@ -209,30 +210,48 @@ jobs:
       - name: Set up environment
         run: |
           if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
-            echo "/usr/local/bin" >> $GITHUB_PATH
-            echo "BREW=arch -x86_64 /usr/local/bin/brew" >> $GITHUB_ENV
-            echo "CMAKE=arch -x86_64 /usr/local/bin/cmake" >> $GITHUB_ENV
-            echo "CTEST=arch -x86_64 /usr/local/bin/ctest" >> $GITHUB_ENV
+            echo "HOMEBREW_PREFIX=${{ env.HOMEBREW_X86_64_PREFIX }}" >> $GITHUB_ENV
+            echo "${{ env.HOMEBREW_X86_64_PREFIX }}/bin" >> $GITHUB_PATH
+            echo "BREW=arch -x86_64 ${{ env.HOMEBREW_X86_64_PREFIX }}/bin/brew" >> $GITHUB_ENV
+            echo "CTEST=arch -x86_64 ${{ env.HOMEBREW_X86_64_PREFIX }}/bin/ctest" >> $GITHUB_ENV
           else
+            echo "HOMEBREW_PREFIX=/opt/homebrew" >> $GITHUB_ENV
             echo "BREW=brew" >> $GITHUB_ENV
-            echo "CMAKE=cmake" >> $GITHUB_ENV
             echo "CTEST=ctest" >> $GITHUB_ENV
           fi
-      - name: Install Homebrew for Rosetta 2
+      - name: Cache Homebrew
+        id: cache-homebrew
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.HOMEBREW_PREFIX }}
+          key: ${{ github.job }}-${{ matrix.arch }}-homebrew-${{ hashFiles('Brewfile.lock.json') }}
+          restore-keys: ${{ github.job }}-${{ matrix.arch }}-homebrew-
+      - name: Set up Homebrew for x86_64
         if: matrix.arch == 'x86_64'
         run: |
-          arch -x86_64 /bin/bash -c \
-            "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
-      - name: Clean up Homebrew download cache
-        run: rm -rf ~/Library/Caches/Homebrew/downloads
-      - name: Restore Homebrew download cache
-        id: cache-homebrew
-        uses: actions/cache/restore@v3
-        with:
-          key: n/a - only restore from restore-keys
-          restore-keys: |
-            homebrew-${{ matrix.arch }}-
-          path: ~/Library/Caches/Homebrew/downloads
+          if [[ "${{ steps.cache-homebrew.outputs.cache-hit }}" != "true" ]]; then
+            # Install Homebrew
+            arch -x86_64 /bin/bash -c \
+              "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            mv /usr/local/Homebrew ${{ env.HOMEBREW_X86_64_PREFIX }}
+          fi
+          # Symlink to brew in custom installation directory
+          rm -f /usr/local/bin/brew
+          ln -s ${{ env.HOMEBREW_X86_64_PREFIX }}/bin/brew /usr/local/bin/brew
+      - name: Install Homebrew packages
+        if: steps.cache-homebrew.outputs.cache-hit != 'true'
+        run: |
+          $BREW bundle install --verbose
+          npm update -g npm
+          npm install --location=global appdmg
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_INSTALL_UPGRADE: 1
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+      - name: Clean up Homebrew cache
+        run: |
+          rm -rf ~/Library/Caches/Homebrew
+          $BREW cleanup -s
       - name: Cache ccache data
         uses: actions/cache@v3
         with:
@@ -242,24 +261,6 @@ jobs:
             ccache-${{ github.job }}-${{ matrix.arch }}-${{ matrix.minimum_deployment_target }}-${{ github.ref }}-
             ccache-${{ github.job }}-${{ matrix.arch }}-${{ matrix.minimum_deployment_target }}-
           path: ~/Library/Caches/ccache
-      - name: Install dependencies
-        run: |
-          if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
-            # Workaround for pre-existing Python 3.13 symlink conflict on GitHub Actions build runner,
-            # which causes `brew link` to fail when installing Carla's Python 3.13 dependency
-            $BREW install python@3.13 || true
-            $BREW link --overwrite python@3.13 || true
-
-            # Install x86_64 CMake
-            $BREW install cmake
-          fi
-          $BREW bundle install --verbose
-          npm update -g npm
-          npm install --location=global appdmg
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: 1
-          HOMEBREW_NO_INSTALL_UPGRADE: 1
-          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
       - name: Configure
         run: |
           ccache --zero-stats
@@ -294,15 +295,6 @@ jobs:
           ccache --show-stats --verbose
         env:
           CCACHE_MAXSIZE: 500MB
-      - name: Save Homebrew download cache
-        if: ${{ steps.cache-homebrew.outputs.cache-matched-key != env.key }}
-        uses: actions/cache/save@v3
-        with:
-          key: ${{ env.key }}
-          path: ~/Library/Caches/Homebrew/downloads
-        env:
-          key: "homebrew-${{ matrix.arch }}\
-            -${{ hashFiles('Brewfile.lock.json') }}"
   mingw:
     name: mingw64
     runs-on: ubuntu-latest
