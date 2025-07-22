@@ -118,23 +118,25 @@ message(STATUS "~~~~~~~~ FLTK_INCLUDE_DIR=${FLTK_INCLUDE_DIR}~~~")
 
 if(TARGET fltk::fltk)
 	message(STATUS "~~~~~~~~ Has an fltk::fltk target!")
-	# Starting in FLTK 1.4.0, the fltk::fltk target is provided
-	pkg_check_modules(CAIRO cairo)
-	if(CAIRO_FOUND)
-		message(STATUS "~~~~~~~~ Cairo found")
-		message(STATUS "~~~~~~~~ CAIRO_INCLUDE_DIRECTORIES=${CAIRO_INCLUDE_DIRECTORIES}~~~")
-		message(STATUS "~~~~~~~~ CAIRO_LIBRARY_DIRS=${CAIRO_LIBRARY_DIRS}~~~")
-		message(STATUS "~~~~~~~~ CAIRO_LIBRARIES=${CAIRO_LIBRARIES}~~~")
-		message(STATUS "~~~~~~~~ CAIRO_LINK_LIBRARIES=${CAIRO_LINK_LIBRARIES}~~~")
-		# Starting in FLTK 1.4.0, the Cairo dependency may be needed.
-		target_include_directories(zynaddsubfx_gui PUBLIC ${CAIRO_INCLUDE_DIRECTORIES})
-		target_link_directories(zynaddsubfx_gui PUBLIC ${CAIRO_LIBRARY_DIRS})
-		target_link_libraries(zynaddsubfx_gui PUBLIC ${CAIRO_LIBRARIES})
-	else()
-		message(STATUS "~~~~~~~~ Cairo not found")
-	endif()
 else()
+	# NOTE: There is no fltk::fltk target when building with msys2 FLTK 1.4.4 package
 	message(STATUS "~~~~~~~~ No fltk::fltk target!")
+endif()
+
+# Starting in FLTK 1.4.0, the fltk::fltk target is provided (?)
+pkg_check_modules(CAIRO cairo)
+if(CAIRO_FOUND)
+	message(STATUS "~~~~~~~~ Cairo found")
+	message(STATUS "~~~~~~~~ CAIRO_INCLUDE_DIRECTORIES=${CAIRO_INCLUDE_DIRECTORIES}~~~")
+	message(STATUS "~~~~~~~~ CAIRO_LIBRARY_DIRS=${CAIRO_LIBRARY_DIRS}~~~")
+	message(STATUS "~~~~~~~~ CAIRO_LIBRARIES=${CAIRO_LIBRARIES}~~~")
+	message(STATUS "~~~~~~~~ CAIRO_LINK_LIBRARIES=${CAIRO_LINK_LIBRARIES}~~~")
+	# Starting in FLTK 1.4.0, the Cairo dependency may be needed.
+	target_include_directories(zynaddsubfx_gui PUBLIC ${CAIRO_INCLUDE_DIRECTORIES})
+	target_link_directories(zynaddsubfx_gui PUBLIC ${CAIRO_LIBRARY_DIRS})
+	target_link_libraries(zynaddsubfx_gui PUBLIC ${CAIRO_LIBRARIES})
+else()
+	message(STATUS "~~~~~~~~ Cairo not found")
 endif()
 
 add_library(ZynAddSubFxCore STATIC
