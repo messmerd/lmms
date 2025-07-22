@@ -1,4 +1,4 @@
-if(NOT FLTK_FOUND)
+if(NOT LMMS_HAVE_ZYNADDSUBFX)
 	return()
 endif()
 
@@ -43,6 +43,7 @@ ENDIF()
 include_directories(SYSTEM
 	"${FLTK_INCLUDE_DIR}"
 	${FFTW3F_INCLUDE_DIRS}
+	${CAIRO_INCLUDE_DIRS}
 )
 include_directories(
 	"${CMAKE_CURRENT_SOURCE_DIR}"
@@ -111,6 +112,10 @@ set_target_properties(zynaddsubfx_synth PROPERTIES SYSTEM TRUE)
 # generated C++ files aren't in the source directory. Thus, add the expected
 # source directory as an additional include directory.
 target_include_directories(zynaddsubfx_gui PUBLIC zynaddsubfx/src/UI)
+
+if(${CAIRO_LINK_LIBRARIES})
+	target_link_libraries(zynaddsubfx_gui PRIVATE ${CAIRO_LINK_LIBRARIES})
+endif()
 
 add_library(ZynAddSubFxCore STATIC
 	LocalZynAddSubFx.cpp

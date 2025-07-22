@@ -3,7 +3,6 @@ base-devel
 filesystem
 git
 mingw-w64-clang-aarch64-SDL2
-mingw-w64-clang-aarch64-cairo
 mingw-w64-clang-aarch64-ccache
 mingw-w64-clang-aarch64-clang
 mingw-w64-clang-aarch64-cmake
