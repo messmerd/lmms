@@ -1,4 +1,4 @@
-if(NOT LMMS_HAVE_ZYNADDSUBFX)
+if(NOT FLTK_FOUND)
 	return()
 endif()
 
@@ -43,7 +43,6 @@ ENDIF()
 include_directories(SYSTEM
 	"${FLTK_INCLUDE_DIR}"
 	${FFTW3F_INCLUDE_DIRS}
-	${CAIRO_INCLUDE_DIRS}
 )
 include_directories(
 	"${CMAKE_CURRENT_SOURCE_DIR}"
@@ -113,8 +112,9 @@ set_target_properties(zynaddsubfx_synth PROPERTIES SYSTEM TRUE)
 # source directory as an additional include directory.
 target_include_directories(zynaddsubfx_gui PUBLIC zynaddsubfx/src/UI)
 
-if(${CAIRO_LINK_LIBRARIES})
-	target_link_libraries(zynaddsubfx_gui PRIVATE ${CAIRO_LINK_LIBRARIES})
+if(TARGET fltk::fltk)
+	# Starting in FLTK 1.4.0, the fltk::fltk target is provided and the Cairo dependency may be needed.
+	target_link_libraries(zynaddsubfx_gui PRIVATE fltk::fltk)
 endif()
 
 add_library(ZynAddSubFxCore STATIC
