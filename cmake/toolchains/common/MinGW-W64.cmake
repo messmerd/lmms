@@ -17,6 +17,8 @@ if(WIN64)
 	set(CMAKE_CXX_COMPILER32 ${TOOLCHAIN_PREFIX32}-g++)
 endif()
 
+set(USING_MINGW_COMPILER 1)
+
 # Search for programs in the build host directories
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 # Search for libraries and headers in the target directories

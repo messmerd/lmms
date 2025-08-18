@@ -50,7 +50,11 @@ if(NOT _lto_supported)
 	return()
 endif()
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+if(USING_MINGW_COMPILER)
+	# See: https://sourceforge.net/p/mingw-w64/bugs/829/
+	set(STATUS_LTO "Not supported by this compiler")
+	return()
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 	if(_lto_mode STREQUAL "thin")
 		# The GCC equivalent of Clang's ThinLTO is -flto-partition=balanced
 		set(STATUS_LTO "Enabled (balanced LTO partition)")
