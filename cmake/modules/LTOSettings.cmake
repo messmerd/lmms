@@ -69,15 +69,6 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 	# TODO: -flto-incremental incremental LTO
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-	if(APPLE)
-		if (NOT CMAKE_BUILD_TYPE MATCHES "Release")
-			# See: https://clang.llvm.org/docs/CommandGuide/clang.html#cmdoption-flto
-			set(STATUS_LTO "Not supported for Debug builds")
-			message(WARNING "LTO is not supported for macOS debug builds")
-			return()
-		endif()
-	endif()
-
 	if(_lto_mode STREQUAL "thin")
 		set(STATUS_LTO "Enabled (ThinLTO)")
 		target_compile_options(lto_settings INTERFACE -flto=thin)
@@ -86,6 +77,13 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 		set(STATUS_LTO "Enabled (full)")
 		target_compile_options(lto_settings INTERFACE -flto=full)
 		target_link_options(lto_settings INTERFACE -flto=full)
+	endif()
+
+	if(APPLE)
+		# See: https://clang.llvm.org/docs/CommandGuide/clang.html#cmdoption-flto
+		# And a workaround here: https://gitlab.kitware.com/cmake/cmake/-/issues/25202
+		target_link_options(lto_settings INTERFACE "LINKER:-object_path_lto,$<TARGET_PROPERTY:NAME>_lto.o")
+		target_link_options(lto_settings INTERFACE "LINKER:-cache_path_lto,${CMAKE_BINARY_DIR}/LTOCache")
 	endif()
 
 elseif(MSVC)
