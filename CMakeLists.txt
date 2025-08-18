@@ -108,6 +108,7 @@ OPTION(BUNDLE_QT_TRANSLATIONS	"Install Qt translation files for LMMS" OFF)
 option(WANT_DEBUG_CPACK "Show detailed logs for packaging commands" OFF)
 option(WANT_CPACK_TARBALL "Request CPack to create a tarball instead of an installer" OFF)
 
+set(LTO_MODE "auto" CACHE STRING "Link-time optimization mode: auto|full|thin|off")
 
 IF(LMMS_BUILD_APPLE)
 	# Fix linking on 10.14+. See issue #4762 on github
@@ -735,6 +736,9 @@ include(ErrorFlags)
 # use ccache
 include(CompileCache)
 
+# Link-time optimization
+include(LTOSettings)
+
 # make sub-directories
 ADD_SUBDIRECTORY(cmake)
 ADD_SUBDIRECTORY(src)
@@ -867,6 +871,7 @@ MESSAGE(
 MESSAGE(
 "Developer options\n"
 "-----------------------------------------\n"
+"* Link-time optimization            : ${STATUS_LTO}\n"
 "* Debug FP exceptions               : ${STATUS_DEBUG_FPE}\n"
 "* Debug using AddressSanitizer      : ${STATUS_DEBUG_ASAN}\n"
 "* Debug using ThreadSanitizer       : ${STATUS_DEBUG_TSAN}\n"

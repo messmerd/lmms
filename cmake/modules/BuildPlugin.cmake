@@ -51,7 +51,7 @@ MACRO(BUILD_PLUGIN PLUGIN_NAME)
 
 	ADD_LIBRARY(${PLUGIN_NAME} ${PLUGIN_LINK} ${PLUGIN_SOURCES} ${plugin_MOC_out} ${RCC_OUT})
 
-	target_link_libraries("${PLUGIN_NAME}" lmms Qt5::Widgets Qt5::Xml)
+	target_link_libraries("${PLUGIN_NAME}" lmms Qt5::Widgets Qt5::Xml lto_settings)
 
 	INSTALL(TARGETS ${PLUGIN_NAME}
 		LIBRARY DESTINATION "${PLUGIN_DIR}"
