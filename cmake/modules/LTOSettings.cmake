@@ -70,7 +70,7 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	if(APPLE)
-		if (NOT CMAKE_BUILD_TYPE MATCHES "Release|RelWithDebInfo")
+		if (NOT CMAKE_BUILD_TYPE MATCHES "Release")
 			# See: https://clang.llvm.org/docs/CommandGuide/clang.html#cmdoption-flto
 			set(STATUS_LTO "Not supported for Debug builds")
 			message(WARNING "LTO is not supported for macOS debug builds")
