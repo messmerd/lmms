@@ -238,7 +238,7 @@ jobs:
           mkdir build
           cmake -S . \
                 -B build \
-                -G Xcode
+                -G Xcode \
                 -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
                 $CMAKE_OPTS \
                 -DUSE_WERROR=OFF
