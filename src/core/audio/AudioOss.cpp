@@ -32,7 +32,6 @@
 
 #include "AudioEngine.h"
 #include "BitOperations.h"
-#include "Engine.h"
 #include "LcdSpinBox.h"
 
 #ifdef LMMS_HAVE_UNISTD_H

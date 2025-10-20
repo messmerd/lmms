@@ -30,7 +30,6 @@
 #include "AudioEngine.h"
 #include "BitOperations.h"
 #include "ConfigManager.h"
-#include "Engine.h"
 
 namespace lmms
 {
