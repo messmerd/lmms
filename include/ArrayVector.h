@@ -44,6 +44,8 @@ namespace lmms {
  * resizeable container is needed for use in real-time code. Can be thought of
  * as a hybrid between `std::array` and `std::vector`. The interface follows
  * that of `std::vector` - see standard C++ documentation.
+ *
+ * TODO C++26: Use std::inplace_vector
  */
 template<typename T, std::size_t N>
 class ArrayVector
@@ -353,19 +355,7 @@ public:
 
 	friend auto operator<=>(const ArrayVector& l, const ArrayVector& r)
 	{
-#if defined(__clang__) && defined(__apple_build_version__)
-		// TODO: Remove this workaround once AppleClang supports std::lexicographical_compare_three_way
-		const auto endL = l.end();
-		const auto endR = r.end();
-		const auto [itL, itR] = std::mismatch(l.begin(), endL, r.begin(), endR);
-
-		if (itL == endL && itR == endR) { return std::strong_ordering::equal; }
-		if (itL == endL) { return std::strong_ordering::less; }
-		if (itR == endR) { return std::strong_ordering::greater; }
-		return std::compare_three_way{}(*itL, *itR);
-#else
 		return std::lexicographical_compare_three_way(l.begin(), l.end(), r.begin(), r.end());
-#endif
 	}
 
 	friend bool operator==(const ArrayVector& l, const ArrayVector& r)
