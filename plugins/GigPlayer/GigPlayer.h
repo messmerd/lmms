@@ -43,6 +43,12 @@
 
 class QLabel;
 
+#if GIG_VERSION_MAJOR < 4 || (GIG_VERSION_MAJOR == 4 && GIG_VERSION_MINOR == 0)
+namespace gig {
+	using file_offset_t = std::uint64_t;
+}
+#endif
+
 namespace lmms
 {
 
@@ -160,7 +166,7 @@ public:
 	ADSR adsr;
 
 	// The position in sample
-	f_cnt_t pos;
+	gig::file_offset_t pos;
 
 	// Whether to change the pitch of the samples, e.g. if there's only one
 	// sample per octave and you want that sample pitch shifted for the rest of
@@ -309,9 +315,11 @@ private:
 	Dimension getDimensions( gig::Region * pRegion, int velocity, bool release );
 
 	// Load sample data from the Gig file, looping the sample where needed
-	void loadSample( GigSample& sample, SampleFrame* sampleData, f_cnt_t samples );
-	f_cnt_t getLoopedIndex( f_cnt_t index, f_cnt_t startf, f_cnt_t endf ) const;
-	f_cnt_t getPingPongIndex( f_cnt_t index, f_cnt_t startf, f_cnt_t endf ) const;
+	void loadSample(GigSample& sample, SampleFrame* sampleData, gig::file_offset_t samples);
+	gig::file_offset_t getLoopedIndex(gig::file_offset_t index,
+		gig::file_offset_t startf, gig::file_offset_t endf) const;
+	gig::file_offset_t getPingPongIndex(gig::file_offset_t index,
+		gig::file_offset_t startf, gig::file_offset_t endf) const;
 
 	// Add the desired samples to the note, either normal samples or release
 	// samples

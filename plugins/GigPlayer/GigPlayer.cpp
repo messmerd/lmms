@@ -441,14 +441,15 @@ void GigInstrument::play( SampleFrame* _working_buffer )
 			{
 				if (sample.m_sourceBufferView.empty())
 				{
-					loadSample(sample, sample.m_sourceBuffer.data(), sample.m_sourceBuffer.size());
+					loadSample(sample, sample.m_sourceBuffer.data(),
+						static_cast<gig::file_offset_t>(sample.m_sourceBuffer.size()));
 
 					for (auto& frame : sample.m_sourceBuffer)
 					{
 						frame *= copy.value();
 					}
 
-					sample.pos += sample.m_sourceBuffer.size();
+					sample.pos += static_cast<gig::file_offset_t>(sample.m_sourceBuffer.size());
 					sample.adsr.inc(sample.m_sourceBuffer.size());
 					sample.m_sourceBufferView = sample.m_sourceBuffer;
 				}
@@ -492,7 +493,7 @@ void GigInstrument::play( SampleFrame* _working_buffer )
 
 
 
-void GigInstrument::loadSample( GigSample& sample, SampleFrame* sampleData, f_cnt_t samples )
+void GigInstrument::loadSample(GigSample& sample, SampleFrame* sampleData, gig::file_offset_t samples)
 {
 	if( sampleData == nullptr || samples < 1 )
 	{
@@ -502,8 +503,8 @@ void GigInstrument::loadSample( GigSample& sample, SampleFrame* sampleData, f_cn
 	// Determine if we need to loop part of this sample
 	bool loop = false;
 	gig::loop_type_t loopType = gig::loop_type_normal;
-	f_cnt_t loopStart = 0;
-	f_cnt_t loopLength = 0;
+	gig::file_offset_t loopStart = 0;
+	gig::file_offset_t loopLength = 0;
 
 	if( sample.region->pSampleLoops != nullptr )
 	{
@@ -628,33 +629,34 @@ void GigInstrument::loadSample( GigSample& sample, SampleFrame* sampleData, f_cn
 
 
 // These two loop index functions taken from SampleBuffer.cpp
-f_cnt_t GigInstrument::getLoopedIndex( f_cnt_t index, f_cnt_t startf, f_cnt_t endf ) const
+gig::file_offset_t GigInstrument::getLoopedIndex(gig::file_offset_t index,
+	gig::file_offset_t startf, gig::file_offset_t endf) const
 {
-	if( index < endf )
+	if (index < endf)
 	{
 		return index;
 	}
 
-	return startf + ( index - startf )
-				% ( endf - startf );
+	return startf + (index - startf) % (endf - startf);
 }
 
 
 
 
-f_cnt_t GigInstrument::getPingPongIndex( f_cnt_t index, f_cnt_t startf, f_cnt_t endf ) const
+gig::file_offset_t GigInstrument::getPingPongIndex(gig::file_offset_t index,
+	gig::file_offset_t startf, gig::file_offset_t endf) const
 {
-	if( index < endf )
+	if (index < endf)
 	{
 		return index;
 	}
 
-	const f_cnt_t looplen = endf - startf;
-	const f_cnt_t looppos = ( index - endf ) % ( looplen * 2 );
+	const auto loopLen = endf - startf;
+	const auto loopPos = (index - endf) % (loopLen * 2);
 
-	return ( looppos < looplen )
-		? endf - looppos
-		: startf + ( looppos - looplen );
+	return (loopPos < loopLen)
+		? endf - loopPos
+		: startf + (loopPos - loopLen);
 }
 
 
