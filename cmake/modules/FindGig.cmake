@@ -19,10 +19,22 @@ message(STATUS "~~~~~ 1) Gig_VERSION=${Gig_VERSION}")
 if(TARGET libgig::libgig)
 	# Try to read the VERSION compile definition from the CMake target
 	if("${Gig_VERSION}" STREQUAL "")
+		message(STATUS "~~~~~~~~ 1a")
 		get_target_property(_defs libgig::libgig COMPILE_DEFINITIONS)
 		foreach(_def IN LISTS _defs)
+			message(STATUS "~~~~~~~~ _def=${_def}")
 			if(_def MATCHES "^VERSION=\"(.*)\"")
 				set(Gig_VERSION "${CMAKE_MATCH_1}")
+				message(STATUS "~~~~~~~~ 1a - found version: ${Gig_VERSION}")
+			endif()
+		endforeach()
+		message(STATUS "~~~~~~~~ 1b")
+		get_target_property(_defs2 libgig::libgig INTERFACE_COMPILE_DEFINITIONS)
+		foreach(_def2 IN LISTS _defs2)
+			message(STATUS "~~~~~~~~ _def2=${_def2}")
+			if(_def2 MATCHES "^VERSION=\"(.*)\"")
+				set(Gig_VERSION "${CMAKE_MATCH_1}")
+				message(STATUS "~~~~~~~~ 1b - found version: ${Gig_VERSION}")
 			endif()
 		endforeach()
 	endif()
@@ -68,6 +80,6 @@ endif()
 include(FindPackageHandleStandardArgs)
 
 find_package_handle_standard_args(Gig
-	REQUIRED_VARS Gig_LIBRARY Gig_INCLUDE_DIRS
+	REQUIRED_VARS Gig_LIBRARY Gig_INCLUDE_DIRS Gig_VERSION
 	VERSION_VAR Gig_VERSION
 )
