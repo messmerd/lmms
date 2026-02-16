@@ -47,6 +47,11 @@ if(TARGET libgig::libgig)
 			GIG_VERSION_BUILD=${CMAKE_MATCH_3}
 		)
 	endif()
+
+	# Disable deprecated check for MinGW - TODO: Remove later
+	if(MINGW)
+		target_compile_options(libgig::libgig INTERFACE -Wno-deprecated)
+	endif()
 endif()
 
 include(FindPackageHandleStandardArgs)
