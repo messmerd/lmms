@@ -3,9 +3,6 @@ if(LMMS_HAVE_GIG)
 	include_directories(SYSTEM ${GIG_INCLUDE_DIRS})
 	SET(CMAKE_AUTOUIC ON)
 
-	# Required for not crashing loading files with libgig
-	add_compile_options("-fexceptions")
-
 	build_plugin(gigplayer
 		GigPlayer.cpp GigPlayer.h PatchesDialog.cpp PatchesDialog.h PatchesDialog.ui
 		MOCFILES GigPlayer.h PatchesDialog.h

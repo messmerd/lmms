@@ -7,12 +7,14 @@
 
 include(ImportedTargetHelpers)
 
-find_package_config_mode_with_fallback(gig libgig::libgig
+find_package_config_mode_with_fallback(libgig libgig::libgig
 	LIBRARY_NAMES "gig"
 	INCLUDE_NAMES "libgig/gig.h"
 	PKG_CONFIG gig
 	PREFIX Gig
 )
+
+message(STATUS "~~~~~ 1) Gig_VERSION=${Gig_VERSION}")
 
 if(TARGET libgig::libgig)
 	# Try to read the VERSION compile definition from the CMake target
@@ -25,6 +27,8 @@ if(TARGET libgig::libgig)
 		endforeach()
 	endif()
 
+	message(STATUS "~~~~~ 2) Gig_VERSION=${Gig_VERSION}")
+
 	# Fall back on retrieving the version by compiling the source
 	determine_version_from_source(Gig_VERSION libgig::libgig [[
 		#include <iostream>
@@ -36,6 +40,8 @@ if(TARGET libgig::libgig)
 			std::cout << version;
 		}
 	]])
+
+	message(STATUS "~~~~~ 3) Gig_VERSION=${Gig_VERSION}")
 
 	# Set GIG_VERSION_* compile definitions
 	if(NOT "${Gig_VERSION}" STREQUAL "")
@@ -51,6 +57,11 @@ if(TARGET libgig::libgig)
 	# Disable deprecated check for MinGW - TODO: Remove later
 	if(MINGW)
 		target_compile_options(libgig::libgig INTERFACE -Wno-deprecated)
+	endif()
+
+	# Required for not crashing loading files with libgig
+	if(NOT MSVC)
+		target_compile_options(libgig::libgig INTERFACE -fexceptions)
 	endif()
 endif()
 
