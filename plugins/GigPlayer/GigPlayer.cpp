@@ -30,6 +30,7 @@
 
 #include "GigPlayer.h"
 
+#include <cstddef>
 #include <cstring>
 #include <QDebug>
 #include <QLayout>
@@ -518,8 +519,8 @@ void GigInstrument::loadSample( GigSample& sample, SampleFrame* sampleData, f_cn
 		}
 	}
 
-	unsigned long allocationsize = samples * sample.sample->FrameSize;
-	int8_t buffer[allocationsize];
+	const unsigned long allocationSize = samples * sample.sample->FrameSize;
+	assert(allocationSize <= sample.m_loadBuffer.size());
 
 	// Load the sample in different ways depending on if we're looping or not
 	if( loop == true && ( sample.pos >= loopStart || sample.pos + samples > loopStart ) )
@@ -548,8 +549,8 @@ void GigInstrument::loadSample( GigSample& sample, SampleFrame* sampleData, f_cn
 		do
 		{
 			samplestoloopend = loopEnd - sample.sample->GetPos();
-			readsamples = sample.sample->Read( &buffer[totalreadsamples * sample.sample->FrameSize],
-					std::min( samplestoread, samplestoloopend ) );
+			readsamples = sample.sample->Read(&sample.m_loadBuffer[totalreadsamples * sample.sample->FrameSize],
+				std::min(samplestoread, samplestoloopend));
 			samplestoread -= readsamples;
 			totalreadsamples += readsamples;
 
@@ -564,14 +565,14 @@ void GigInstrument::loadSample( GigSample& sample, SampleFrame* sampleData, f_cn
 	{
 		sample.sample->SetPos( sample.pos );
 
-		unsigned long size = sample.sample->Read( &buffer, samples ) * sample.sample->FrameSize;
-		std::memset( (int8_t*) &buffer + size, 0, allocationsize - size );
+		unsigned long size = sample.sample->Read(sample.m_loadBuffer.data(), samples) * sample.sample->FrameSize;
+		std::memset(sample.m_loadBuffer.data() + size, 0, allocationSize - size);
 	}
 
 	// Convert from 16 or 24 bit into 32-bit float
 	if( sample.sample->BitDepth == 24 ) // 24 bit
 	{
-		auto pInt = reinterpret_cast<uint8_t*>(&buffer);
+		auto pInt = reinterpret_cast<std::uint8_t*>(sample.m_loadBuffer.data());
 
 		for( f_cnt_t i = 0; i < samples; ++i )
 		{
@@ -603,7 +604,7 @@ void GigInstrument::loadSample( GigSample& sample, SampleFrame* sampleData, f_cn
 	}
 	else // 16 bit
 	{
-		auto pInt = reinterpret_cast<int16_t*>(&buffer);
+		auto pInt = reinterpret_cast<std::int16_t*>(sample.m_loadBuffer.data());
 
 		for( f_cnt_t i = 0; i < samples; ++i )
 		{
@@ -1099,6 +1100,8 @@ GigSample::GigSample(gig::Sample* pSample, gig::DimensionRegion* pDimRegion, flo
 		// resampling the note so that a 1.5 second release ends up being 1.5
 		// seconds after resampling
 		adsr = ADSR( region, sample->SamplesPerSecond / freqFactor );
+
+		// TODO: Check that BitDepth is valid?
 	}
 }
 

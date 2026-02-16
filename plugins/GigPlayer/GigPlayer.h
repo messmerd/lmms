@@ -23,13 +23,13 @@
  *
  */
 
-
 #ifndef GIG_PLAYER_H
 #define GIG_PLAYER_H
 
 #include <QList>
 #include <QMutex>
 #include <QMutexLocker>
+#include <libgig/gig.h>
 #include <samplerate.h>
 
 #include "AudioEngine.h"
@@ -40,11 +40,8 @@
 #include "Knob.h"
 #include "LcdSpinBox.h"
 #include "SampleFrame.h"
-#include "gig.h"
-
 
 class QLabel;
-
 
 namespace lmms
 {
@@ -169,6 +166,9 @@ public:
 	// sample per octave and you want that sample pitch shifted for the rest of
 	// the notes in the octave, this will be true
 	bool pitchtrack;
+
+	// Used for loading the sample; supports up to 2 channels and 32-bit bit-rate
+	std::array<std::byte, DEFAULT_BUFFER_SIZE * sizeof(SampleFrame)> m_loadBuffer;
 
 	// Used to convert sample rates
 	AudioResampler m_resampler;
