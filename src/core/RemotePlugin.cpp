@@ -139,9 +139,6 @@ RemotePlugin::RemotePlugin(RemotePluginAudioPortsController& audioPorts)
 #endif
 	, m_failed{true}
 	, m_watcher{this}
-#if (QT_VERSION < QT_VERSION_CHECK(5,14,0))
-	, m_commMutex{QMutex::Recursive}
-#endif
 	, m_audioPorts{&audioPorts}
 {
 #ifndef SYNC_WITH_SHM_FIFO

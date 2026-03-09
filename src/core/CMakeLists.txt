@@ -1,7 +1,7 @@
 set(LMMS_SRCS
 	${LMMS_SRCS}
 
-	core/AudioBus.cpp
+	core/AudioBuffer.cpp
 	core/AudioBusHandle.cpp
 	core/AudioEngine.cpp
 	core/AudioEngineProfiler.cpp
@@ -26,7 +26,6 @@ set(LMMS_SRCS
 	core/Engine.cpp
 	core/EnvelopeAndLfoParameters.cpp
 	core/fft_helpers.cpp
-	core/FileSearch.cpp
 	core/Mixer.cpp
 	core/ImportFilter.cpp
 	core/InlineAutomation.cpp

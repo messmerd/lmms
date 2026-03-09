@@ -50,7 +50,7 @@ Plugin::Descriptor PLUGIN_EXPORT bitcrush_plugin_descriptor =
 	"Vesa Kivimäki <contact/dot/diizy/at/nbl/dot/fi>",
 	0x0100,
 	Plugin::Type::Effect,
-	new PluginPixmapLoader( "logo" ),
+	new PixmapLoader("lmms-plugin-logo"),
 	nullptr,
 	nullptr,
 };
@@ -98,7 +98,7 @@ inline float BitcrushEffect::depthCrush( float in )
 
 inline float BitcrushEffect::noise( float amt )
 {
-	return fastRand(-amt, +amt);
+	return fastRandInc(-amt, +amt);
 }
 
 ProcessStatus BitcrushEffect::processImpl(InterleavedBufferView<float, 2> inOut)

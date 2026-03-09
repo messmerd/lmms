@@ -31,7 +31,7 @@
 #include <QString>
 #include <QMutex>
 
-#include "AudioBus.h"
+#include "AudioBuffer.h"
 #include "PlayHandle.h"
 #include "SampleFrame.h"
 
@@ -61,8 +61,6 @@ public:
 		BoolModel* mutedModel = nullptr);
 	virtual ~AudioBusHandle();
 
-	std::span<SampleFrame> buffer() { return m_buffer; }
-
 	// indicate whether JACK & Co should provide output-buffer at ext. port
 	bool extOutputEnabled() const { return m_extOutputEnabled; }
 	void setExtOutputEnabled(bool enabled);
@@ -88,10 +86,7 @@ public:
 private:
 	volatile bool m_bufferUsage;
 
-	std::vector<SampleFrame> m_buffer;
-
-	SampleFrame* m_trackChannels = nullptr; // TODO: Move to AudioBus?
-	AudioBus m_bus;
+	AudioBuffer m_buffer;
 
 	bool m_extOutputEnabled;
 	mix_ch_t m_nextMixerChannel;

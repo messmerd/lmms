@@ -66,13 +66,10 @@ Plugin::Descriptor PLUGIN_EXPORT ladspaeffect_plugin_descriptor =
 
 }
 
-
-LadspaEffect::LadspaEffect( Model * _parent,
-			const Descriptor::SubPluginFeatures::Key * _key ) :
-	AudioPlugin(&ladspaeffect_plugin_descriptor, _parent, _key),
-	m_controls( nullptr ),
-	m_maxSampleRate( 0 ),
-	m_key( LadspaSubPluginFeatures::subPluginKeyToLadspaKey( _key ) )
+LadspaEffect::LadspaEffect(Model* _parent, const Descriptor::SubPluginFeatures::Key* _key)
+	: AudioPlugin(&ladspaeffect_plugin_descriptor, _parent, _key)
+	, m_controls(nullptr)
+	, m_key(LadspaSubPluginFeatures::subPluginKeyToLadspaKey(_key))
 {
 	Ladspa2LMMS * manager = Engine::getLADSPAManager();
 	if( manager->getDescription( m_key ) == nullptr )
@@ -130,20 +127,7 @@ void LadspaEffect::changeSampleRate()
 
 ProcessStatus LadspaEffect::processImpl(InterleavedBufferView<float, 2> inOut)
 {
-	auto inOutSF = inOut.toSampleFrames();
-	const auto frames = inOutSF.size();
-	auto outFrames = frames;
-	SampleFrame* outBuf = nullptr;
-	QVarLengthArray<SampleFrame> sBuf(frames);
-
-	if( m_maxSampleRate < Engine::audioEngine()->outputSampleRate() )
-	{
-		outBuf = inOutSF.data();
-		inOutSF = std::span{sBuf.data(), static_cast<std::size_t>(sBuf.size())};
-		sampleDown(outBuf, inOutSF.data(), m_maxSampleRate);
-		outFrames = frames * m_maxSampleRate /
-				Engine::audioEngine()->outputSampleRate();
-	}
+	const auto frames = inOut.frames();
 
 	// Copy the LMMS audio buffer to the LADSPA input buffer and initialize
 	// the control ports.
@@ -156,7 +140,7 @@ ProcessStatus LadspaEffect::processImpl(InterleavedBufferView<float, 2> inOut)
 			switch( pp->rate )
 			{
 				case BufferRate::ChannelIn:
-					for (fpp_t frame = 0; frame < outFrames; ++frame)
+					for (fpp_t frame = 0; frame < frames; ++frame)
 					{
 						pp->buffer[frame] = inOut[frame][channel];
 					}
@@ -167,7 +151,7 @@ ProcessStatus LadspaEffect::processImpl(InterleavedBufferView<float, 2> inOut)
 					ValueBuffer * vb = pp->control->valueBuffer();
 					if( vb )
 					{
-						memcpy(pp->buffer, vb->values(), outFrames * sizeof(float));
+						memcpy(pp->buffer, vb->values(), frames * sizeof(float));
 					}
 					else
 					{
@@ -176,7 +160,7 @@ ProcessStatus LadspaEffect::processImpl(InterleavedBufferView<float, 2> inOut)
 						// This only supports control rate ports, so the audio rates are
 						// treated as though they were control rate by setting the
 						// port buffer to all the same value.
-						for (fpp_t frame = 0; frame < outFrames; ++frame)
+						for (fpp_t frame = 0; frame < frames; ++frame)
 						{
 							pp->buffer[frame] = pp->value;
 						}
@@ -207,7 +191,7 @@ ProcessStatus LadspaEffect::processImpl(InterleavedBufferView<float, 2> inOut)
 	// Process the buffers.
 	for( ch_cnt_t proc = 0; proc < processorCount(); ++proc )
 	{
-		(m_descriptor->run)(m_handles[proc], outFrames);
+		(m_descriptor->run)(m_handles[proc], frames);
 	}
 
 	// Copy the LADSPA output buffers to the LMMS buffer.
@@ -226,7 +210,7 @@ ProcessStatus LadspaEffect::processImpl(InterleavedBufferView<float, 2> inOut)
 				case BufferRate::ControlRateInput:
 					break;
 				case BufferRate::ChannelOut:
-					for (fpp_t frame = 0; frame < outFrames; ++frame)
+					for (fpp_t frame = 0; frame < frames; ++frame)
 					{
 						inOut[frame][channel] = d * inOut[frame][channel] + w * pp->buffer[frame];
 					}
@@ -239,11 +223,6 @@ ProcessStatus LadspaEffect::processImpl(InterleavedBufferView<float, 2> inOut)
 					break;
 			}
 		}
-	}
-
-	if (outBuf != nullptr)
-	{
-		sampleBack(inOutSF.data(), outBuf, m_maxSampleRate);
 	}
 
 	return ProcessStatus::ContinueIfNotQuiet;
@@ -282,8 +261,6 @@ void LadspaEffect::setControl( int _control, LADSPA_Data _value )
 
 void LadspaEffect::pluginInstantiation()
 {
-	m_maxSampleRate = maxSamplerate( displayName() );
-
 	Ladspa2LMMS * manager = Engine::getLADSPAManager();
 
 	// Calculate how many processing units are needed.
@@ -415,7 +392,7 @@ void LadspaEffect::pluginInstantiation()
 			if( manager->areHintsSampleRateDependent(
 								m_key, port ) )
 			{
-				p->max *= m_maxSampleRate;
+				p->max *= Engine::audioEngine()->outputSampleRate();
 			}
 
 			p->min = manager->getLowerBound( m_key, port );
@@ -427,7 +404,7 @@ void LadspaEffect::pluginInstantiation()
 			if( manager->areHintsSampleRateDependent(
 								m_key, port ) )
 			{
-				p->min *= m_maxSampleRate;
+				p->min *= Engine::audioEngine()->outputSampleRate();
 			}
 
 			p->def = manager->getDefaultSetting( m_key, port );
@@ -444,7 +421,7 @@ void LadspaEffect::pluginInstantiation()
 			}
 			else if( manager->areHintsSampleRateDependent( m_key, port ) )
 			{
-				p->def *= m_maxSampleRate;
+				p->def *= Engine::audioEngine()->outputSampleRate();
 			}
 
 
@@ -489,8 +466,7 @@ void LadspaEffect::pluginInstantiation()
 	}
 	for( ch_cnt_t proc = 0; proc < processorCount(); proc++ )
 	{
-		LADSPA_Handle effect = manager->instantiate( m_key,
-							m_maxSampleRate );
+		LADSPA_Handle effect = manager->instantiate(m_key, Engine::audioEngine()->outputSampleRate());
 		if( effect == nullptr )
 		{
 			QMessageBox::warning( 0, "Effect",
@@ -562,32 +538,6 @@ void LadspaEffect::pluginDestruction()
 	m_handles.clear();
 	m_portControls.clear();
 }
-
-
-
-
-
-
-static QMap<QString, sample_rate_t> __buggy_plugins;
-
-sample_rate_t LadspaEffect::maxSamplerate( const QString & _name )
-{
-	if( __buggy_plugins.isEmpty() )
-	{
-		__buggy_plugins["C* AmpVTS"] = 88200;
-		__buggy_plugins["Chorus2"] = 44100;
-		__buggy_plugins["Notch Filter"] = 96000;
-		__buggy_plugins["TAP Reflector"] = 192000;
-	}
-	if( __buggy_plugins.contains( _name ) )
-	{
-		return( __buggy_plugins[_name] );
-	}
-	return( Engine::audioEngine()->outputSampleRate() );
-}
-
-
-
 
 extern "C"
 {

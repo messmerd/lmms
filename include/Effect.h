@@ -36,7 +36,7 @@
 namespace lmms
 {
 
-class AudioBus;
+class AudioBuffer;
 class AudioPortsModel;
 class EffectChain;
 class EffectControls;
@@ -56,10 +56,9 @@ public:
 	Effect( const Plugin::Descriptor * _desc,
 			Model * _parent,
 			const Descriptor::SubPluginFeatures::Key * _key );
-	~Effect() override;
 
 	//! Returns true if audio was processed and should continue being processed
-	bool processCore(AudioBus& inOut)
+	bool processCore(AudioBuffer& inOut)
 	{
 		return processCoreImpl(inOut);
 	}
@@ -119,8 +118,7 @@ public:
 		m_noRun = _state;
 	}
 
-	//! "Running" means the effect will be processing audio
-	bool isRunning() const
+	bool isProcessingAudio() const
 	{
 		return isEnabled() && isAwake() && isOkay() && !dontRun();
 	}
@@ -154,44 +152,21 @@ public:
 
 
 protected:
-	virtual bool processCoreImpl(AudioBus& inOut) = 0;
+	virtual bool processCoreImpl(AudioBuffer& inOut) = 0;
 
 	gui::PluginView* instantiateView( QWidget * ) override;
 
-	void startRunning()
-	{
-		m_quietBufferCount = 0;
-		m_awake = true;
-	}
-
-	void stopRunning()
+	void goToSleep()
 	{
 		m_quietBufferCount = 0;
 		m_awake = false;
 	}
 
-	// some effects might not be capable of higher sample-rates so they can
-	// sample it down before processing and back after processing
-	inline void sampleDown( const SampleFrame* _src_buf,
-							SampleFrame* _dst_buf,
-							sample_rate_t _dst_sr )
+	void wakeUp()
 	{
-		resample( 0, _src_buf,
-				Engine::audioEngine()->outputSampleRate(),
-					_dst_buf, _dst_sr,
-					Engine::audioEngine()->framesPerPeriod() );
+		m_quietBufferCount = 0;
+		m_awake = true;
 	}
-
-	inline void sampleBack( const SampleFrame* _src_buf,
-							SampleFrame* _dst_buf,
-							sample_rate_t _src_sr )
-	{
-		resample( 1, _src_buf, _src_sr, _dst_buf,
-				Engine::audioEngine()->outputSampleRate(),
-			Engine::audioEngine()->framesPerPeriod() * _src_sr /
-				Engine::audioEngine()->outputSampleRate() );
-	}
-	void reinitSRC();
 
 	virtual void onEnabledChanged() {}
 
@@ -204,10 +179,6 @@ protected:
 
 private:
 	EffectChain * m_parent;
-	void resample( int _i, const SampleFrame* _src_buf,
-					sample_rate_t _src_sr,
-					SampleFrame* _dst_buf, sample_rate_t _dst_sr,
-					const f_cnt_t _frames );
 
 	bool m_okay;
 	bool m_noRun;
@@ -221,10 +192,6 @@ private:
 	TempoSyncKnobModel m_autoQuitModel;
 
 	bool m_autoQuitEnabled = false;
-
-	SRC_DATA m_srcData[2];
-	SRC_STATE * m_srcState[2];
-
 
 	friend class gui::EffectView;
 	friend class EffectChain;

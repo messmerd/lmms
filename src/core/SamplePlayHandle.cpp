@@ -56,7 +56,7 @@ SamplePlayHandle::SamplePlayHandle(Sample* sample, bool ownAudioBusHandle) :
 
 
 SamplePlayHandle::SamplePlayHandle( const QString& sampleFile ) :
-	SamplePlayHandle(new Sample(sampleFile), true)
+	SamplePlayHandle(new Sample(SampleBuffer::fromFile(sampleFile)), true)
 {
 }
 
@@ -113,7 +113,7 @@ void SamplePlayHandle::play(std::span<SampleFrame> buffer)
 				m_volumeModel->value() / DefaultVolume } };*/
 		// SamplePlayHandle always plays the sample at its original pitch;
 		// it is used only for previews, SampleTracks and the metronome.
-		if (!m_sample->play(workingBuffer, &m_state, frames, DefaultBaseFreq))
+		if (!m_sample->play(workingBuffer, &m_state, frames))
 		{
 			zeroSampleFrames(workingBuffer, frames);
 		}

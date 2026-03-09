@@ -41,7 +41,7 @@ Plugin::Descriptor PLUGIN_EXPORT reverbsc_plugin_descriptor =
 	"Paul Batchelor",
 	0x0123,
 	Plugin::Type::Effect,
-	new PluginPixmapLoader( "logo" ),
+	new PixmapLoader("lmms-plugin-logo"),
 	nullptr,
 	nullptr,
 } ;
@@ -91,10 +91,10 @@ ProcessStatus ReverbSCEffect::processImpl(InterleavedBufferView<float, 2> inOut)
 		float* frame = inOut.framePtr(f);
 		auto s = std::array{frame[0], frame[1]};
 
-		const auto inGain = static_cast<SPFLOAT>(fastPow10f(
-			(inGainBuf ? inGainBuf->values()[f] : m_reverbSCControls.m_inputGainModel.value()) / 20.f));
-		const auto outGain = static_cast<SPFLOAT>(fastPow10f(
-			(outGainBuf ? outGainBuf->values()[f] : m_reverbSCControls.m_outputGainModel.value()) / 20.f));
+		const auto inGain = fastPow10f<SPFLOAT>(
+			(inGainBuf ? inGainBuf->values()[f] : m_reverbSCControls.m_inputGainModel.value()) / 20.f);
+		const auto outGain = fastPow10f<SPFLOAT>(
+			(outGainBuf ? outGainBuf->values()[f] : m_reverbSCControls.m_outputGainModel.value()) / 20.f);
 
 		s[0] *= inGain;
 		s[1] *= inGain;

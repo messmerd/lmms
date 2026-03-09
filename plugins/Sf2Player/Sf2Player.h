@@ -32,9 +32,12 @@
 #include <QMutex>
 #include <samplerate.h>
 
+#include "AudioEngine.h"
+#include "AudioResampler.h"
 #include "Instrument.h"
 #include "InstrumentView.h"
 #include "LcdSpinBox.h"
+#include "SampleFrame.h"
 
 class QLabel;
 
@@ -101,7 +104,9 @@ private:
 	void playImpl(std::span<SampleFrame> out) override;
 	void playNoteImpl(NotePlayHandle* nph, std::span<SampleFrame> out) override;
 
-	SRC_STATE * m_srcState;
+	AudioResampler m_resampler;
+	std::array<SampleFrame, DEFAULT_BUFFER_SIZE> m_buffer;
+	std::span<SampleFrame> m_bufferView;
 
 	fluid_settings_t* m_settings;
 	fluid_synth_t* m_synth;

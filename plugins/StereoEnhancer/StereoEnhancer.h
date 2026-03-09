@@ -48,15 +48,16 @@ public:
 
 	void clearMyBuffer();
 
-
 private:
 	ProcessStatus processImpl(InterleavedBufferView<float, 2> inOut) override;
+	void processBypassedImpl() override;
 
 	DspEffectLibrary::StereoEnhancer m_seFX;
 	
 	SampleFrame* m_delayBuffer;
 	int m_currFrame;
-	
+	bool m_delayBufferCleared = true;
+
 	StereoEnhancerControls m_bbControls;
 
 	friend class StereoEnhancerControls;

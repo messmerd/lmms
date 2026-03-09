@@ -23,12 +23,12 @@
  *
  */
 
+#include "EffectChain.h"
 
 #include <QDomElement>
 #include <cassert>
 
-#include "AudioBus.h"
-#include "EffectChain.h"
+#include "AudioBuffer.h"
 #include "Effect.h"
 #include "DummyEffect.h"
 #include "MixHelpers.h"
@@ -185,19 +185,19 @@ void EffectChain::moveUp( Effect * _effect )
 
 
 
-bool EffectChain::processAudioBuffer(AudioBus& bus)
+bool EffectChain::processAudioBuffer(AudioBuffer& buffer)
 {
 	if( m_enabledModel.value() == false )
 	{
 		return false;
 	}
 
-	bus.sanitizeAll();
+	buffer.sanitizeAll();
 
 	bool moreEffects = false;
 	for (Effect* effect : m_effects)
 	{
-		moreEffects |= effect->processCore(bus);
+		moreEffects |= effect->processCore(buffer);
 	}
 
 	return moreEffects;

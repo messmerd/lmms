@@ -49,7 +49,7 @@ Plugin::Descriptor PLUGIN_EXPORT flanger_plugin_descriptor =
 	"Dave French <contact/dot/dave/dot/french3/at/googlemail/dot/com>",
 	0x0100,
 	Plugin::Type::Effect,
-	new PluginPixmapLoader("logo"),
+	new PixmapLoader("lmms-plugin-logo"),
 	nullptr,
 	nullptr,
 } ;
@@ -106,8 +106,8 @@ ProcessStatus FlangerEffect::processImpl(InterleavedBufferView<float, 2> inOut)
 		float leftLfo;
 		float rightLfo;
 
-		frame[0] += fastRand(-1.f, +1.f) * noise;
-		frame[1] += fastRand(-1.f, +1.f) * noise;
+		frame[0] += fastRandInc(-1.f, 1.f) * noise;
+		frame[1] += fastRandInc(-1.f, 1.f) * noise;
 		dryS[0] = frame[0];
 		dryS[1] = frame[1];
 		m_lfo->tick(&leftLfo, &rightLfo);

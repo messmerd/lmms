@@ -153,7 +153,7 @@ void PatmanInstrument::playNoteImpl(NotePlayHandle* _n, std::span<SampleFrame> o
 						hdata->sample->frequency();
 
 	if (hdata->sample->play(out.data() + offset, hdata->state, frames,
-					play_freq, m_loopedModel.value() ? Sample::Loop::On : Sample::Loop::Off))
+			m_loopedModel.value() ? Sample::Loop::On : Sample::Loop::Off, DefaultBaseFreq / play_freq))
 	{
 		applyRelease(out.data(), _n);
 	}
@@ -406,7 +406,7 @@ void PatmanInstrument::selectSample( NotePlayHandle * _n )
 	auto hdata = new handle_data;
 	hdata->tuned = m_tunedModel.value();
 	hdata->sample = sample ? sample : std::make_shared<Sample>();
-	hdata->state = new Sample::PlaybackState(_n->hasDetuningInfo());
+	hdata->state = new Sample::PlaybackState(AudioResampler::Mode::Linear);
 
 	_n->m_pluginData = hdata;
 }
@@ -441,7 +441,7 @@ PatmanView::PatmanView( Instrument * _instrument, QWidget * _parent ) :
 
 	m_openFileButton = new PixmapButton( this, nullptr );
 	m_openFileButton->setObjectName( "openFileButton" );
-	m_openFileButton->setCursor( QCursor( Qt::PointingHandCursor ) );
+	m_openFileButton->setCursor(Qt::PointingHandCursor);
 	m_openFileButton->move( 227, 86 );
 	m_openFileButton->setActiveGraphic( PLUGIN_NAME::getIconPixmap(
 							"select_file_on" ) );
