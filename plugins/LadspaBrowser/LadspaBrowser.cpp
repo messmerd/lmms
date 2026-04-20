@@ -144,9 +144,14 @@ LadspaBrowserView::LadspaBrowserView( ToolPlugin * _tool ) :
 	layout()->setSizeConstraint(QLayout::SetFixedSize);
 
 	hide();
-	if( parentWidget() )
+	if (parentWidget())
 	{
 		parentWidget()->hide();
+
+		Qt::WindowFlags flags = parentWidget()->windowFlags();
+		flags |= Qt::MSWindowsFixedSizeDialogHint;
+		flags &= ~Qt::WindowMaximizeButtonHint;
+		parentWidget()->setWindowFlags(flags);
 	}
 }
 
