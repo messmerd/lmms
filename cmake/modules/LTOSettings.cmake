@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Dalton Messmer <messmer.dalton/at/gmail.com>
+# Copyright (c) 2026 Dalton Messmer <messmer.dalton/at/gmail.com>
 #
 # Redistribution and use is allowed according to the terms of the New BSD license.
 # For details see the accompanying COPYING-CMAKE-SCRIPTS file.
@@ -32,7 +32,6 @@ if(LTO_MODE STREQUAL "auto")
 		message(STATUS "Using 'thin' LTO for RelWithDebInfo build")
 		set(_lto_mode "thin")
 	else()
-		# Disable LTO for Debug builds
 		message(STATUS "Disabling LTO for Debug build")
 		set(STATUS_LTO "Disabled")
 		return()

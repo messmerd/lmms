@@ -746,6 +746,14 @@ include(CompileCache)
 # Link-time optimization
 include(LTOSettings)
 
+# Tell AppleClang to use libc++
+if(LMMS_BUILD_APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
+	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -stdlib=libc++")
+	set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -stdlib=libc++")
+endif()
+
 # make sub-directories
 ADD_SUBDIRECTORY(cmake)
 ADD_SUBDIRECTORY(src)

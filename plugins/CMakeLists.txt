@@ -5,10 +5,6 @@ SET(CMAKE_DEBUG_POSTFIX "")
 # Enable C++20
 SET(CMAKE_CXX_STANDARD 20)
 
-IF(LMMS_BUILD_APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-ENDIF()
-
 include_directories("${CMAKE_BINARY_DIR}/src")
 
 # See cmake/modules/PluginList.cmake
