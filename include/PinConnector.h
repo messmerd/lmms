@@ -69,7 +69,7 @@ protected:
 private:
 	class MatrixView;
 
-	auto trackChannelName(const AudioPortsModel& model, track_ch_t channel) const -> QString;
+	auto trackChannelName(const AudioPortsModel& model, ch_cnt_t channel) const -> QString;
 	auto getSpacerWidth() const -> int;
 	auto getMaximumWindowSize() const -> QSize;
 	void updateProperties();
@@ -116,8 +116,9 @@ public slots:
 	void updateProperties(const PinConnector* view);
 
 private:
-	auto getPin(const QPoint& mousePos) -> std::optional<std::pair<track_ch_t, proc_ch_t>>;
-	auto getColor(track_ch_t trackChannel, proc_ch_t processorChannel) -> QColor;
+	//! @returns (track channel, plugin channel) pair if mouse is within the matrix
+	auto getPin(const QPoint& mousePos) -> std::optional<std::pair<ch_cnt_t, ch_cnt_t>>;
+	auto getColor(ch_cnt_t trackChannel, ch_cnt_t processorChannel) -> QColor;
 
 	AudioPortsModel::Matrix* m_matrix = nullptr;
 

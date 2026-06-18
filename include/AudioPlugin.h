@@ -176,7 +176,7 @@ protected:
 		}
 
 		auto temp = inOut.data();
-		auto bus = AudioBus{&temp, 1, inOut.size()};
+		auto bus = AudioBus{&temp, 1, inOut.size()}; // TODO: Make AudioBuffer usable as a view?
 		auto router = m_audioPorts.getRouter();
 
 		router.process(bus, [this](auto... buffers) {
@@ -234,7 +234,7 @@ protected:
 			: nullptr;
 	}
 
-	auto processCoreImpl(AudioBus& inOut) -> bool final
+	auto processCoreImpl(AudioBuffer& inOut) -> bool final
 	{
 		if (!isAwake())
 		{

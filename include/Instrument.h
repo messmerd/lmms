@@ -47,6 +47,7 @@ class MidiEvent;
 class NotePlayHandle;
 class Track;
 
+// TODO: Use AudioProcessor
 
 class LMMS_EXPORT Instrument : public Plugin
 {

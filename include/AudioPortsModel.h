@@ -35,6 +35,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "AudioBuffer.h"
 #include "AutomatableModel.h"
 #include "LmmsTypes.h"
 #include "SerializingObject.h"
@@ -84,20 +85,20 @@ public:
 		}
 
 		auto pins() const -> const PinMap& { return m_pins; }
-		auto pins(track_ch_t trackChannel) -> const auto& { return m_pins[trackChannel]; }
+		auto pins(ch_cnt_t trackChannel) -> const auto& { return m_pins[trackChannel]; }
 
-		auto channelCount() const -> proc_ch_t { return m_channelCount; }
-		auto trackChannelCount() const -> track_ch_t { return m_pins.size(); }
+		auto channelCount() const -> ch_cnt_t { return m_channelCount; }
+		auto trackChannelCount() const -> ch_cnt_t { return m_pins.size(); }
 
-		auto channelName(proc_ch_t channel) const -> QString;
+		auto channelName(ch_cnt_t channel) const -> QString;
 
-		auto enabled(track_ch_t trackChannel, proc_ch_t processorChannel) const -> bool
+		auto enabled(ch_cnt_t trackChannel, ch_cnt_t processorChannel) const -> bool
 		{
 			return m_pins[trackChannel][processorChannel];
 		}
 
 		//! Sets a pin connector pin, updates the cache, then emits a dataChanged signal if needed
-		void setPin(track_ch_t trackChannel, proc_ch_t processorChannel, bool value);
+		void setPin(ch_cnt_t trackChannel, ch_cnt_t processorChannel, bool value);
 
 		/**
 		 * Sets a pin connector pin without updating the cache or emitting a dataChanged signal.
@@ -105,7 +106,7 @@ public:
 		 *
 		 * Remember to update the cache and emit the dataChanged signal afterwards!
 		 */
-		void setPinBatch(track_ch_t trackChannel, proc_ch_t processorChannel, bool value)
+		void setPinBatch(ch_cnt_t trackChannel, ch_cnt_t processorChannel, bool value)
 		{
 			m_pins[trackChannel][processorChannel] = value;
 		}
@@ -121,31 +122,31 @@ public:
 		 * For the input matrix, this means which track channels are routed to one or more processor input.
 		 * For the output matrix, this means which track channels have one or more processor outputs routed to them.
 		 */
-		auto usedTrackChannels() const -> const std::bitset<MaxTrackChannels>& { return m_usedTrackChannels; }
+		auto usedTrackChannels() const -> const AudioBuffer::ChannelFlags& { return m_usedTrackChannels; }
 
 		/**
 		 * @brief Fast lookup for which processor channels are used by the track channels.
 		 *
-		 * @returns a dynamic bitset whose index represents a processor channel and whose value at that index tells
+		 * @returns a bitset whose index represents a processor channel and whose value at that index tells
 		 *          whether the processor channel is connected to at least one track channel.
 		 *
 		 * For the input matrix, this means which processor inputs have one or more track channel routed to them.
 		 * For the output matrix, this means which processor outputs are routed to one or more track channel.
 		 */
-		auto usedChannels() const -> const std::vector<bool>& { return m_usedChannels; }
+		auto usedChannels() const -> const AudioBuffer::ChannelFlags& { return m_usedChannels; }
 
 		friend class AudioPortsModel;
 
 	private:
-		void setTrackChannelCount(track_ch_t count);
-		void setChannelCount(proc_ch_t count);
+		void setTrackChannelCount(ch_cnt_t count);
+		void setChannelCount(ch_cnt_t count);
 
 		void setDefaultConnections();
 
-		void updateUsedTrackChannels(track_ch_t channel);
+		void updateUsedTrackChannels(ch_cnt_t channel);
 		void updateUsedTrackChannels();
 
-		void updateUsedChannels(proc_ch_t channel);
+		void updateUsedChannels(ch_cnt_t channel);
 		void updateUsedChannels();
 
 		void updateAllUsedChannels();
@@ -154,16 +155,16 @@ public:
 		void loadSettings(const QDomElement& elem);
 
 		PinMap m_pins;
-		proc_ch_t m_channelCount = 0;
+		ch_cnt_t m_channelCount = 0;
 		const bool m_isOutput = false;
 		AudioPortsModel* m_parent = nullptr;
 
-		std::bitset<MaxTrackChannels> m_usedTrackChannels;
-		std::vector<bool> m_usedChannels;
+		AudioBuffer::ChannelFlags m_usedTrackChannels;
+		AudioBuffer::ChannelFlags m_usedChannels;
 	};
 
 	AudioPortsModel(bool isInstrument, Model* parent = nullptr);
-	AudioPortsModel(proc_ch_t channelCountIn, proc_ch_t channelCountOut, bool isInstrument, Model* parent = nullptr);
+	AudioPortsModel(ch_cnt_t channelCountIn, ch_cnt_t channelCountOut, bool isInstrument, Model* parent = nullptr);
 
 	/**
 	 * Getters
@@ -172,7 +173,7 @@ public:
 	auto in() const -> const Matrix& { return m_in; }
 	auto out() -> Matrix& { return m_out; }
 	auto out() const -> const Matrix& { return m_out; }
-	auto trackChannelCount() const -> track_ch_t { return m_totalTrackChannels; }
+	auto trackChannelCount() const -> ch_cnt_t { return m_totalTrackChannels; }
 
 	/**
 	 * The model is initialized once the number of in/out channels are known.
@@ -187,11 +188,11 @@ public:
 	/**
 	 * Setters
 	 */
-	void setAllChannelCounts(track_ch_t trackChannels, proc_ch_t inCount, proc_ch_t outCount);
-	void setTrackChannelCount(track_ch_t count);
-	void setChannelCounts(proc_ch_t inCount, proc_ch_t outCount);
-	void setChannelCountIn(proc_ch_t inCount);
-	void setChannelCountOut(proc_ch_t outCount);
+	void setAllChannelCounts(ch_cnt_t trackChannels, ch_cnt_t inCount, ch_cnt_t outCount);
+	void setTrackChannelCount(ch_cnt_t count);
+	void setChannelCounts(ch_cnt_t inCount, ch_cnt_t outCount);
+	void setChannelCountIn(ch_cnt_t inCount);
+	void setChannelCountOut(ch_cnt_t outCount);
 
 	/**
 	 * SerializingObject implementation
@@ -211,7 +212,7 @@ public:
 	 * This value is always <= to the total number of track channels (currently always 2).
 	 * TODO: Need to recalculate when pins are set/unset
 	 */
-	auto trackChannelsUpperBound() const -> track_ch_t { return m_trackChannelsUpperBound; }
+	auto trackChannelsUpperBound() const -> ch_cnt_t { return m_trackChannelsUpperBound; }
 
 	/**
 	 * Any processor with 2-channel interleaved buffers connected to the track channels in the default
@@ -225,7 +226,7 @@ public:
 	 * When std::nullopt, the optimization is disabled, otherwise the value equals the index of the track channel
 	 * pair currently routed to/from the processor.
 	 */
-	auto directRouting() const -> std::optional<track_ch_t> { return m_directRouting; }
+	auto directRouting() const -> std::optional<ch_cnt_t> { return m_directRouting; }
 
 #ifdef LMMS_TESTING
 	friend class ::AudioPortsTest;
@@ -242,17 +243,17 @@ protected:
 	 * The parameters will contain the new values, but `in().channelCount()` and `out().channelCount()`
 	 * will still return the old values until after this method is called.
 	 */
-	virtual void bufferPropertiesChanging(proc_ch_t inChannels, proc_ch_t outChannels, f_cnt_t frames) = 0;
+	virtual void bufferPropertiesChanging(ch_cnt_t inChannels, ch_cnt_t outChannels, f_cnt_t frames) = 0;
 
 	/**
 	 * Audio port implementations can override this to provide custom channel names,
 	 * otherwise the default channel names are used.
 	 */
-	virtual auto channelName(proc_ch_t channel, bool isOutput) const -> QString;
+	virtual auto channelName(ch_cnt_t channel, bool isOutput) const -> QString;
 
 private:
-	auto setTrackChannelCountImpl(track_ch_t count) -> bool;
-	auto setProcessorChannelCountsImpl(proc_ch_t inCount, proc_ch_t outCount, bool silent) -> bool;
+	auto setTrackChannelCountImpl(ch_cnt_t count) -> bool;
+	auto setProcessorChannelCountsImpl(ch_cnt_t inCount, ch_cnt_t outCount, bool silent) -> bool;
 
 	void updateDirectRouting();
 
@@ -260,7 +261,7 @@ private:
 	Matrix m_out{this, true}; //!< audio processor --> LMMS
 
 	// TODO: When full routing is added, get LMMS channel counts from bus or audio router class
-	track_ch_t m_totalTrackChannels = DEFAULT_CHANNELS;
+	ch_cnt_t m_totalTrackChannels = DEFAULT_CHANNELS;
 
 	/**
 	 * This needs to be known because the default connections (and view?) for instruments with sidechain
@@ -272,8 +273,8 @@ private:
 	 * The following are cached values primarily meant to improve `AudioPorts::Router` performance
 	 */
 
-	track_ch_t m_trackChannelsUpperBound = DEFAULT_CHANNELS;
-	std::optional<track_ch_t> m_directRouting;
+	ch_cnt_t m_trackChannelsUpperBound = DEFAULT_CHANNELS;
+	std::optional<ch_cnt_t> m_directRouting;
 };
 
 } // namespace lmms

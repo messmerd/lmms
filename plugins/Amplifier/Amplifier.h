@@ -26,13 +26,13 @@
 #ifndef LMMS_AMPLIFIER_H
 #define LMMS_AMPLIFIER_H
 
-#include "AudioPlugin.h"
 #include "AmplifierControls.h"
+#include "Effect.h"
 
 namespace lmms
 {
 
-class AmplifierEffect : public DefaultEffect
+class AmplifierEffect : public LegacyEffect
 {
 public:
 	AmplifierEffect(Model* parent, const Descriptor::SubPluginFeatures::Key* key);
@@ -45,6 +45,7 @@ public:
 
 private:
 	ProcessStatus processImpl(InterleavedBufferView<float, 2> inOut) override;
+	ProcessStatus process(ProcessContext& context) override;
 
 	AmplifierControls m_ampControls;
 

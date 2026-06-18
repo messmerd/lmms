@@ -203,7 +203,7 @@ public:
 			it = dynamic_cast<InstrumentTrack*>(Track::create(Track::Type::Instrument, tc));
 
 #ifdef LMMS_HAVE_FLUIDSYNTH
-			it_inst = it->loadInstrument("sf2player");
+			it_inst = dynamic_cast<Instrument*>(it->loadInstrument("sf2player").plugin());
 
 			if (it_inst)
 			{
@@ -212,9 +212,9 @@ public:
 				it_inst->childModel("bank")->setValue(0);
 				it_inst->childModel("patch")->setValue(0);
 			}
-			else { it_inst = it->loadInstrument("patman"); }
+			else { it_inst = dynamic_cast<Instrument*>(it->loadInstrument("patman").plugin()); }
 #else
-			it_inst = it->loadInstrument("patman");
+			it_inst = dynamic_cast<Instrument*>(it->loadInstrument("patman").plugin());
 #endif
 			trackName = tn;
 			if (trackName != "") { it->setName(tn); }

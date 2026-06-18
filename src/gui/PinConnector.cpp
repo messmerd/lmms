@@ -210,7 +210,7 @@ void PinConnector::paintEvent(QPaintEvent*)
 	{
 		const auto width = inMatrixRect.left() - 4;
 		int yPos = inMatrixRect.y() + MatrixView::BorderWidth - 2;
-		for (track_ch_t channel = 0; channel < model->trackChannelCount(); ++channel)
+		for (ch_cnt_t channel = 0; channel < model->trackChannelCount(); ++channel)
 		{
 			const auto name = trackChannelName(*model, channel);
 			p.drawText(0, yPos, width, cellSize, Qt::AlignRight,
@@ -226,7 +226,7 @@ void PinConnector::paintEvent(QPaintEvent*)
 		const int xPos = outMatrixRect.right() + 4;
 		int yPos = outMatrixRect.y() + MatrixView::BorderWidth - 2;
 		const int width = this->width() - outMatrixRect.right() - 4;
-		for (track_ch_t channel = 0; channel < model->trackChannelCount(); ++channel)
+		for (ch_cnt_t channel = 0; channel < model->trackChannelCount(); ++channel)
 		{
 			const auto name = trackChannelName(*model, channel);
 			p.drawText(xPos, yPos, width, cellSize, Qt::AlignLeft,
@@ -244,7 +244,7 @@ void PinConnector::paintEvent(QPaintEvent*)
 	int yPos = inMatrixRect.top() - 4;
 	int xPos = inMatrixRect.x() + MatrixView::BorderWidth - 2;
 	const auto inactiveTextColor = normalTextColor.darker(150);
-	for (proc_ch_t channel = 0; channel < model->in().channelCount(); ++channel)
+	for (ch_cnt_t channel = 0; channel < model->in().channelCount(); ++channel)
 	{
 		const bool channelUsed = model->in().usedChannels().at(channel);
 		p.setPen(channelUsed ?  normalTextColor : inactiveTextColor);
@@ -262,7 +262,7 @@ void PinConnector::paintEvent(QPaintEvent*)
 	// Draw processor channel text (out)
 	yPos = outMatrixRect.top() - 4;
 	xPos = outMatrixRect.x() + MatrixView::BorderWidth - 2;
-	for (proc_ch_t channel = 0; channel < model->out().channelCount(); ++channel)
+	for (ch_cnt_t channel = 0; channel < model->out().channelCount(); ++channel)
 	{
 		const bool channelUsed = model->out().usedChannels().at(channel);
 		p.setPen(channelUsed ?  normalTextColor : inactiveTextColor);
@@ -296,7 +296,7 @@ void PinConnector::paintEvent(QPaintEvent*)
 			<< (line.p2() + QPointF{-arrowheadSize, -arrowheadSize / 2}) // left point
 			<< (line.p2() + QPointF{-arrowheadSize, arrowheadSize / 2}); // right point
 
-		for (track_ch_t channel = 0; channel < model->trackChannelCount(); ++channel)
+		for (ch_cnt_t channel = 0; channel < model->trackChannelCount(); ++channel)
 		{
 			const bool passthrough = !model->out().usedTrackChannels()[channel];
 			if (passthrough)
@@ -312,7 +312,7 @@ void PinConnector::paintEvent(QPaintEvent*)
 	}
 }
 
-auto PinConnector::trackChannelName(const AudioPortsModel& model, track_ch_t channel) const -> QString
+auto PinConnector::trackChannelName(const AudioPortsModel& model, ch_cnt_t channel) const -> QString
 {
 	// TODO: Custom track channel names?
 	return QString{"%1"}.arg(channel + 1);
@@ -426,10 +426,10 @@ void PinConnector::MatrixView::paintEvent(QPaintEvent*)
 	// Draw pin connector pins
 	int drawX;
 	int drawY = BorderWidth + s_lineThickness;
-	for (track_ch_t tc = 0; tc < tcCount; ++tc)
+	for (ch_cnt_t tc = 0; tc < tcCount; ++tc)
 	{
 		drawX = BorderWidth + s_lineThickness;
-		for (proc_ch_t pc = 0; pc < pcCount; ++pc)
+		for (ch_cnt_t pc = 0; pc < pcCount; ++pc)
 		{
 			p.fillRect(drawX + s_pinInnerMargin, drawY + s_pinInnerMargin,
 				s_pinSize, s_pinSize, getColor(tc, pc));
@@ -497,7 +497,7 @@ void PinConnector::MatrixView::updateProperties(const PinConnector* view)
 	setToolTip(formatText.arg(processorName));
 }
 
-auto PinConnector::MatrixView::getPin(const QPoint& mousePos) -> std::optional<std::pair<track_ch_t, proc_ch_t>>
+auto PinConnector::MatrixView::getPin(const QPoint& mousePos) -> std::optional<std::pair<ch_cnt_t, ch_cnt_t>>
 {
 	if (!rect().adjusted(BorderWidth, BorderWidth, -BorderWidth, -BorderWidth)
 		.contains(mousePos, true)) { return std::nullopt; }
@@ -516,10 +516,10 @@ auto PinConnector::MatrixView::getPin(const QPoint& mousePos) -> std::optional<s
 
 	assert(xIdx >= 0);
 	assert(yIdx >= 0);
-	return std::pair{static_cast<track_ch_t>(yIdx), static_cast<proc_ch_t>(xIdx)};
+	return std::pair{static_cast<ch_cnt_t>(yIdx), static_cast<ch_cnt_t>(xIdx)};
 }
 
-auto PinConnector::MatrixView::getColor(track_ch_t trackChannel, proc_ch_t processorChannel) -> QColor
+auto PinConnector::MatrixView::getColor(ch_cnt_t trackChannel, ch_cnt_t processorChannel) -> QColor
 {
 	return m_matrix->enabled(trackChannel, processorChannel)
 		? m_enabledColor

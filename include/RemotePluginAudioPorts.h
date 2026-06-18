@@ -146,7 +146,7 @@ protected:
 		return m_frames;
 	}
 
-	void updateBuffers(proc_ch_t channelsIn, proc_ch_t channelsOut, f_cnt_t frames) override
+	void updateBuffers(ch_cnt_t channelsIn, ch_cnt_t channelsOut, f_cnt_t frames) override
 	{
 		// Update the shared memory audio buffer in RemotePlugin
 		if (!m_buffers) { return; }
@@ -172,7 +172,7 @@ protected:
 			assert(channelsOut == settings.outputs);
 		}
 
-		for (proc_ch_t channel = 0; channel < channels; ++channel)
+		for (ch_cnt_t channel = 0; channel < channels; ++channel)
 		{
 			m_accessBuffer[channel] = ptr;
 			ptr += frames;
@@ -273,7 +273,7 @@ protected:
 			: m_localBuffer.frames();
 	}
 
-	void updateBuffers(proc_ch_t channelsIn, proc_ch_t channelsOut, f_cnt_t frames) override
+	void updateBuffers(ch_cnt_t channelsIn, ch_cnt_t channelsOut, f_cnt_t frames) override
 	{
 		if (isRemote())
 		{

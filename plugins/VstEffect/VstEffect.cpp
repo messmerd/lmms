@@ -103,8 +103,8 @@ auto VstEffect::processImpl(PlanarBufferView<const float> in, PlanarBufferView<f
 	const float w = wetLevel();
 	const float d = dryLevel();
 
-	const auto mixableOutputs = std::min<proc_ch_t>(out.channels(), 2);
-	for (proc_ch_t channel = 0; channel < mixableOutputs; ++channel)
+	const auto mixableOutputs = std::min<ch_cnt_t>(out.channels(), 2);
+	for (ch_cnt_t channel = 0; channel < mixableOutputs; ++channel)
 	{
 		auto wetBuffer = out.buffer(channel);
 		auto dryBuffer = in.buffer(std::min(channel, in.channels()));

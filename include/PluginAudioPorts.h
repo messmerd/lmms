@@ -80,7 +80,7 @@ public:
 		return m_frames;
 	}
 
-	void updateBuffers(proc_ch_t channelsIn, proc_ch_t channelsOut, f_cnt_t frames) final
+	void updateBuffers(ch_cnt_t channelsIn, ch_cnt_t channelsOut, f_cnt_t frames) final
 	{
 		assert(frames != 0);
 		if (channelsIn == DynamicChannelCount || channelsOut == DynamicChannelCount) { return; }
@@ -120,8 +120,8 @@ private:
 	//! Provides [channel][frame] view into `m_sourceBuffer`
 	AccessBufferType<settings> m_accessBuffer;
 
-	proc_ch_t m_channelsIn = settings.inputs;
-	proc_ch_t m_channelsOut = settings.outputs;
+	ch_cnt_t m_channelsIn = settings.inputs;
+	ch_cnt_t m_channelsOut = settings.outputs;
 	f_cnt_t m_frames = 0;
 };
 
@@ -156,7 +156,7 @@ public:
 		return m_frames;
 	}
 
-	void updateBuffers(proc_ch_t channelsIn, proc_ch_t channelsOut, f_cnt_t frames) final
+	void updateBuffers(ch_cnt_t channelsIn, ch_cnt_t channelsOut, f_cnt_t frames) final
 	{
 		assert(channelsIn == channelsOut || channelsIn == 0 || channelsOut == 0);
 		if (channelsIn == DynamicChannelCount || channelsOut == DynamicChannelCount) { return; }
@@ -176,7 +176,7 @@ public:
 		}
 
 		SampleT* ptr = m_sourceBuffer.data();
-		for (proc_ch_t channel = 0; channel < channels; ++channel)
+		for (ch_cnt_t channel = 0; channel < channels; ++channel)
 		{
 			m_accessBuffer[channel] = ptr;
 			ptr += frames;
@@ -195,7 +195,7 @@ private:
 	//! Provides [channel][frame] view into `m_sourceBuffer`
 	AccessBufferType<settings> m_accessBuffer;
 
-	proc_ch_t m_channels = settings.outputs;
+	ch_cnt_t m_channels = settings.outputs;
 	f_cnt_t m_frames = 0;
 };
 
@@ -234,7 +234,7 @@ public:
 		return m_frames;
 	}
 
-	void updateBuffers(proc_ch_t channelsIn, proc_ch_t channelsOut, f_cnt_t frames) final
+	void updateBuffers(ch_cnt_t channelsIn, ch_cnt_t channelsOut, f_cnt_t frames) final
 	{
 		assert(channelsIn == channelsOut || channelsIn == 0 || channelsOut == 0);
 		if (channelsIn == DynamicChannelCount || channelsOut == DynamicChannelCount) { return; }
@@ -248,7 +248,7 @@ public:
 
 private:
 	std::vector<SampleT> m_buffer;
-	proc_ch_t m_channels = settings.outputs;
+	ch_cnt_t m_channels = settings.outputs;
 	f_cnt_t m_frames = 0;
 };
 
@@ -276,7 +276,7 @@ public:
 
 	auto buffers() -> Buffer* override { return static_cast<Buffer*>(this); }
 
-	auto channelName(proc_ch_t channel, bool isOutput) const -> QString override
+	auto channelName(ch_cnt_t channel, bool isOutput) const -> QString override
 	{
 		if (isOutput)
 		{
@@ -307,7 +307,7 @@ public:
 	}
 
 private:
-	void bufferPropertiesChanging(proc_ch_t inChannels, proc_ch_t outChannels, f_cnt_t frames) final
+	void bufferPropertiesChanging(ch_cnt_t inChannels, ch_cnt_t outChannels, f_cnt_t frames) final
 	{
 		// Connects `AudioPortsModel` to the buffers
 		this->updateBuffers(inChannels, outChannels, frames);

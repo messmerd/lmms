@@ -114,7 +114,7 @@ void AudioBusHandle::doProcessing()
 		return;
 	}
 
-	const fpp_t fpp = m_buffer.size();
+	const fpp_t fpp = m_buffer.frames();
 
 	// clear the buffer
 	m_buffer.silenceAllChannels();

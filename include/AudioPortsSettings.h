@@ -119,10 +119,10 @@ struct AudioPortsSettings
 	 */
 
 	//! The number of input channels, or `DynamicChannelCount` if unknown at compile time
-	proc_ch_t inputs = DynamicChannelCount;
+	ch_cnt_t inputs = DynamicChannelCount;
 
 	//! The number of output channels, or `DynamicChannelCount` if unknown at compile time
-	proc_ch_t outputs = DynamicChannelCount;
+	ch_cnt_t outputs = DynamicChannelCount;
 
 	/**
 	 * In-place processing

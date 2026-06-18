@@ -37,19 +37,19 @@ namespace lmms {
 
 namespace {
 
-template<typename SampleT, proc_ch_t extent>
+template<typename SampleT, ch_cnt_t extent>
 void zeroBuffer(PlanarBufferView<SampleT, extent> buffer)
 {
-	for (proc_ch_t idx = 0; idx < buffer.channels(); ++idx)
+	for (ch_cnt_t idx = 0; idx < buffer.channels(); ++idx)
 	{
 		auto ptr = buffer.bufferPtr(idx);
 		std::fill_n(ptr, buffer.frames(), 0);
 	}
 }
 
-void zeroBuffer(AudioBus& bus)
+void zeroBuffer(AudioBuffer& bus)
 {
-	for (track_ch_t channelPair = 0; channelPair < bus.channelPairs(); ++channelPair)
+	for (ch_cnt_t channelPair = 0; channelPair < bus.channelPairs(); ++channelPair)
 	{
 		auto buffer = bus.trackChannelPair(channelPair);
 		std::ranges::fill(buffer.dataView(), 0.f);
@@ -57,11 +57,11 @@ void zeroBuffer(AudioBus& bus)
 }
 
 template<class F>
-void transformBuffer(const AudioBus& in, AudioBus& out, const F& func)
+void transformBuffer(const AudioBuffer& in, AudioBuffer& out, const F& func)
 {
 	assert(in.channelPairs() == out.channelPairs());
 	assert(in.frames() == out.frames());
-	for (track_ch_t channelPair = 0; channelPair < in.channelPairs(); ++channelPair)
+	for (ch_cnt_t channelPair = 0; channelPair < in.channelPairs(); ++channelPair)
 	{
 		for (f_cnt_t sampleIdx = 0; sampleIdx < in.frames() * 2; sampleIdx += 2)
 		{
@@ -80,12 +80,12 @@ void transformBuffer(InterleavedBufferView<float, 2> inOut, const F& func)
 	}
 }
 
-template<typename SampleT, proc_ch_t extent, class F>
+template<typename SampleT, ch_cnt_t extent, class F>
 void transformBuffer(PlanarBufferView<SampleT, extent> in, PlanarBufferView<SampleT, extent> out, const F& func)
 {
 	assert(in.channels() == out.channels());
 	assert(in.frames() == out.frames());
-	for (proc_ch_t idx = 0; idx < in.channels(); ++idx)
+	for (ch_cnt_t idx = 0; idx < in.channels(); ++idx)
 	{
 		auto inPtr = in.bufferPtr(idx);
 		auto outPtr = out.bufferPtr(idx);
@@ -93,11 +93,11 @@ void transformBuffer(PlanarBufferView<SampleT, extent> in, PlanarBufferView<Samp
 	}
 }
 
-void compareBuffers(const AudioBus& actual, const AudioBus& expected)
+void compareBuffers(const AudioBuffer& actual, const AudioBuffer& expected)
 {
 	QCOMPARE(actual.channelPairs(), expected.channelPairs());
 	QCOMPARE(actual.frames(), expected.frames());
-	for (track_ch_t channelPair = 0; channelPair < actual.channelPairs(); ++channelPair)
+	for (ch_cnt_t channelPair = 0; channelPair < actual.channelPairs(); ++channelPair)
 	{
 		for (f_cnt_t sampleIdx = 0; sampleIdx < actual.frames() * 2; sampleIdx += 2)
 		{
@@ -107,12 +107,12 @@ void compareBuffers(const AudioBus& actual, const AudioBus& expected)
 	}
 }
 
-template<typename SampleT, proc_ch_t extent>
+template<typename SampleT, ch_cnt_t extent>
 void compareBuffers(PlanarBufferView<SampleT, extent> actual, PlanarBufferView<SampleT, extent> expected)
 {
 	QCOMPARE(actual.channels(), expected.channels());
 	QCOMPARE(actual.frames(), expected.frames());
-	for (proc_ch_t idx = 0; idx < actual.channels(); ++idx)
+	for (ch_cnt_t idx = 0; idx < actual.channels(); ++idx)
 	{
 		auto actualPtr = actual.bufferPtr(idx);
 		auto expectedPtr = expected.bufferPtr(idx);
@@ -131,12 +131,12 @@ public:
 	// TODO: Test the bufferPropertiesChanging method
 	auto popBufferPropertiesChangingCount() -> int { return std::exchange(m_bufferChangeCount, 0); }
 
-	auto inputs() const -> proc_ch_t { return m_inputs; }
-	auto outputs() const -> proc_ch_t { return m_outputs; }
+	auto inputs() const -> ch_cnt_t { return m_inputs; }
+	auto outputs() const -> ch_cnt_t { return m_outputs; }
 	auto frames() const -> f_cnt_t { return m_frames; }
 
 private:
-	void bufferPropertiesChanging(proc_ch_t inChannels, proc_ch_t outChannels, f_cnt_t frames) override
+	void bufferPropertiesChanging(ch_cnt_t inChannels, ch_cnt_t outChannels, f_cnt_t frames) override
 	{
 		++m_bufferChangeCount;
 		m_inputs = inChannels;
@@ -145,8 +145,8 @@ private:
 	}
 
 	int m_bufferChangeCount = 0;
-	proc_ch_t m_inputs = 0;
-	proc_ch_t m_outputs = 0;
+	ch_cnt_t m_inputs = 0;
+	ch_cnt_t m_outputs = 0;
 	f_cnt_t m_frames = 0;
 };
 
@@ -1195,12 +1195,12 @@ private slots:
 		/*
 		// For debugging
 		auto print = [](const AudioPortsModel& m) {
-			for (track_ch_t tc = 0; tc < m.trackChannelCount(); ++tc) {
-				for (proc_ch_t pc = 0; pc < m.in().channelCount(); ++pc) {
+			for (ch_cnt_t tc = 0; tc < m.trackChannelCount(); ++tc) {
+				for (ch_cnt_t pc = 0; pc < m.in().channelCount(); ++pc) {
 					std::cout << (m.in().enabled(tc, pc) ? 'X' : 'O');
 				}
 				std::cout << "    ";
-				for (proc_ch_t pc = 0; pc < m.out().channelCount(); ++pc) {
+				for (ch_cnt_t pc = 0; pc < m.out().channelCount(); ++pc) {
 					std::cout << (m.out().enabled(tc, pc) ? 'X' : 'O');
 				}
 				std::cout << '\n';

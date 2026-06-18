@@ -108,7 +108,7 @@ public:
 		return &m_controls;
 	}
 
-	bool processCoreImpl(AudioBus&) override
+	bool processCoreImpl(AudioBuffer&) override
 	{
 		return false;
 	}

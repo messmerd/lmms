@@ -66,7 +66,7 @@ class VestigeAudioPorts final
 public:
 	using RemotePluginAudioPorts<VestigeSettings>::RemotePluginAudioPorts;
 
-	auto channelName(proc_ch_t channel, bool isOutput) const -> QString override
+	auto channelName(ch_cnt_t channel, bool isOutput) const -> QString override
 	{
 		// TODO: Support custom channel names here
 		return isOutput

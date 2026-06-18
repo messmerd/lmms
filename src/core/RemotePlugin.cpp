@@ -388,7 +388,7 @@ bool RemotePlugin::process()
 
 
 
-auto RemotePlugin::updateAudioBuffer(proc_ch_t channelsIn, proc_ch_t channelsOut, fpp_t frames) -> float*
+auto RemotePlugin::updateAudioBuffer(ch_cnt_t channelsIn, ch_cnt_t channelsOut, fpp_t frames) -> float*
 {
 	if (channelsIn == 0 && channelsOut == 0)
 	{
@@ -509,7 +509,7 @@ bool RemotePlugin::processMessage( const message & _m )
 
 		case IdChangeInputOutputCount:
 			m_audioPorts->audioPortsModel().setChannelCounts(
-				static_cast<proc_ch_t>(_m.getInt(0)), static_cast<proc_ch_t>(_m.getInt(1)));
+				static_cast<ch_cnt_t>(_m.getInt(0)), static_cast<ch_cnt_t>(_m.getInt(1)));
 			break;
 
 		case IdDebugMessage:

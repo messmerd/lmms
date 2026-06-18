@@ -66,7 +66,6 @@ InstrumentTrack::InstrumentTrack(TrackContainer* tc) :
 	m_pitchRangeModel(1, 1, 60, this, tr("Pitch range")),
 	m_mixerChannelModel(0, 0, 0, this, tr("Mixer channel")),
 	m_useMasterPitchModel(true, this, tr("Master pitch")),
-	m_instrument(nullptr),
 	m_soundShaping(this),
 	m_arpeggio(this),
 	m_noteStacking(this),
@@ -216,7 +215,7 @@ InstrumentTrack::~InstrumentTrack()
 	silenceAllNotes( true );
 
 	// now we're save deleting the instrument
-	if( m_instrument ) delete m_instrument;
+	if( m_instrument ) delete m_instrument.plugin(); // TODO
 }
 
 
@@ -231,11 +230,13 @@ void InstrumentTrack::processAudioBuffer( SampleFrame* buf, const fpp_t frames, 
 		return;
 	}
 
+	Instrument& instrument = m_instrument.instrument();
+
 	// Test for silent input data if instrument provides a single stream only (i.e. driven by InstrumentPlayHandle)
 	// We could do that in all other cases as well but the overhead for silence test is bigger than
 	// what we potentially save. While playing a note, a NotePlayHandle-driven instrument will produce sound in
 	// 99 of 100 cases so that test would be a waste of time.
-	if (m_instrument->isSingleStreamed() && MixHelpers::isSilent(buf, frames))
+	if (instrument.isSingleStreamed() && MixHelpers::isSilent(buf, frames))
 	{
 		// at least pass one silent buffer to allow
 		if( m_silentBuffersProcessed )
@@ -260,7 +261,7 @@ void InstrumentTrack::processAudioBuffer( SampleFrame* buf, const fpp_t frames, 
 	// instruments using instrument-play-handles will call this method
 	// without any knowledge about notes, so they pass NULL for n, which
 	// is no problem for us since we just bypass the envelopes+LFOs
-	if (!m_instrument->isSingleStreamed() && n != nullptr)
+	if (!instrument.isSingleStreamed() && n != nullptr)
 	{
 		const f_cnt_t offset = n->noteOffset();
 		m_soundShaping.processAudioBuffer( buf + offset, frames - offset, n );
@@ -468,10 +469,8 @@ void InstrumentTrack::processInEvent( const MidiEvent& event, const TimePos& tim
 void InstrumentTrack::processOutEvent( const MidiEvent& event, const TimePos& time, f_cnt_t offset )
 {
 	// do nothing if we do not have an instrument instance (e.g. when loading settings)
-	if( m_instrument == nullptr )
-	{
-		return;
-	}
+	if (!m_instrument) { return; }
+	Instrument& instrument = m_instrument.instrument();
 
 	const MidiEvent transposedEvent = applyMasterKey( event );
 	const int key = transposedEvent.key();
@@ -492,10 +491,10 @@ void InstrumentTrack::processOutEvent( const MidiEvent& event, const TimePos& ti
 			{
 				if( m_runningMidiNotes[key] > 0 )
 				{
-					m_instrument->handleMidiEvent( MidiEvent( MidiNoteOff, handleEventOutputChannel, key, 0 ), time, offset );
+					instrument.handleMidiEvent(MidiEvent(MidiNoteOff, handleEventOutputChannel, key, 0), time, offset);
 				}
 				++m_runningMidiNotes[key];
-				m_instrument->handleMidiEvent( MidiEvent( MidiNoteOn, handleEventOutputChannel, key, event.velocity() ), time, offset );
+				instrument.handleMidiEvent(MidiEvent(MidiNoteOn, handleEventOutputChannel, key, event.velocity()), time, offset);
 
 			}
 			m_midiNotesMutex.unlock();
@@ -508,14 +507,14 @@ void InstrumentTrack::processOutEvent( const MidiEvent& event, const TimePos& ti
 
 			if( key >= 0 && key < NumKeys && --m_runningMidiNotes[key] <= 0 )
 			{
-				m_instrument->handleMidiEvent( MidiEvent( MidiNoteOff, handleEventOutputChannel, key, 0 ), time, offset );
+				instrument.handleMidiEvent(MidiEvent(MidiNoteOff, handleEventOutputChannel, key, 0), time, offset);
 			}
 			m_midiNotesMutex.unlock();
 			emit endNote();
 			break;
 
 		default:
-			m_instrument->handleMidiEvent( transposedEvent, time, offset );
+			instrument.handleMidiEvent(transposedEvent, time, offset);
 			break;
 	}
 
@@ -556,7 +555,7 @@ f_cnt_t InstrumentTrack::beatLen( NotePlayHandle * _n ) const
 {
 	if (m_instrument)
 	{
-		const f_cnt_t len = m_instrument->beatLen(_n);
+		const f_cnt_t len = m_instrument.instrument().beatLen(_n);
 		if( len > 0 )
 		{
 			return len;
@@ -579,10 +578,10 @@ void InstrumentTrack::playNote(NotePlayHandle* n, std::span<SampleFrame> working
 	m_noteStacking.processNote( n );
 	m_arpeggio.processNote( n );
 
-	if( n->isMasterNote() == false && m_instrument != nullptr )
+	if (n->isMasterNote() == false && m_instrument)
 	{
 		// all is done, so now lets play the note!
-		m_instrument->playNote( n, workingBuffer );
+		m_instrument.instrument().playNote(n, workingBuffer);
 
 		// This is effectively the same as checking if workingBuffer is not a nullptr.
 		// Calling processAudioBuffer with a nullptr leads to crashes. Hence the check.
@@ -600,7 +599,7 @@ void InstrumentTrack::playNote(NotePlayHandle* n, std::span<SampleFrame> working
 
 QString InstrumentTrack::instrumentName() const
 {
-	if( m_instrument != nullptr )
+	if (m_instrument)
 	{
 		return m_instrument->displayName();
 	}
@@ -614,7 +613,7 @@ void InstrumentTrack::deleteNotePluginData( NotePlayHandle* n )
 {
 	if (m_instrument)
 	{
-		m_instrument->deleteNotePluginData(n);
+		m_instrument.instrument().deleteNotePluginData(n);
 	}
 }
 
@@ -853,7 +852,7 @@ void InstrumentTrack::saveTrackSpecificSettings(QDomDocument& doc, QDomElement& 
 		m_midiCCModel[i]->saveSettings(doc, midiCC, "cc" + QString::number(i));
 	}
 
-	if( m_instrument != nullptr )
+	if (m_instrument)
 	{
 		QDomElement i = doc.createElement( "instrument" );
 		i.setAttribute( "name", m_instrument->descriptor()->name );
@@ -960,10 +959,12 @@ void InstrumentTrack::loadTrackSpecificSettings( const QDomElement & thisElement
 				}
 				else
 				{
-					delete m_instrument;
-					m_instrument = nullptr;
-					m_instrument = Instrument::instantiate(
-						node.toElement().attribute("name"), this, &key);
+					delete m_instrument.plugin(); // TODO
+//					m_instrument = nullptr;
+//					m_instrument = Instrument::instantiate(
+//						node.toElement().attribute("name"), this, &key);
+					m_instrument = PluginInstance{true, node.toElement().attribute("name"), this, &key};
+
 					m_instrument->restoreState(node.firstChildElement());
 					emit instrumentChanged();
 				}
@@ -982,10 +983,11 @@ void InstrumentTrack::loadTrackSpecificSettings( const QDomElement & thisElement
 					ControllerConnection::classNodeName() != node.nodeName() &&
 					!node.toElement().hasAttribute( "id" ))
 			{
-				delete m_instrument;
-				m_instrument = nullptr;
-				m_instrument = Instrument::instantiate(
-					node.nodeName(), this, nullptr, true);
+				delete m_instrument.plugin(); // TODO
+//				m_instrument = nullptr;
+//				m_instrument = Instrument::instantiate(
+//					node.nodeName(), this, nullptr, true);
+				m_instrument = PluginInstance{true, node.nodeName(), this, nullptr, true};
 				if (m_instrument->nodeName() == node.nodeName())
 				{
 					m_instrument->restoreState(node.toElement());
@@ -1052,7 +1054,7 @@ QString InstrumentTrack::getSavedInstrumentName(const QDomElement &thisElement) 
 
 
 
-Instrument * InstrumentTrack::loadInstrument(const QString & _plugin_name,
+PluginInstance& InstrumentTrack::loadInstrument(const QString& _plugin_name,
 	const Plugin::Descriptor::SubPluginFeatures::Key *key, bool keyFromDnd)
 {
 	if(keyFromDnd)
@@ -1061,9 +1063,10 @@ Instrument * InstrumentTrack::loadInstrument(const QString & _plugin_name,
 	silenceAllNotes( true );
 
 	lock();
-	delete m_instrument;
-	m_instrument = Instrument::instantiate(_plugin_name, this,
-					key, keyFromDnd);
+	delete m_instrument.plugin(); // TODO
+//	m_instrument = Instrument::instantiate(_plugin_name, this,
+//					key, keyFromDnd);
+	m_instrument = PluginInstance{true, _plugin_name, this, key, keyFromDnd};
 	unlock();
 	setName(m_instrument->displayName());
 

@@ -51,13 +51,13 @@ Plugin::Descriptor PLUGIN_EXPORT amplifier_plugin_descriptor =
 
 
 AmplifierEffect::AmplifierEffect(Model* parent, const Descriptor::SubPluginFeatures::Key* key) :
-	AudioPlugin(&amplifier_plugin_descriptor, parent, key),
+	Effect(&amplifier_plugin_descriptor, parent, key),
 	m_ampControls(this)
 {
 }
 
 
-ProcessStatus AmplifierEffect::processImpl(InterleavedBufferView<float, 2> inOut)
+ProcessStatus AmplifierEffect::process(ProcessContext& context)
 {
 	const float d = dryLevel();
 	const float w = wetLevel();
@@ -67,6 +67,7 @@ ProcessStatus AmplifierEffect::processImpl(InterleavedBufferView<float, 2> inOut
 	const ValueBuffer* leftBuf = m_ampControls.m_leftModel.valueBuffer();
 	const ValueBuffer* rightBuf = m_ampControls.m_rightModel.valueBuffer();
 
+	auto inOut = context.inOut().interleavedBuffer();
 	for (fpp_t f = 0; f < inOut.frames(); ++f)
 	{
 		const float volume = (volumeBuf ? volumeBuf->value(f) : m_ampControls.m_volumeModel.value()) * 0.01f;

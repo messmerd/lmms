@@ -103,7 +103,7 @@ public:
 	 * Updates the shared memory input/output audio buffer, then
 	 * returns a pointer to the buffer or nullptr if an error occurred.
 	 */
-	auto updateAudioBuffer(proc_ch_t channelsIn, proc_ch_t channelsOut, fpp_t frames) -> float*;
+	auto updateAudioBuffer(ch_cnt_t channelsIn, ch_cnt_t channelsOut, fpp_t frames) -> float*;
 
 	void processMidiEvent( const MidiEvent&, const f_cnt_t _offset );
 
@@ -172,8 +172,8 @@ private:
 
 	SharedMemory<float[]> m_audioBuffer; // NOLINT
 
-	proc_ch_t m_channelsIn = 0;
-	proc_ch_t m_channelsOut = 0;
+	ch_cnt_t m_channelsIn = 0;
+	ch_cnt_t m_channelsOut = 0;
 	f_cnt_t m_frames = 0;
 
 	// View into `m_audioBuffer` output buffer

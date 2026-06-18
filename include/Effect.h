@@ -28,6 +28,7 @@
 
 #include "AudioBufferView.h"
 #include "AudioEngine.h"
+#include "AudioProcessor.h"
 #include "AutomatableModel.h"
 #include "Engine.h"
 #include "Plugin.h"
@@ -49,19 +50,15 @@ class EffectView;
 } // namespace gui
 
 
-class LMMS_EXPORT Effect : public Plugin
+class LMMS_EXPORT Effect
+	: public Plugin
+	, public AudioProcessor
 {
 	Q_OBJECT
 public:
 	Effect( const Plugin::Descriptor * _desc,
 			Model * _parent,
 			const Descriptor::SubPluginFeatures::Key * _key );
-
-	//! Returns true if audio was processed and should continue being processed
-	bool processCore(AudioBuffer& inOut)
-	{
-		return processCoreImpl(inOut);
-	}
 
 	void saveSettings( QDomDocument & _doc, QDomElement & _parent ) override;
 	void loadSettings( const QDomElement & _this ) override;
@@ -123,12 +120,6 @@ public:
 		return isEnabled() && isAwake() && isOkay() && !dontRun();
 	}
 
-	//! Returns nullptr if the effect does not have audio ports
-	virtual auto audioPortsModel() const -> const AudioPortsModel*
-	{
-		return nullptr;
-	}
-
 	inline TempoSyncKnobModel* autoQuitModel()
 	{
 		return &m_autoQuitModel;
@@ -152,8 +143,6 @@ public:
 
 
 protected:
-	virtual bool processCoreImpl(AudioBuffer& inOut) = 0;
-
 	gui::PluginView* instantiateView( QWidget * ) override;
 
 	void goToSleep()
@@ -178,6 +167,9 @@ protected:
 	void handleAutoQuit(bool silentOutput);
 
 private:
+	//! Not used by effects and will be removed in the future
+	void playNote(ProcessContext&) final {}
+
 	EffectChain * m_parent;
 
 	bool m_okay;
@@ -195,8 +187,51 @@ private:
 
 	friend class gui::EffectView;
 	friend class EffectChain;
+};
 
-} ;
+/**
+ * An Effect with interleaved buffers, in-place processing, stereo, etc.
+ *
+ * Inherit from this to reduce boilerplate.
+ * In the future, once all plugins use planar buffers, this can be removed.
+ */
+class LegacyEffect : public Effect
+{
+protected:
+	auto channelCount(bool isInput) const -> ch_cnt_t final
+	{
+		// Two inputs and outputs
+		(void)isInput;
+		return 2;
+	}
+
+	auto channelGroupCount(bool isInput) const -> group_cnt_t final
+	{
+		// One group on the input and output sides (the main stereo channels)
+		(void)isInput;
+		return 1;
+	}
+
+	auto getChannelGroup(group_cnt_t index, bool isInput, AudioBuffer::ChannelGroup& group) const
+		-> ch_cnt_t final
+	{
+		// Only one group and it has two channels (stereo)
+		// TODO: Set channel names and other metadata
+		(void)index;
+		(void)isInput;
+		(void)group;
+		return 2;
+	}
+
+	auto getInplacePair(ch_cnt_t inputIndex) const -> std::optional<ch_cnt_t> final
+	{
+		// L input <--> L output
+		// R input <--> R output
+		return inputIndex;
+	}
+
+	auto usesInterleavedBuffers() const -> bool final { return true; }
+};
 
 using EffectKey = Effect::Descriptor::SubPluginFeatures::Key;
 using EffectKeyList = Effect::Descriptor::SubPluginFeatures::KeyList;

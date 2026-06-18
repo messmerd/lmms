@@ -135,7 +135,6 @@ HydrogenImport::HydrogenImport( const QString & _file ) :
 
 
 
-Instrument * ins;
 bool HydrogenImport::readSong() 
 {
 	QHash<QString, InstrumentTrack *> drum_track;
@@ -223,7 +222,7 @@ bool HydrogenImport::readSong()
 						);
 						drum_track[sId]->volumeModel()->setValue( fVolume * 100 );
 						drum_track[sId]->panningModel()->setValue( ( fPan_R - fPan_L ) * 100 );
-						ins = drum_track[sId]->loadInstrument( "audiofileprocessor" );
+						auto& ins = drum_track[sId]->loadInstrument("audiofileprocessor");
 						ins->loadFile( sFilename );
 					}
 					nLayer++;
