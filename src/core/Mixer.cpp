@@ -231,7 +231,7 @@ void MixerChannel::doProcessing()
 
 Mixer::Mixer() :
 	Model( nullptr ),
-	JournallingObject(),
+	HookableJournallingObject(),
 	m_mixerChannels(),
 	m_lastSoloed(-1)
 {

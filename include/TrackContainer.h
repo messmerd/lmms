@@ -45,7 +45,7 @@ class TrackContainerView;
 }
 
 
-class LMMS_EXPORT TrackContainer : public Model, public JournallingObject
+class LMMS_EXPORT TrackContainer : public Model, public HookableJournallingObject
 {
 	Q_OBJECT
 public:

@@ -135,7 +135,7 @@ public:
 };
 
 
-class LMMS_EXPORT Mixer : public Model, public JournallingObject
+class LMMS_EXPORT Mixer : public Model, public HookableJournallingObject
 {
 	Q_OBJECT
 public:

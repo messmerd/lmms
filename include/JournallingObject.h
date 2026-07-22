@@ -100,6 +100,19 @@ private:
 
 } ;
 
+//! JournallingObject with the ability to add a runtime hook for further customization
+class LMMS_EXPORT HookableJournallingObject : public JournallingObject
+{
+public:
+	using JournallingObject::JournallingObject;
+
+private:
+	void setHookImpl(SerializingObjectHook* hook) override;
+	SerializingObjectHook* hookImpl() const override { return m_hook; }
+
+	SerializingObjectHook* m_hook = nullptr;
+};
+
 
 } // namespace lmms
 

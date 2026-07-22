@@ -47,7 +47,7 @@ namespace lmms
 
 TrackContainer::TrackContainer() :
 	Model( nullptr ),
-	JournallingObject(),
+	HookableJournallingObject(),
 	m_tracksMutex(),
 	m_tracks()
 {

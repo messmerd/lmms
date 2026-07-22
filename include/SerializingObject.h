@@ -42,7 +42,7 @@ class SerializingObjectHook;
 class LMMS_EXPORT SerializingObject
 {
 public:
-	SerializingObject();
+	SerializingObject() = default;
 	virtual ~SerializingObject();
 
 	virtual QDomElement saveState( QDomDocument & _doc, QDomElement & _parent );
@@ -53,24 +53,19 @@ public:
 	// to be implemented by actual object
 	virtual QString nodeName() const = 0;
 
-	void setHook( SerializingObjectHook * _hook );
-
-	SerializingObjectHook* hook()
-	{
-		return m_hook;
-	}
-
+	void setHook(SerializingObjectHook* hook) { setHookImpl(hook); }
+	SerializingObjectHook* hook() const { return hookImpl(); }
 
 protected:
 	// to be implemented by sub-objects
 	virtual void saveSettings( QDomDocument& doc, QDomElement& element ) = 0;
 	virtual void loadSettings( const QDomElement& element ) = 0;
 
+	virtual void setHookImpl(SerializingObjectHook* hook);
+	virtual SerializingObjectHook* hookImpl() const { return nullptr; }
 
-private:
-	SerializingObjectHook * m_hook;
-
-} ;
+	void setHookHelper(SerializingObjectHook*& currentHook, SerializingObjectHook* newHook);
+};
 
 
 class SerializingObjectHook
@@ -95,8 +90,7 @@ private:
 	SerializingObject * m_hookedIn;
 
 	friend class SerializingObject;
-
-} ;
+};
 
 
 } // namespace lmms

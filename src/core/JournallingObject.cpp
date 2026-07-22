@@ -142,4 +142,12 @@ void JournallingObject::changeID( jo_id_t _id )
 }
 
 
+
+
+void HookableJournallingObject::setHookImpl(SerializingObjectHook* hook)
+{
+	setHookHelper(m_hook, hook);
+}
+
+
 } // namespace lmms

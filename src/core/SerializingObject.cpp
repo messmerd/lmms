@@ -29,19 +29,11 @@
 namespace lmms
 {
 
-SerializingObject::SerializingObject() :
-	m_hook( nullptr )
-{
-}
-
-
-
-
 SerializingObject::~SerializingObject()
 {
-	if( m_hook )
+	if (auto* h = hook())
 	{
-		m_hook->m_hookedIn = nullptr;
+		h->m_hookedIn = nullptr;
 	}
 }
 
@@ -55,9 +47,9 @@ QDomElement SerializingObject::saveState( QDomDocument& doc, QDomElement& parent
 
 	saveSettings( doc, element );
 
-	if( hook() )
+	if (auto* h = hook())
 	{
-		hook()->saveSettings( doc, element );
+		h->saveSettings(doc, element);
 	}
 
 	return element;
@@ -70,27 +62,36 @@ void SerializingObject::restoreState( const QDomElement& element )
 {
 	loadSettings( element );
 
-	if( hook() )
+	if (auto* h = hook())
 	{
-		hook()->loadSettings( element );
+		h->loadSettings(element);
 	}
 }
 
 
 
 
-void SerializingObject::setHook( SerializingObjectHook* hook )
+void SerializingObject::setHookImpl(SerializingObjectHook* hook)
 {
-	if( m_hook )
+	if (!hook) { return; }
+	throw std::logic_error{"this SerializingObject-derived class cannot be hooked"};
+}
+
+
+
+
+void SerializingObject::setHookHelper(SerializingObjectHook*& currentHook, SerializingObjectHook* newHook)
+{
+	if (currentHook)
 	{
-		m_hook->m_hookedIn = nullptr;
+		currentHook->m_hookedIn = nullptr;
 	}
 
-	m_hook = hook;
+	currentHook = newHook;
 
-	if( m_hook )
+	if (currentHook)
 	{
-		m_hook->m_hookedIn = this;
+		currentHook->m_hookedIn = this;
 	}
 }
 
