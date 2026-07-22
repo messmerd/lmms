@@ -38,11 +38,11 @@ Note::Note( const TimePos & length, const TimePos & pos,
 		int key, volume_t volume, panning_t panning,
 						std::shared_ptr<DetuningHelper> detuning ) :
 	m_selected( false ),
-	m_oldKey(std::clamp(key, 0, NumKeys)),
+	m_oldKey(std::clamp<key_t>(key, 0, NumKeys)),
 	m_oldPos( pos ),
 	m_oldLength( length ),
 	m_isPlaying( false ),
-	m_key(std::clamp(key, 0, NumKeys)),
+	m_key(std::clamp<key_t>(key, 0, NumKeys)),
 	m_volume(std::clamp(volume, MinVolume, MaxVolume)),
 	m_panning(std::clamp(panning, PanningLeft, PanningRight)),
 	m_length( length ),
@@ -279,8 +279,8 @@ std::optional<NoteBounds> boundsForNotes(const NoteVector& notes)
 
 	TimePos start = notes.front()->pos();
 	TimePos end = start;
-	int lower = notes.front()->key();
-	int upper = lower;
+	key_t lower = notes.front()->key();
+	key_t upper = lower;
 
 	for (const Note* note: notes)
 	{

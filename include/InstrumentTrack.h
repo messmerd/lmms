@@ -107,7 +107,7 @@ public:
 
 	// translate given key of a note-event to absolute key (i.e.
 	// add global master-pitch and base-note of this instrument track)
-	int masterKey( int _midi_key ) const;
+	key_t masterKey(key_t midiKey) const;
 
 	// translate pitch to midi-pitch [0,16383]
 	int midiPitch() const
@@ -177,7 +177,7 @@ public:
 	bool isKeyMapped(int key) const;
 	int firstKey() const;
 	int lastKey() const;
-	int baseNote() const;
+	key_t baseNote() const;
 	float baseFreq() const;
 
 	Piano *pianoModel()

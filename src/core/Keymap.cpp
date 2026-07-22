@@ -47,13 +47,13 @@ Keymap::Keymap() :
 Keymap::Keymap(
 	QString description,
 	std::vector<int> newMap,
-	int newFirst,
-	int newLast,
-	int newMiddle,
-	int newBaseKey,
+	key_t newFirst,
+	key_t newLast,
+	key_t newMiddle,
+	key_t newBaseKey,
 	float newBaseFreq
 ) :
-	m_description(description),
+	m_description(std::move(description)),
 	m_map(std::move(newMap)),
 	m_firstKey(newFirst),
 	m_lastKey(newLast),
@@ -69,14 +69,14 @@ Keymap::Keymap(
  * \param MIDI key to be mapped
  * \return Scale degree defined by the mapping on success, -1 if key isn't mapped
  */
-int Keymap::getDegree(int key) const
+int Keymap::getDegree(key_t key) const
 {
-	if (key < m_firstKey || key > m_lastKey) {return -1;}
-	if (m_map.empty()) {return key;}	// exception: empty mapping table means linear (1:1) mapping
+	if (key < m_firstKey || key > m_lastKey) { return -1; }
+	if (m_map.empty()) { return key; } // exception: empty mapping table means linear (1:1) mapping
 
-	const int keyOffset = key - m_middleKey;								// -127..127
-	const int key_rem = keyOffset % static_cast<int>(m_map.size());			// remainder
-	const int key_mod = key_rem >= 0 ? key_rem : key_rem + m_map.size();	// true modulo
+	const key_t keyOffset = key - m_middleKey;                             // -127..127
+	const key_t key_rem = keyOffset % static_cast<int>(m_map.size());      // remainder
+	const key_t key_mod = key_rem >= 0 ? key_rem : key_rem + m_map.size(); // true modulo
 	return m_map[key_mod];
 }
 
@@ -86,12 +86,12 @@ int Keymap::getDegree(int key) const
  * \param MIDI key to be mapped
  * \return Octave offset defined by the mapping on success, 0 if key isn't mapped
  */
-int Keymap::getOctave(int key) const
+int Keymap::getOctave(key_t key) const
 {
 	// The keymap wraparound cannot cause an octave transition if a key isn't mapped or the map is empty → return 0
-	if (m_map.empty() || getDegree(key) == -1) {return 0;}
+	if (m_map.empty() || getDegree(key) == -1) { return 0; }
 
-	const int keyOffset = key - m_middleKey;
+	const key_t keyOffset = key - m_middleKey;
 	if (keyOffset >= 0)
 	{
 		return keyOffset / static_cast<int>(m_map.size());
@@ -115,7 +115,7 @@ void Keymap::setDescription(QString description)
 }
 
 
-void Keymap::saveSettings(QDomDocument &document, QDomElement &element)
+void Keymap::saveSettings(QDomDocument& document, QDomElement& element)
 {
 	element.setAttribute("description", m_description);
 
@@ -134,15 +134,15 @@ void Keymap::saveSettings(QDomDocument &document, QDomElement &element)
 }
 
 
-void Keymap::loadSettings(const QDomElement &element)
+void Keymap::loadSettings(const QDomElement& element)
 {
 	m_description = element.attribute("description");
 
-	m_firstKey	= element.attribute("first_key").toInt();
-	m_lastKey	= element.attribute("last_key").toInt();
-	m_middleKey	= element.attribute("middle_key").toInt();
-	m_baseKey	= element.attribute("base_key").toInt();
-	m_baseFreq	= element.attribute("base_freq").toDouble();
+	m_firstKey  = element.attribute("first_key").toInt();
+	m_lastKey   = element.attribute("last_key").toInt();
+	m_middleKey = element.attribute("middle_key").toInt();
+	m_baseKey   = element.attribute("base_key").toInt();
+	m_baseFreq  = element.attribute("base_freq").toDouble();
 
 	QDomNode node = element.firstChild();
 	m_map.clear();

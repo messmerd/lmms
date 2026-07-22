@@ -31,6 +31,7 @@
 namespace lmms
 {
 
+using key_t         = std::int16_t;
 using bar_t         = std::int32_t;
 using tick_t        = std::int32_t;
 using volume_t      = std::uint8_t;

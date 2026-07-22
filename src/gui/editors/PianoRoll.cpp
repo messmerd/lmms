@@ -115,7 +115,7 @@ constexpr float RESIZE_GRIP_MAX_WIDTH_FRACTION = 0.25f;
 const int NOTE_EDIT_LINE_WIDTH = 3;
 
 // key where to start
-const int INITIAL_START_KEY = Octave::Octave_4 + Key::C;
+constexpr key_t INITIAL_START_KEY = Octave::Octave_4 + Key::C;
 
 // number of each note to provide in quantization and note lengths
 const int NUM_EVEN_LENGTHS = 6;
@@ -894,7 +894,7 @@ void PianoRoll::setCurrentMidiClip( MidiClip* newMidiClip )
 	if (total_notes > 0)
 	{
 		central_key = central_key / total_notes - (NumKeys - m_totalKeysToScroll) / 2;
-		m_startKey = qBound(0, central_key, NumKeys);
+		m_startKey = std::clamp<key_t>(static_cast<key_t>(central_key), 0, NumKeys);
 	}
 
 	// Make sure the playhead position isn't out of the clip bounds.
@@ -1920,8 +1920,8 @@ void PianoRoll::mousePressEvent(QMouseEvent * me )
 
 					m_moveBoundaryLeft = qMin(note->pos().getTicks(), (tick_t) m_moveBoundaryLeft);
 					m_moveBoundaryRight = qMax((int) note->endPos(), m_moveBoundaryRight);
-					m_moveBoundaryBottom = qMin(note->key(), m_moveBoundaryBottom);
-					m_moveBoundaryTop = qMax(note->key(), m_moveBoundaryTop);
+					m_moveBoundaryBottom = qMin(static_cast<int>(note->key()), m_moveBoundaryBottom);
+					m_moveBoundaryTop = qMax(static_cast<int>(note->key()), m_moveBoundaryTop);
 				}
 
 				// clicked at the "tail" of the note?

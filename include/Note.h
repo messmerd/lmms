@@ -44,7 +44,7 @@ class DetuningHelper;
 class AutomationClip;
 
 
-enum class Key : int
+enum class Key : std::uint_fast8_t
 {
 	C = 0,
 	Cis = 1, Des = 1,
@@ -61,7 +61,7 @@ enum class Key : int
 } ;
 
 
-enum class Octave : int
+enum class Octave : std::uint_fast8_t
 {
 	Octave_m1,	// MIDI standard starts at C-1
 	Octave_0,
@@ -76,24 +76,24 @@ enum class Octave : int
 	Octave_9,	// incomplete octave, MIDI only goes up to G9
 };
 
-const int FirstOctave = -1;
-const int KeysPerOctave = 12;
+inline constexpr int FirstOctave = -1;
+inline constexpr int KeysPerOctave = 12;
 
-constexpr inline auto operator+(Octave octave, Key key) -> int
+constexpr auto operator+(Octave octave, Key key) -> key_t
 {
-	return static_cast<int>(octave) * KeysPerOctave + static_cast<int>(key);
+	return static_cast<std::uint_fast8_t>(octave) * KeysPerOctave + static_cast<std::uint_fast8_t>(key);
 }
 
-constexpr auto DefaultOctave = Octave::Octave_4;
-const int DefaultKey = DefaultOctave + Key::A;
+inline constexpr auto DefaultOctave = Octave::Octave_4;
+inline constexpr key_t DefaultKey = DefaultOctave + Key::A;
 //! Number of physical keys, limited to MIDI range (valid for both MIDI 1.0 and 2.0)
-const int NumKeys = 128;
+inline constexpr key_t NumKeys = 128;
 
-const int DefaultMiddleKey = Octave::Octave_4 + Key::C;
-const int DefaultBaseKey = Octave::Octave_4 + Key::A;
-const float DefaultBaseFreq = 440.f;
+inline constexpr key_t DefaultMiddleKey = Octave::Octave_4 + Key::C;
+inline constexpr key_t DefaultBaseKey = Octave::Octave_4 + Key::A;
+inline constexpr float DefaultBaseFreq = 440.f;
 
-const float MaxDetuning = 5 * 12.0f;
+inline constexpr float MaxDetuning = 5 * 12.0f;
 
 
 
@@ -115,7 +115,7 @@ public:
 	Note* clone() const;
 
 	// Note types
-	enum class Type
+	enum class Type : std::uint8_t
 	{
 		Regular = 0,
 		Step
@@ -216,10 +216,7 @@ public:
 		return m_pos - bp;
 	}
 
-	inline int key() const
-	{
-		return m_key;
-	}
+	key_t key() const { return m_key; }
 
 	inline volume_t getVolume() const
 	{
@@ -238,7 +235,7 @@ public:
 
 	static QString classNodeName()
 	{
-		return "note";
+		return QStringLiteral("note");
 	}
 
 	inline QString nodeName() const override
@@ -262,21 +259,22 @@ protected:
 
 
 private:
-	// for piano roll editing
+	// for piano roll editing TODO: Remove
 	bool m_selected;
 	int m_oldKey;
 	TimePos m_oldPos;
 	TimePos m_oldLength;
 	bool m_isPlaying;
 
-	int m_key;
+	key_t m_key;
 	volume_t m_volume;
 	panning_t m_panning;
 	TimePos m_length;
 	TimePos m_pos;
-	std::shared_ptr<DetuningHelper> m_detuning;
 
 	Type m_type = Type::Regular;
+
+	std::shared_ptr<DetuningHelper> m_detuning;
 };
 
 using NoteVector = std::vector<Note*>;

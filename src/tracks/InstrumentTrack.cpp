@@ -170,7 +170,7 @@ int InstrumentTrack::lastKey() const
 /** \brief Return base key number, based on currently selected keymap or user selection.
  *	\return Number ranging from 0 to NumKeys -1
  */
-int InstrumentTrack::baseNote() const
+key_t InstrumentTrack::baseNote() const
 {
 	int mp = m_useMasterPitchModel.value() ? Engine::getSong()->masterPitch() : 0;
 
@@ -675,11 +675,11 @@ void InstrumentTrack::updateMixerChannel()
 
 
 
-int InstrumentTrack::masterKey( int _midi_key ) const
+key_t InstrumentTrack::masterKey(key_t midiKey) const
 {
 
-	int key = baseNote();
-	return std::clamp(_midi_key - (key - DefaultKey), 0, NumKeys);
+	const key_t key = baseNote();
+	return std::clamp<key_t>(midiKey - (key - DefaultKey), 0, NumKeys);
 }
 
 
