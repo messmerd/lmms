@@ -78,7 +78,7 @@ CrossoverEQControlDialog::CrossoverEQControlDialog(CrossoverEQControls *controls
 		const QString& label,
 		int column
 	) {
-		auto f = new Fader(model, label, this, false);
+		auto f = new Fader(model, label, this);
 		f->setHintText(label, "dBFS");
 		f->setDisplayConversion(false);
 		f->setRenderUnityLine(false);

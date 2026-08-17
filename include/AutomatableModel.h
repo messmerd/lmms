@@ -226,6 +226,8 @@ public:
 	}
 
 	void setRange( const float min, const float max, const float step = 1 );
+
+	ScaleType scaleType() const { return m_scaleType; }
 	void setScaleType( ScaleType sc ) {
 		m_scaleType = sc;
 	}

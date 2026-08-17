@@ -45,8 +45,7 @@ namespace lmms::gui
 static float floatFromClipboard(bool* ok=nullptr);
 
 AutomatableModelView::AutomatableModelView( Model* model, QWidget* _this ) :
-	ModelView( model, _this ),
-	m_conversionFactor( 1.0 )
+	ModelView(model, _this)
 {
 	widget()->setAcceptDrops( true );
 	widget()->setCursor(Qt::PointingHandCursor);
@@ -58,16 +57,46 @@ void AutomatableModelView::addDefaultActions( QMenu* menu )
 
 	auto amvSlots = new AutomatableModelViewSlots(this, menu);
 
+	QString initValueText;
+	const float initValue = model->initValue<float>();
+	if (auto text = valueToText(initValue))
+	{
+		initValueText = std::move(*text);
+	}
+	else
+	{
+		initValueText = defaultValueToText(initValue);
+	}
+
 	menu->addAction( embed::getIconPixmap( "reload" ),
 						AutomatableModel::tr( "&Reset (%1%2)" ).
-							arg( model->initValue<float>() * m_conversionFactor ).
+							arg(initValueText).
 							arg( m_unit ),
 						model, SLOT(reset()));
+
+	QString currentValueText;
+	if (auto fm = dynamic_cast<FloatModel*>(model))
+	{
+		const auto rv = fm->getRoundedValue();
+		if (auto text = valueToText(rv))
+		{
+			currentValueText = std::move(*text);
+		}
+		else
+		{
+			currentValueText = defaultValueToText(rv);
+		}
+	}
+
+	if (currentValueText.isEmpty())
+	{
+		currentValueText = defaultValueToText(model->value<float>());
+	}
 
 	menu->addSeparator();
 	menu->addAction( embed::getIconPixmap( "edit_copy" ),
 						AutomatableModel::tr( "&Copy value (%1%2)" ).
-							arg( model->value<float>() * m_conversionFactor ).
+							arg(currentValueText).
 							arg( m_unit ),
 						amvSlots, SLOT(copyToClipboard()));
 
@@ -171,21 +200,43 @@ void AutomatableModelView::mousePressEvent( QMouseEvent* event )
 	}
 }
 
-
-void AutomatableModelView::setConversionFactor( float factor )
+auto AutomatableModelView::valueToText(float internalValue) -> std::optional<QString>
 {
-	if( factor != 0.0 )
+	return defaultValueToText(internalValue);
+}
+
+auto AutomatableModelView::defaultValueToText(float internalValue) -> QString
+{
+	QString::number(internalValue);
+}
+
+auto AutomatableModelView::currentValueToText() -> QString
+{
+	if (const auto* model = modelUntyped())
 	{
-		m_conversionFactor = factor;
+		auto text = valueToText(model->value<float>());
+		if (!text) { throw std::runtime_error{"Need to override AutomatableModelView::currentValueToText()"}; }
+		return *text;
 	}
+	return QString{};
 }
 
-
-float AutomatableModelView::getConversionFactor()
+auto AutomatableModelView::currentValueToTextUpdate() -> std::optional<QString>
 {
-	return m_conversionFactor;
+	return currentValueToText();
 }
 
+auto AutomatableModelView::textToValue(const QString& text) -> std::optional<float>
+{
+	bool ok = false;
+	const auto value = text.toFloat(&ok);
+	return ok ? std::optional<float>{value} : std::nullopt;
+}
+
+auto AutomatableModelView::getDisplayText(const QString& text) -> QString
+{
+	return m_description + ' ' + text + m_unit;
+}
 
 AutomatableModelViewSlots::AutomatableModelViewSlots( AutomatableModelView* amv, QObject* parent ) :
 	QObject(),

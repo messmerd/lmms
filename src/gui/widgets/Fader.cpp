@@ -70,15 +70,20 @@ namespace lmms::gui
 
 SimpleTextFloat* Fader::s_textFloat = nullptr;
 
-Fader::Fader(FloatModel* model, const QString& name, QWidget* parent, bool modelIsLinear) :
-	QWidget(parent),
-	FloatModelView(model, this),
-	m_knobSize(embed::logicalSize(m_knob)),
-	m_modelIsLinear(modelIsLinear)
+Fader::Fader(FloatModel* model, const QString& name, QWidget* parent, bool allowLinearModel)
+	: QWidget(parent)
+	, FloatModelView(model, this)
+	, m_knobSize(embed::logicalSize(m_knob))
 {
+	assert(model != nullptr);
 	if (s_textFloat == nullptr)
 	{
 		s_textFloat = new SimpleTextFloat;
+	}
+
+	if (!allowLinearModel && modelIsLinear())
+	{
+		throw std::invalid_argument{"Fader: the model should not be linear"};
 	}
 
 	setWindowTitle(name);
@@ -105,8 +110,8 @@ Fader::Fader(FloatModel* model, const QString& name, QWidget* parent, bool model
 }
 
 
-Fader::Fader(FloatModel* model, const QString& name, QWidget* parent, const QPixmap& knob, bool modelIsLinear) :
-	Fader(model, name, parent, modelIsLinear)
+Fader::Fader(FloatModel* model, const QString& name, QWidget* parent, const QPixmap& knob, bool allowLinearModel)
+	: Fader(model, name, parent, allowLinearModel)
 {
 	m_knob = knob;
 }
@@ -498,14 +503,15 @@ void Fader::setPeak_R(float fPeak)
 void Fader::updateTextFloat()
 {
 	s_textFloat->setSource(this);
-	if (m_conversionFactor == 100.0)
-	{
-		s_textFloat->setText(getModelValueAsDbString());
-	}
-	else
-	{
-		s_textFloat->setText(m_description + " " + QString("%1 ").arg(model()->value() * m_conversionFactor) + " " + m_unit);
-	}
+//	if (m_conversionFactor == 100.0)
+//	{
+//		s_textFloat->setText(getModelValueAsDbString());
+//	}
+//	else
+//	{
+//		s_textFloat->setText(m_description + " " + QString("%1 ").arg(model()->value() * m_conversionFactor) + " " + m_unit);
+//	}
+	s_textFloat->setText(getDisplayText(valueToText(model()->value()).value()));
 
 	s_textFloat->moveGlobal(this, QPoint(width() + 2, calculateKnobPosYFromModel() - s_textFloat->height() / 2));
 }
@@ -542,6 +548,34 @@ QString Fader::getModelValueAsDbString() const
 	else
 	{
 		return label.arg(value, 3, 'f', 2);
+	}
+}
+
+auto Fader::valueToText(float internalValue) -> std::optional<QString>
+{
+	if (m_conversionFactor == 100.0)
+	{
+		// Get dB string
+		if (modelIsLinear())
+		{
+			if (internalValue <= 0.)
+			{
+				return tr("-inf");
+			}
+			else
+			{
+				return QString{"%1"}.arg(ampToDbfs(internalValue), 3, 'f', 2);
+			}
+		}
+		else
+		{
+			return QString{"%1"}.arg(internalValue, 3, 'f', 2);
+		}
+	}
+	else
+	{
+		// Get regular string
+		return QString::number(model()->value() * m_conversionFactor);
 	}
 }
 

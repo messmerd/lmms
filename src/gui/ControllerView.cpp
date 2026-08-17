@@ -23,15 +23,15 @@
  *
  */
 
+#include "ControllerView.h"
 
+#include <QContextMenuEvent>
 #include <QLabel>
 #include <QPushButton>
 #include <QHBoxLayout>
 #include <QMdiArea>
 #include <QInputDialog>
 #include <QVBoxLayout>
-
-#include "ControllerView.h"
 
 #include "CaptionMenu.h"
 #include "ControllerDialog.h"
@@ -153,19 +153,21 @@ void ControllerView::modelChanged()
 
 
 
-void ControllerView::contextMenuEvent( QContextMenuEvent * )
+void ControllerView::contextMenuEvent(QContextMenuEvent* cme)
 {
 	Controller* c = castModel<Controller>();
-	QPointer<CaptionMenu> contextMenu = new CaptionMenu(c->name(), this);
-	contextMenu->addAction(embed::getIconPixmap("arp_up"), tr("Move &up"), this, &ControllerView::moveUp);
-	contextMenu->addAction(embed::getIconPixmap("arp_down"), tr("Move &down"), this, &ControllerView::moveDown);
-	contextMenu->addSeparator();
-	contextMenu->addAction(
+
+	auto contextMenu = CaptionMenu(c->name(), this);
+	contextMenu.addAction(embed::getIconPixmap("arp_up"), tr("Move &up"), this, &ControllerView::moveUp);
+	contextMenu.addAction(embed::getIconPixmap("arp_down"), tr("Move &down"), this, &ControllerView::moveDown);
+	contextMenu.addSeparator();
+	contextMenu.addAction(
 		embed::getIconPixmap("cancel"), tr("&Remove this controller"), this, &ControllerView::removeController);
-	contextMenu->addAction( tr("Re&name this controller"), this, SLOT(renameController()));
-	contextMenu->addSeparator();
-	contextMenu->exec( QCursor::pos() );
-	delete contextMenu;
+	contextMenu.addAction(tr("Re&name this controller"), this, SLOT(renameController()));
+	contextMenu.addSeparator();
+	contextMenu.exec(QCursor::pos());
+
+	cme->accept();
 }
 
 

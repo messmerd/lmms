@@ -29,6 +29,8 @@
 #include "ModelView.h"
 #include "AutomatableModel.h"
 
+#include <optional>
+
 class QMenu;
 class QMouseEvent;
 
@@ -73,17 +75,70 @@ public:
 
 	void addDefaultActions( QMenu* menu );
 
-	void setConversionFactor( float factor );
 	float getConversionFactor();
 
 
 protected:
 	virtual void mousePressEvent( QMouseEvent* event );
 
+	/**
+	 * @brief Converts a raw model value to text.
+	 *
+	 * The default implementation is @a defaultValueToText().
+	 *
+	 * @param internalValue any raw model value within the valid min/max range
+	 * @returns the value converted to a string, or std::nullopt if the conversion could not be performed.
+	 *
+	 * @note Some VSTs may not support values other than the model's current value without resorting to hacks.
+	 * @note The caller should use a straightforward float-to-string conversion if std::nullopt is returned.
+	 */
+	virtual auto valueToText(float internalValue) -> std::optional<QString>;
+
+	//! Straightforward float-to-string conversion (i.e. 1.23 --> "1.23") which never fails.
+	static auto defaultValueToText(float internalValue) -> QString;
+
+	/**
+	 * @brief Converts the current model value to text.
+	 * @returns the current value converted to a string
+	 */
+	virtual auto currentValueToText() -> QString;
+
+	/**
+	 * @brief Converts the current model value to text.
+	 *
+	 * Unlike @a currentValueToText(), this method is called frequently for update purposes.
+	 * Override this method to implement rate-limited updates.
+	 *
+	 * @returns the current value converted to a string, or std::nullopt to indicate
+	 *          the previous text value should continue being used
+	 */
+	virtual auto currentValueToTextUpdate() -> std::optional<QString>;
+
+	/**
+	 * @brief The inverse of @a valueToText().
+	 *
+	 * The default implementation is a straightforward string-to-float conversion, i.e. "1.23" --> 1.23.
+	 *
+	 * @returns the value text converted to a float, or std::nullopt if the conversion could not be performed
+	 */
+	virtual auto textToValue(const QString& text) -> std::optional<float>;
+
+	/**
+	 * @brief Provides a string to be displayed to the user in floating text or elsewhere.
+	 *
+	 * By default the following format is used:
+	 *     "[description] [text][unit]"
+	 *
+	 * @param text the string returned by @a valueToText() or @a currentValueToText()
+	 * @returns string for dynamic floating text to display
+	 */
+	virtual auto getDisplayText(const QString& text) -> QString;
+
+private:
 	QString m_description;
 	QString m_unit;
-	float m_conversionFactor; // Factor to be applied when the m_model->value is displayed
-} ;
+//	float m_conversionFactor; // Factor to be applied when the m_model->value is displayed TODO: add better way of converting b/w internal and external values
+};
 
 
 
@@ -125,6 +180,24 @@ public:
 	const ModelType* model() const
 	{
 		return castModel<ModelType>();
+	}
+
+	auto currentValueToText() -> QString override
+	{
+		if constexpr (std::is_same_v<ModelType, FloatModel>)
+		{
+			if (const auto* model = this->model())
+			{
+				auto text = this->valueToText(model->getRoundedValue());
+				if (!text) { throw std::runtime_error{"Need to override AutomatableModelView::currentValueToText()"}; }
+				return *text;
+			}
+			return QString{};
+		}
+		else
+		{
+			return AutomatableModelView::currentValueToText();
+		}
 	}
 };
 

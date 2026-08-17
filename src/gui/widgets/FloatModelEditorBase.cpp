@@ -109,7 +109,7 @@ void FloatModelEditorBase::showTextFloat(int msecBeforeDisplay, int msecDisplayT
 		else
 		{
 			// Using dynamic floating text
-			s_textFloat->setText(m_description + ' ' + getDynamicFloatingText() + m_unit);
+			s_textFloat->setText(getDisplayText(valueToText(model()->getRoundedValue()).value()));
 		}
 	}
 
@@ -538,7 +538,7 @@ void FloatModelEditorBase::friendlyUpdate()
 		if (auto updatedText = getDynamicFloatingTextUpdate())
 		{
 			// ...then update the floating text
-			s_textFloat->setText(m_description + ' ' + std::move(*updatedText) + m_unit);
+			s_textFloat->setText(getDisplayText(*updatedText));
 		}
 	}
 

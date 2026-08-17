@@ -74,8 +74,8 @@ public:
 	Q_PROPERTY(bool renderUnityLine READ getRenderUnityLine WRITE setRenderUnityLine)
 	Q_PROPERTY(QColor unityMarker MEMBER m_unityMarker)
 
-	Fader(FloatModel* model, const QString& name, QWidget* parent, bool modelIsLinear = true);
-	Fader(FloatModel* model, const QString& name, QWidget* parent, const QPixmap& knob, bool modelIsLinear = true);
+	Fader(FloatModel* model, const QString& name, QWidget* parent, bool allowLinearModel = false);
+	Fader(FloatModel* model, const QString& name, QWidget* parent, const QPixmap& knob, bool allowLinearModel = false);
 	~Fader() override = default;
 
 	void setPeak_L(float fPeak);
@@ -156,7 +156,9 @@ private:
 	void modelValueChanged();
 	QString getModelValueAsDbString() const;
 
-	bool modelIsLinear() const { return m_modelIsLinear; }
+	bool modelIsLinear() const { return model() && model()->scaleType() == AutomatableModel::ScaleType::Linear; }
+
+	auto valueToText(float internalValue) -> std::optional<QString> override;
 
 	// Private members
 private:
@@ -182,7 +184,9 @@ private:
 	int m_knobCenterOffset {0};
 
 	bool m_levelsDisplayedInDBFS {true};
-	bool m_modelIsLinear {false};
+//	bool m_modelIsLinear {false};
+
+	float m_conversionFactor = 100.f; //!< Factor to be applied when the model value is displayed (100=dB)
 
 	static SimpleTextFloat* s_textFloat;
 

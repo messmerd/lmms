@@ -64,7 +64,7 @@ void Lv2Options::createOptionVectors()
 		Q_ASSERT(itr != m_optionByUrid.end());
 		m_options.push_back(itr->second);
 	}
-	LV2_Options_Option nullOption;
+	LV2_Options_Option nullOption{};
 	nullOption.key = 0;
 	nullOption.value = nullptr;
 	m_options.push_back(nullOption);
