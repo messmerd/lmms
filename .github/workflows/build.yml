@@ -353,7 +353,7 @@ jobs:
           CCACHE_MAXSIZE: 500M
   msvc:
     name: msvc-x64
-    runs-on: windows-2022
+    runs-on: windows-2025-vs2026
     env:
       CCACHE_MAXSIZE: 0
       CCACHE_NOCOMPRESS: 1
@@ -392,7 +392,7 @@ jobs:
           archives: qtbase qtsvg qttools
           cache: true
       - name: Set up build environment
-        uses: ilammy/msvc-dev-cmd@cec98b9d092141f74527d0afa6feb2af698cfe89
+        uses: TheMrMilchmann/setup-msvc-dev@368ef7d1ee4d1171b31d4a7f67f4d954f903f5a9
         with:
           arch: x64
       - name: Configure
