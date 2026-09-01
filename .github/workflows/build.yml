@@ -383,7 +383,7 @@ jobs:
           path: ~\AppData\Local\ccache
           # yamllint enable rule:line-length
       - name: Install tools
-        run: choco install ccache
+        run: choco install ccache nsis
       - name: Install Qt
         uses: jurplel/install-qt-action@d325aaf2a8baeeda41ad0b5d39f84a6af9bcf005
         with:
