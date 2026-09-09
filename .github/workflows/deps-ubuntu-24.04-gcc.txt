@@ -25,7 +25,6 @@ libqt6svg6-dev
 libsamplerate0-dev
 libsdl2-dev
 libsndfile1-dev
-libsoundio-dev
 libstk-dev
 libsuil-dev
 libvorbis-dev

@@ -42,6 +42,7 @@
 #include "SetupDialog.h"
 #include "TabBar.h"
 #include "TabButton.h"
+#include "TimeLineWidget.h"
 
 
 // Platform-specific audio-interface classes.
@@ -49,12 +50,10 @@
 #include "AudioAlsaSetupWidget.h"
 #include "AudioDummy.h"
 #include "AudioJack.h"
-#include "AudioOss.h"
 #include "AudioPortAudio.h"
 #include "AudioPulseAudio.h"
 #include "AudioSdl.h"
 #include "AudioSndio.h"
-#include "AudioSoundIo.h"
 
 // Platform-specific midi-interface classes.
 #include "MidiAlsaRaw.h"
@@ -62,7 +61,6 @@
 #include "MidiApple.h"
 #include "MidiDummy.h"
 #include "MidiJack.h"
-#include "MidiOss.h"
 #include "MidiSndio.h"
 #include "MidiWinMM.h"
 
@@ -118,7 +116,9 @@ SetupDialog::SetupDialog(ConfigTab tab_to_open) :
 			"app", "disablebackup").toInt()),
 	m_openLastProject(ConfigManager::inst()->value(
 			"app", "openlastproject").toInt()),
+	m_detachBehavior{ConfigManager::inst()->value("ui", "detachbehavior", "show")},
 	m_loopMarkerMode{ConfigManager::inst()->value("app", "loopmarkermode", "dual")},
+	m_autoScroll(ConfigManager::inst()->value("ui", "autoscroll", "stepped")),
 	m_lang(ConfigManager::inst()->value(
 			"app", "language")),
 	m_saveInterval(	ConfigManager::inst()->value(
@@ -139,10 +139,10 @@ SetupDialog::SetupDialog(ConfigTab tab_to_open) :
 			"ui", "vstalwaysontop").toInt()),
 	m_disableAutoQuit(ConfigManager::inst()->value(
 			"ui", "disableautoquit", "1").toInt()),
-	m_NaNHandler(ConfigManager::inst()->value(
-			"app", "nanhandler", "1").toInt()),
 	m_bufferSize(ConfigManager::inst()->value(
-			"audioengine", "framesperaudiobuffer").toInt()),
+			"audioengine", "framesperaudiobuffer", QString::number(DEFAULT_BUFFER_SIZE)).toInt()),
+	m_mixSanitization(ConfigManager::inst()->value(
+			"audioengine", "sanitizemix", "1").toInt()),
 	m_sampleRate(ConfigManager::inst()->value(
 			"audioengine", "samplerate").toInt()),
 	m_midiAutoQuantize(ConfigManager::inst()->value(
@@ -255,6 +255,19 @@ SetupDialog::SetupDialog(ConfigTab tab_to_open) :
 	addCheckBox(tr("Show warning when deleting a mixer channel that is in use"), guiGroupBox, guiGroupLayout,
 		m_mixerChannelDeletionWarning,	SLOT(toggleMixerChannelDeletionWarning(bool)), false);
 
+	m_detachBehaviorComboBox = new QComboBox{guiGroupBox};
+
+	m_detachBehaviorComboBox->addItem(tr("Attach and show when closed"), "show");
+	m_detachBehaviorComboBox->addItem(tr("Attach and hide when closed"), "hide");
+	m_detachBehaviorComboBox->addItem(tr("Always detached"), "detached");
+
+	m_detachBehaviorComboBox->setCurrentIndex(m_detachBehaviorComboBox->findData(m_detachBehavior));
+	connect(m_detachBehaviorComboBox, qOverload<int>(&QComboBox::currentIndexChanged),
+		this, &SetupDialog::detachBehaviorChanged);
+
+	guiGroupLayout->addWidget(new QLabel{tr("Detached window behavior"), guiGroupBox});
+	guiGroupLayout->addWidget(m_detachBehaviorComboBox);
+
 	m_loopMarkerComboBox = new QComboBox{guiGroupBox};
 
 	m_loopMarkerComboBox->addItem(tr("Dual-button"), "dual");
@@ -267,6 +280,17 @@ SetupDialog::SetupDialog(ConfigTab tab_to_open) :
 
 	guiGroupLayout->addWidget(new QLabel{tr("Loop edit mode"), guiGroupBox});
 	guiGroupLayout->addWidget(m_loopMarkerComboBox);
+
+	m_autoScrollComboBox = new QComboBox{guiGroupBox};
+	m_autoScrollComboBox->addItem(tr("Disabled"), TimeLineWidget::AutoScrollDisabledString);
+	m_autoScrollComboBox->addItem(tr("Stepped (Scroll once the playhead goes out of view)"), TimeLineWidget::AutoScrollSteppedString);
+	m_autoScrollComboBox->addItem(tr("Continuous (Scroll constantly to keep the playhead in the center)"), TimeLineWidget::AutoScrollContinuousString);
+	m_autoScrollComboBox->setCurrentIndex(m_autoScrollComboBox->findData(m_autoScroll));
+	connect(m_autoScrollComboBox, qOverload<int>(&QComboBox::currentIndexChanged),
+		this, [this](){ m_autoScroll = m_autoScrollComboBox->currentData().toString(); });
+
+	guiGroupLayout->addWidget(new QLabel{tr("Default Autoscroll Mode"), guiGroupBox});
+	guiGroupLayout->addWidget(m_autoScrollComboBox);
 
 	generalControlsLayout->addWidget(guiGroupBox);
 
@@ -497,22 +521,12 @@ SetupDialog::SetupDialog(ConfigTab tab_to_open) :
 
 #ifdef LMMS_HAVE_PORTAUDIO
 	m_audioIfaceSetupWidgets[AudioPortAudio::name()] =
-			new AudioPortAudio::setupWidget(as_w);
-#endif
-
-#ifdef LMMS_HAVE_SOUNDIO
-	m_audioIfaceSetupWidgets[AudioSoundIo::name()] =
-			new AudioSoundIo::setupWidget(as_w);
+			new AudioPortAudioSetupWidget(as_w);
 #endif
 
 #ifdef LMMS_HAVE_SDL
 	m_audioIfaceSetupWidgets[AudioSdl::name()] =
 			new AudioSdl::setupWidget(as_w);
-#endif
-
-#ifdef LMMS_HAVE_OSS
-	m_audioIfaceSetupWidgets[AudioOss::name()] =
-			new AudioOss::setupWidget(as_w);
 #endif
 
 #ifdef LMMS_HAVE_SNDIO
@@ -550,19 +564,7 @@ SetupDialog::SetupDialog(ConfigTab tab_to_open) :
 		setCurrentIndex(m_audioInterfaces->findText(audioDevName));
 	m_audioIfaceSetupWidgets[audioDevName]->show();
 
-	connect(m_audioInterfaces,
-#if (QT_VERSION < QT_VERSION_CHECK(5, 14, 0))
-		QOverload<const QString&>::of(&QComboBox::activated),
-#else
-		&QComboBox::textActivated,
-#endif
-		this, &SetupDialog::audioInterfaceChanged);
-
-	// Advanced setting, hidden for now
-	// // TODO Handle or remove.
-	// auto useNaNHandler = new LedCheckBox(tr("Use built-in NaN handler"), audio_w);
-	// audio_layout->addWidget(useNaNHandler);
-	// useNaNHandler->setChecked(m_NaNHandler);
+	connect(m_audioInterfaces, &QComboBox::textActivated, this, &SetupDialog::audioInterfaceChanged);
 
 	auto sampleRateBox = new QGroupBox{tr("Sample rate"), audio_w};
 
@@ -639,12 +641,20 @@ SetupDialog::SetupDialog(ConfigTab tab_to_open) :
 
 	setBufferSize(m_bufferSizeSlider->value());
 
+	const auto otherBox = new QGroupBox(tr("Other"), audio_w);
+	const auto otherBoxLayout = new QVBoxLayout{otherBox};
+
+	const auto enableMixSanitizationCheckbox = addCheckBox(tr("Enable mix sanitization"), otherBox, otherBoxLayout,
+		m_mixSanitization, SLOT(toggleMixSanitization(bool)), false);
+	enableMixSanitizationCheckbox->setToolTip(tr("Provides protection from any plugins or tracks that generate "
+												 "corrupted audio, but may negatively impact performance."));
 
 	// Audio layout ordering.
 	audio_layout->addWidget(audioInterfaceBox);
 	audio_layout->addWidget(as_w);
 	audio_layout->addWidget(sampleRateBox);
 	audio_layout->addWidget(bufferSizeBox);
+	audio_layout->addWidget(otherBox);
 	audio_layout->addStretch();
 
 
@@ -682,17 +692,12 @@ SetupDialog::SetupDialog(ConfigTab tab_to_open) :
 			MidiSetupWidget::create<MidiJack>(ms_w);
 #endif
 
-#ifdef LMMS_HAVE_OSS
-	m_midiIfaceSetupWidgets[MidiOss::name()] =
-			MidiSetupWidget::create<MidiOss>(ms_w);
-#endif
-
 #ifdef LMMS_HAVE_SNDIO
 	m_midiIfaceSetupWidgets[MidiSndio::name()] =
 			MidiSetupWidget::create<MidiSndio>(ms_w);
 #endif
 
-#ifdef LMMS_BUILD_WIN32
+#ifdef LMMS_HAVE_WINMM
 	m_midiIfaceSetupWidgets[MidiWinMM::name()] =
 			MidiSetupWidget::create<MidiWinMM>(ms_w);
 #endif
@@ -730,13 +735,7 @@ SetupDialog::SetupDialog(ConfigTab tab_to_open) :
 	m_midiInterfaces->setCurrentIndex(m_midiInterfaces->findText(midiDevName));
 	m_midiIfaceSetupWidgets[midiDevName]->show();
 
-	connect(m_midiInterfaces,
-#if (QT_VERSION < QT_VERSION_CHECK(5, 14, 0))
-		QOverload<const QString&>::of(&QComboBox::activated),
-#else
-		&QComboBox::textActivated,
-#endif
-		this, &SetupDialog::midiInterfaceChanged);
+	connect(m_midiInterfaces, &QComboBox::textActivated, this, &SetupDialog::midiInterfaceChanged);
 
 	// MIDI autoassign group
 	QGroupBox * midiAutoAssignBox = new QGroupBox(tr("Automatically assign MIDI controller to selected track"), midi_w);
@@ -990,8 +989,10 @@ void SetupDialog::accept()
 					QString::number(!m_disableBackup));
 	ConfigManager::inst()->setValue("app", "openlastproject",
 					QString::number(m_openLastProject));
+	ConfigManager::inst()->setValue("ui", "detachbehavior", m_detachBehavior);
 	ConfigManager::inst()->setValue("app", "loopmarkermode", m_loopMarkerMode);
 	ConfigManager::inst()->setValue("app", "language", m_lang);
+	ConfigManager::inst()->setValue("ui", "autoscroll", m_autoScroll);
 	ConfigManager::inst()->setValue("ui", "saveinterval",
 					QString::number(m_saveInterval));
 	ConfigManager::inst()->setValue("ui", "enableautosave",
@@ -1010,8 +1011,8 @@ void SetupDialog::accept()
 					QString::number(m_disableAutoQuit));
 	ConfigManager::inst()->setValue("audioengine", "audiodev",
 					m_audioIfaceNames[m_audioInterfaces->currentText()]);
-	ConfigManager::inst()->setValue("app", "nanhandler",
-					QString::number(m_NaNHandler));
+	ConfigManager::inst()->setValue("audioengine", "sanitizemix",
+					QString::number(m_mixSanitization));
 	ConfigManager::inst()->setValue("audioengine", "samplerate",
 					QString::number(m_sampleRate));
 	ConfigManager::inst()->setValue("audioengine", "framesperaudiobuffer",
@@ -1129,6 +1130,12 @@ void SetupDialog::toggleOpenLastProject(bool enabled)
 }
 
 
+void SetupDialog::detachBehaviorChanged()
+{
+	m_detachBehavior = m_detachBehaviorComboBox->currentData().toString();
+}
+
+
 void SetupDialog::loopMarkerModeChanged()
 {
 	m_loopMarkerMode = m_loopMarkerComboBox->currentData().toString();
@@ -1212,6 +1219,12 @@ void SetupDialog::toggleVSTAlwaysOnTop(bool enabled)
 void SetupDialog::toggleDisableAutoQuit(bool enabled)
 {
 	m_disableAutoQuit = enabled;
+}
+
+void SetupDialog::toggleMixSanitization(bool enabled)
+{
+	m_mixSanitization = enabled;
+	Engine::audioEngine()->setSanitizationEnabled(m_mixSanitization);
 }
 
 void SetupDialog::audioInterfaceChanged(const QString & iface)

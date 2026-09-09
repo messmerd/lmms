@@ -265,10 +265,14 @@ void Sf2Instrument::saveSettings( QDomDocument & _doc, QDomElement & _this )
 
 void Sf2Instrument::loadSettings( const QDomElement & _this )
 {
-	openFile( _this.attribute( "src" ), false );
-	m_patchNum.loadSettings( _this, "patch" );
-	m_bankNum.loadSettings( _this, "bank" );
-
+	QString src = _this.attribute("src");
+	if (!src.isEmpty())
+	{
+		openFile(src, false);
+		m_patchNum.loadSettings(_this, "patch");
+		m_bankNum.loadSettings(_this, "bank");
+	}
+	
 	m_gain.loadSettings( _this, "gain" );
 
 	m_reverbOn.loadSettings( _this, "reverbOn" );
@@ -783,7 +787,7 @@ void Sf2Instrument::noteOff( Sf2PluginData * n )
 
 void Sf2Instrument::play( SampleFrame* _working_buffer )
 {
-	const fpp_t frames = Engine::audioEngine()->framesPerPeriod();
+	const f_cnt_t frames = Engine::audioEngine()->framesPerPeriod();
 
 	// set midi pitch for this period
 	const int currentMidiPitch = instrumentTrack()->midiPitch();
