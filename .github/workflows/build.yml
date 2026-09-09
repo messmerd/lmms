@@ -244,8 +244,6 @@ jobs:
           cmake -S . \
                 -B build \
                 -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
-                -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ matrix.macosx_deployment_target }} \
-                -DWANT_QT6=ON \
                 $CMAKE_OPTS \
                 -DUSE_WERROR=OFF
       - name: Build
