@@ -464,6 +464,7 @@ static_assert(sizeof(InterleavedBufferView<float>) > sizeof(InterleavedBufferVie
 static_assert(sizeof(InterleavedBufferView<float, 2>) == sizeof(void*) + sizeof(f_cnt_t));
 
 // Deduction guides
+template<typename T> InterleavedBufferView(T*, ch_cnt_t, f_cnt_t) -> InterleavedBufferView<T>;
 InterleavedBufferView(const SampleFrame*, f_cnt_t) -> InterleavedBufferView<const float, 2>;
 InterleavedBufferView(SampleFrame*, f_cnt_t) -> InterleavedBufferView<float, 2>;
 
@@ -569,6 +570,10 @@ public:
 // Check that the std::span-like space optimization works
 static_assert(sizeof(PlanarBufferView<float>) > sizeof(PlanarBufferView<float, 2>));
 static_assert(sizeof(PlanarBufferView<float, 2>) == sizeof(void**) + sizeof(f_cnt_t));
+
+// Deduction guides
+template<typename T> PlanarBufferView(T**, ch_cnt_t, f_cnt_t) -> PlanarBufferView<T>;
+template<typename T> PlanarBufferView(T* const*, ch_cnt_t, f_cnt_t) -> PlanarBufferView<T>;
 
 
 //! Concept for any audio buffer view, interleaved or planar
