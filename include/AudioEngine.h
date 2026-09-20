@@ -233,7 +233,7 @@ public:
 	PlanarBufferView<const float> inputBuffer()
 	{
 		auto& channelBuffers = m_inputBufferChannels[m_inputBufferRead];
-		return {channelBuffers.data(), channelBuffers.size(), inputBufferFrames()};
+		return {channelBuffers.data(), static_cast<ch_cnt_t>(channelBuffers.size()), inputBufferFrames()};
 	}
 
 	inline f_cnt_t inputBufferFrames() const
@@ -270,7 +270,7 @@ public:
 	 *
 	 * @returns A non-owning buffer to the next audio period.
 	 */
-	PlanarBufferView<const float, 2> renderNextPeriod();
+	PlanarBufferView<const float> renderNextPeriod();
 
 	/**
 	 * @brief Renders an audio buffer into @a dst.
@@ -279,7 +279,7 @@ public:
 	 * size, the remaining frames are partially rendered (an extra period may be rendered in such cases, which can
 	 * degrade performance).
 	 *
-	 * If @a dst has 1 channel, the channels are averaged to mono.
+	 * If @a dst has 1 channel, the channels are downmixed to mono.
 	 * If @a dst has 2 channels, the channels are directly copied.
 	 * If @a dst has more than 2 channels, the stereo channels are copied and the rest are zero-filled.
 	 *
@@ -287,7 +287,21 @@ public:
 	 */
 	void renderNextBuffer(InterleavedBufferView<float> dst);
 
-	//! @copydoc renderNextBuffer(InterleavedBufferView<float>)
+	/**
+	 * @brief Renders an audio buffer into @a dst.
+	 *
+	 * Renders @ref renderNextPeriod() "audio periods" into @a dst. If @a dst is not a multiple of the period
+	 * size, the remaining frames are partially rendered (an extra period may be rendered in such cases, which can
+	 * degrade performance).
+	 *
+	 * If @a dst has 1 channel but @a src has 2, the channels are downmixed to mono.
+	 * If @a dst has 2 channels but @a src has 1, the channel is upmixed to stereo.
+	 * If @a dst and @a src have an equal number of channels, the channels are directly copied.
+	 * If @a dst has more channels than @a src (excluding the stereo-mono case mentioned above), the channels
+	 *     in common are copied and the rest are zero-filled.
+	 *
+	 * @param dst An audio buffer view to write into. Both interleaved and planar overloads are provided.
+	 */
 	void renderNextBuffer(PlanarBufferView<float> dst);
 
 	//! Block until a change in model can be done (i.e. wait for audio thread)
@@ -315,39 +329,6 @@ signals:
 
 
 private:
-	void renderNextBuffer(AudioBufferView<float> auto dst)
-	{
-		for (auto frame = f_cnt_t{0}; frame < dst.frames(); ++frame)
-		{
-			if (m_outputBufferReadIndex == m_framesPerPeriod) { m_outputBufferReadIndex = 0; }
-			if (m_outputBufferReadIndex == 0) { renderNextPeriod(); }
-
-			switch (dst.channels())
-			{
-			case 0:
-				assert(false);
-				break;
-			case 1:
-				dst.sample(0, frame) = m_outputBufferRead[m_outputBufferReadIndex].average();
-				break;
-			case 2:
-				dst.sample(0, frame) = m_outputBufferRead[m_outputBufferReadIndex][0];
-				dst.sample(1, frame) = m_outputBufferRead[m_outputBufferReadIndex][1];
-				break;
-			default:
-				dst.sample(0, frame) = m_outputBufferRead[m_outputBufferReadIndex][0];
-				dst.sample(1, frame) = m_outputBufferRead[m_outputBufferReadIndex][1];
-				for (auto channel = 2; channel < dst.channels(); ++channel)
-				{
-					dst.sample(channel, frame) = 0.f;
-				}
-				break;
-			}
-
-			++m_outputBufferReadIndex;
-		}
-	}
-
 	AudioEngine( bool renderOnly );
 	~AudioEngine() override;
 

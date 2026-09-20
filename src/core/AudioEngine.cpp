@@ -322,7 +322,7 @@ void AudioEngine::renderStageMix()
 
 
 
-PlanarBufferView<const float, 2> AudioEngine::renderNextPeriod()
+PlanarBufferView<const float> AudioEngine::renderNextPeriod()
 {
 	const auto lock = std::lock_guard{m_changeMutex};
 
@@ -338,7 +338,7 @@ PlanarBufferView<const float, 2> AudioEngine::renderNextPeriod()
 	m_profiler.finishPeriod(outputSampleRate(), m_framesPerPeriod);
 	m_outputBufferReadIndex = 0;
 
-	return PlanarBufferView<const float, 2>{m_outputBufferRead.allBuffers().data(), m_framesPerPeriod};
+	return m_outputBufferRead.allBuffers();
 }
 
 void AudioEngine::renderNextBuffer(InterleavedBufferView<float> dst)
