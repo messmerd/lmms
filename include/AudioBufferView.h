@@ -455,8 +455,19 @@ public:
 		return {reinterpret_cast<const SampleFrame*>(this->m_data), this->m_frames};
 	}
 
-	//! Use to distinguish between `InterleavedBufferView` and `PlanarBufferView` when using `AudioBufferView`
-	static constexpr bool Interleaved = true;
+	/**
+	 * @returns a new view with an equal or smaller frame count
+	 * @pre newFrameCount <= frames()
+	 */
+	constexpr auto truncated(f_cnt_t newFrameCount) const noexcept -> InterleavedBufferView<T, channelCount>
+	{
+		assert(newFrameCount <= frames());
+		if constexpr (channelCount == DynamicChannelCount)
+		{
+			return {this->m_data, this->m_channels, newFrameCount};
+		}
+		else { return InterleavedBufferView<T, channelCount>{this->m_data, newFrameCount}; }
+	}
 };
 
 // Check that the std::span-like space optimization works
@@ -563,8 +574,19 @@ public:
 		return bufferPtr(channel);
 	}
 
-	//! Use to distinguish between `InterleavedBufferView` and `PlanarBufferView` when using `AudioBufferView`
-	static constexpr bool Interleaved = false;
+	/**
+	 * @returns a new view with an equal or smaller frame count
+	 * @pre newFrameCount <= frames()
+	 */
+	constexpr auto truncated(f_cnt_t newFrameCount) const noexcept -> PlanarBufferView<T, channelCount>
+	{
+		assert(newFrameCount <= frames());
+		if constexpr (channelCount == DynamicChannelCount)
+		{
+			return {this->m_data, this->m_channels, newFrameCount};
+		}
+		else { return PlanarBufferView<T, channelCount>{this->m_data, newFrameCount}; }
+	}
 };
 
 // Check that the std::span-like space optimization works
@@ -580,6 +602,35 @@ template<typename T> PlanarBufferView(T* const*, ch_cnt_t, f_cnt_t) -> PlanarBuf
 template<class T, typename U, ch_cnt_t channels = DynamicChannelCount>
 concept AudioBufferView = SampleType<U> && (std::convertible_to<T, InterleavedBufferView<U, channels>>
 	|| std::convertible_to<T, PlanarBufferView<U, channels>>);
+
+
+namespace detail {
+
+template<template<typename, ch_cnt_t> class V, typename T>
+struct IsAudioBufferViewHelper
+{
+	static constexpr bool value = false;
+};
+
+template<typename T, ch_cnt_t channels>
+struct IsAudioBufferViewHelper<PlanarBufferView, PlanarBufferView<T, channels>>
+{
+	static constexpr bool value = true;
+};
+
+template<typename T, ch_cnt_t channels>
+struct IsAudioBufferViewHelper<InterleavedBufferView, InterleavedBufferView<T, channels>>
+{
+	static constexpr bool value = true;
+};
+
+} // namespace detail
+
+template<typename T>
+consteval auto isPlanar() -> bool { return detail::IsAudioBufferViewHelper<PlanarBufferView, T>::value; }
+
+template<typename T>
+consteval auto isInterleaved() -> bool { return detail::IsAudioBufferViewHelper<InterleavedBufferView, T>::value; }
 
 
 //! Converts planar buffers to interleaved buffers
