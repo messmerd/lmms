@@ -81,11 +81,16 @@ public:
 	// output buffer only once per audio engine period
 	virtual void play(std::optional<PlanarBufferView<float>> out);
 
-	// to be implemented by actual plugin
-	virtual void playNote( NotePlayHandle * /* _note_to_play */,
-					SampleFrame* /* _working_buf */ )
-	{
-	}
+	//! @brief For capturing (and possibly rendering) note-play events which are needed
+	//!        for arpeggio, filter, etc.
+	//!
+	//! For multi-streamed instruments, @a out has a value and the instrument is expected
+	//!     to render audio into the @a out buffer.
+	//!
+	//! For single-streamed instruments, @a out is always std::nullopt, and this method
+	//!     is analogous to @ref handleMidiEvent but for @a NotePlayHandle -based instruments,
+	//!     informing the instrument of note events but not rendering audio.
+	virtual void playNote(NotePlayHandle* nph, std::optional<PlanarBufferView<float>> out) {}
 
 	// needed for deleting plugin-specific-data of a note - plugin has to
 	// cast void-ptr so that the plugin-data is deleted properly

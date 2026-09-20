@@ -162,8 +162,6 @@ void MixerChannel::unmuteReceiverForSolo()
 
 void MixerChannel::doProcessing()
 {
-	const f_cnt_t fpp = Engine::audioEngine()->framesPerPeriod();
-
 	if( m_muted == false )
 	{
 		for( MixerRoute * senderRoute : m_receives )

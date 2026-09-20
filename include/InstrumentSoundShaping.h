@@ -25,6 +25,7 @@
 #ifndef LMMS_INSTRUMENT_SOUND_SHAPING_H
 #define LMMS_INSTRUMENT_SOUND_SHAPING_H
 
+#include "AudioBufferView.h"
 #include "ComboBoxModel.h"
 #include "EnvelopeAndLfoParameters.h"
 
@@ -49,8 +50,7 @@ public:
 	InstrumentSoundShaping( InstrumentTrack * _instrument_track );
 	~InstrumentSoundShaping() override = default;
 
-	void processAudioBuffer( SampleFrame* _ab, const f_cnt_t _frames,
-							NotePlayHandle * _n );
+	void processAudioBuffer(PlanarBufferView<float> inOut, const f_cnt_t offset, NotePlayHandle* nph);
 
 	const EnvelopeAndLfoParameters& getVolumeParameters() const { return m_volumeParameters; }
 	EnvelopeAndLfoParameters& getVolumeParameters() { return m_volumeParameters; }
