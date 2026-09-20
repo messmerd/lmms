@@ -70,6 +70,36 @@ bool isSilent(std::span<const sample_t> buffer)
 	return std::ranges::all_of(buffer, [&](const sample_t s) { return std::abs(s) < SilenceThreshold; });
 }
 
+bool isSilent(PlanarBufferView<const float> buffer)
+{
+	for (ch_cnt_t ch = 0; ch < buffer.channels(); ++ch)
+	{
+		if (!isSilent(buffer.buffer(ch))) { return false; }
+	}
+	return true;
+}
+
+void copy(PlanarBufferView<float> dst, f_cnt_t dstOffset, PlanarBufferView<const float> src, f_cnt_t srcOffset)
+{
+	assert(dst.channels() == src.channels());
+	assert(dstOffset < dst.frames());
+	assert(srcOffset < src.frames());
+
+	const auto framesToCopy = src.frames() - srcOffset;
+	assert(framesToCopy <= dst.frames() - dstOffset);
+
+	const auto channels = dst.channels();
+	for (ch_cnt_t ch = 0; ch < channels; ++ch)
+	{
+		float* dstPtr = dst.bufferPtr(ch);
+		const float* srcPtr = src.bufferPtr(ch);
+		for (f_cnt_t idx = 0; idx < framesToCopy; ++idx)
+		{
+			dstPtr[dstOffset + idx] = srcPtr[srcOffset + idx];
+		}
+	}
+}
+
 struct AddOp
 {
 	void operator()( SampleFrame& dst, const SampleFrame& src ) const
@@ -116,6 +146,24 @@ struct AddMultipliedOp
 } ;
 
 
+void addMultiplied(PlanarBufferView<float> dst, PlanarBufferView<const float> src, float coeffSrc)
+{
+	assert(dst.channels() == src.channels());
+	assert(dst.frames() == src.frames());
+
+	const ch_cnt_t channels = dst.channels();
+	const f_cnt_t frames = dst.frames();
+	for (ch_cnt_t ch = 0; ch < channels; ++ch)
+	{
+		float* dstPtr = dst.bufferPtr(ch);
+		const float* srcPtr = src.bufferPtr(ch);
+		for (f_cnt_t frame = 0; frame < frames; ++frame)
+		{
+			dstPtr[frame] += srcPtr[frame] * coeffSrc;
+		}
+	}
+}
+
 void addMultiplied( SampleFrame* dst, const SampleFrame* src, float coeffSrc, int frames )
 {
 	run<>( dst, src, frames, AddMultipliedOp(coeffSrc) );
@@ -135,6 +183,20 @@ struct AddSwappedMultipliedOp
 	const float m_coeff;
 };
 
+void multiply(PlanarBufferView<float> dst, float coeff)
+{
+	const ch_cnt_t channels = dst.channels();
+	const f_cnt_t frames = dst.frames();
+	for (ch_cnt_t ch = 0; ch < channels; ++ch)
+	{
+		float* dstPtr = dst.bufferPtr(ch);
+		for (f_cnt_t frame = 0; frame < frames; ++frame)
+		{
+			dstPtr[frame] *= coeff;
+		}
+	}
+}
+
 void multiply(SampleFrame* dst, float coeff, int frames)
 {
 	for (int i = 0; i < frames; ++i)
@@ -148,25 +210,44 @@ void addSwappedMultiplied( SampleFrame* dst, const SampleFrame* src, float coeff
 	run<>( dst, src, frames, AddSwappedMultipliedOp(coeffSrc) );
 }
 
-
-void addMultipliedByBuffer( SampleFrame* dst, const SampleFrame* src, float coeffSrc, ValueBuffer * coeffSrcBuf, int frames )
+void addMultipliedByBuffer(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+	float coeffSrc, const ValueBuffer* coeffSrcBuf)
 {
-	for( int f = 0; f < frames; ++f )
+	assert(dst.channels() == src.channels());
+	assert(dst.frames() == src.frames());
+
+	const ch_cnt_t channels = dst.channels();
+	const f_cnt_t frames = dst.frames();
+	for (ch_cnt_t ch = 0; ch < channels; ++ch)
 	{
-		dst[f][0] += src[f][0] * coeffSrc * coeffSrcBuf->values()[f];
-		dst[f][1] += src[f][1] * coeffSrc * coeffSrcBuf->values()[f];
+		float* dstPtr = dst.bufferPtr(ch);
+		const float* srcPtr = src.bufferPtr(ch);
+		for (f_cnt_t frame = 0; frame < frames; ++frame)
+		{
+			dstPtr[frame] += srcPtr[frame] * coeffSrc * coeffSrcBuf->values()[frame];
+		}
 	}
 }
 
-void addMultipliedByBuffers( SampleFrame* dst, const SampleFrame* src, ValueBuffer * coeffSrcBuf1, ValueBuffer * coeffSrcBuf2, int frames )
+void addMultipliedByBuffers(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+	const ValueBuffer* coeffSrcBuf1, const ValueBuffer* coeffSrcBuf2)
 {
-	for( int f = 0; f < frames; ++f )
-	{
-		dst[f][0] += src[f][0] * coeffSrcBuf1->values()[f] * coeffSrcBuf2->values()[f];
-		dst[f][1] += src[f][1] * coeffSrcBuf1->values()[f] * coeffSrcBuf2->values()[f];
-	}
+	assert(dst.channels() == src.channels());
+	assert(dst.frames() == src.frames());
 
+	const ch_cnt_t channels = dst.channels();
+	const f_cnt_t frames = dst.frames();
+	for (ch_cnt_t ch = 0; ch < channels; ++ch)
+	{
+		float* dstPtr = dst.bufferPtr(ch);
+		const float* srcPtr = src.bufferPtr(ch);
+		for (f_cnt_t frame = 0; frame < frames; ++frame)
+		{
+			dstPtr[frame] += srcPtr[frame] * coeffSrcBuf1->values()[frame] * coeffSrcBuf2->values()[frame];
+		}
+	}
 }
+
 
 struct AddMultipliedStereoOp
 {

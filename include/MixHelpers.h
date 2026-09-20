@@ -40,14 +40,26 @@ bool isSilent(const SampleFrame* src, int frames);
 
 bool isSilent(std::span<const sample_t> buffer);
 
+bool isSilent(PlanarBufferView<const float> buffer);
+
+//! @brief Copies data from @a src to @a dst, starting from the given offsets
+//! @note The entire subset of @a src from @a srcOffset to the end must be copyable into @a dst at its offset
+void copy(PlanarBufferView<float> dst, f_cnt_t dstOffset, PlanarBufferView<const float> src, f_cnt_t srcOffset);
+
 /*! \brief Add samples from src to dst */
 void add( SampleFrame* dst, const SampleFrame* src, int frames );
 
 /*! \brief Add samples from src to dst */
 void add(PlanarBufferView<sample_t> dst, PlanarBufferView<const sample_t> src);
 
+//! @brief Multiply samples from `dst` by `coeff`
+void multiply(PlanarBufferView<float> dst, float coeff);
+
 /*! \brief Multiply samples from `dst` by `coeff` */
 void multiply(SampleFrame* dst, float coeff, int frames);
+
+//! @brief Add samples from src multiplied by coeffSrc to dst
+void addMultiplied(PlanarBufferView<float> dst, PlanarBufferView<const float> src, float coeffSrc);
 
 /*! \brief Add samples from src multiplied by coeffSrc to dst */
 void addMultiplied( SampleFrame* dst, const SampleFrame* src, float coeffSrc, int frames );
@@ -55,11 +67,13 @@ void addMultiplied( SampleFrame* dst, const SampleFrame* src, float coeffSrc, in
 /*! \brief Add samples from src multiplied by coeffSrc to dst, swap inputs */
 void addSwappedMultiplied( SampleFrame* dst, const SampleFrame* src, float coeffSrc, int frames );
 
-/*! \brief Add samples from src multiplied by coeffSrc and coeffSrcBuf to dst */
-void addMultipliedByBuffer( SampleFrame* dst, const SampleFrame* src, float coeffSrc, ValueBuffer * coeffSrcBuf, int frames );
+//! @brief Add samples from src multiplied by coeffSrc and coeffSrcBuf to dst
+void addMultipliedByBuffer(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+	float coeffSrc, const ValueBuffer* coeffSrcBuf);
 
-/*! \brief Add samples from src multiplied by coeffSrc and coeffSrcBuf to dst */
-void addMultipliedByBuffers( SampleFrame* dst, const SampleFrame* src, ValueBuffer * coeffSrcBuf1, ValueBuffer * coeffSrcBuf2, int frames );
+//! @brief Add samples from src multiplied by coeffSrcBuf1 and coeffSrcBuf2 to dst
+void addMultipliedByBuffers(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+	const ValueBuffer* coeffSrcBuf1, const ValueBuffer* coeffSrcBuf2);
 
 /*! \brief Add samples from src multiplied by coeffSrcLeft/coeffSrcRight to dst */
 void addMultipliedStereo( SampleFrame* dst, const SampleFrame* src, float coeffSrcLeft, float coeffSrcRight, int frames );

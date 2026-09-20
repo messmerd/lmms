@@ -45,7 +45,7 @@ Instrument::Instrument(InstrumentTrack * _instrument_track,
 {
 }
 
-void Instrument::play( SampleFrame* )
+void Instrument::play(std::optional<PlanarBufferView<float>>)
 {
 }
 

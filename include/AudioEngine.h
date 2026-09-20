@@ -228,11 +228,12 @@ public:
 
 	bool criticalXRuns() const;
 
-	void pushInputFrames( SampleFrame* _ab, const f_cnt_t _frames );
+	void pushInputFrames(PlanarBufferView<float> buffer);
 
-	inline const SampleFrame* inputBuffer()
+	PlanarBufferView<const float> inputBuffer()
 	{
-		return m_inputBuffer[ m_inputBufferRead ];
+		auto& channelBuffers = m_inputBufferChannels[m_inputBufferRead];
+		return {channelBuffers.data(), channelBuffers.size(), inputBufferFrames()};
 	}
 
 	inline f_cnt_t inputBufferFrames() const
@@ -262,14 +263,14 @@ public:
 	 * engine's output. The rendering is chunked into smaller periods to timely handle per-buffer updates like
 	 * non-sample-accurate automation, as well as to improve memory cache performance.
 	 *
-	 * The audio period generated is interleaved and stereo.
+	 * The audio period generated is planar and stereo.
 	 *
 	 * @note The audio period returned is non-owning and will be changed on subsequent calls to @ref renderNextPeriod()
 	 * and @ref renderNextBuffer(). Callers must copy the data into their own local buffers if they need it to persist.
 	 *
 	 * @returns A non-owning buffer to the next audio period.
 	 */
-	std::span<const SampleFrame> renderNextPeriod();
+	PlanarBufferView<const float, 2> renderNextPeriod();
 
 	/**
 	 * @brief Renders an audio buffer into @a dst.
@@ -310,7 +311,7 @@ public:
 signals:
 	void qualitySettingsChanged();
 	void sampleRateChanged();
-	void nextAudioBuffer(const lmms::SampleFrame* buffer);
+	void nextAudioBuffer(const lmms::SampleFrame* buffer); // TODO
 
 
 private:
@@ -375,14 +376,14 @@ private:
 	f_cnt_t m_framesPerPeriod;
 	sample_rate_t m_baseSampleRate;
 
-	SampleFrame* m_inputBuffer[2];
+	std::vector<float> m_inputBufferSource[2];
+	std::vector<float*> m_inputBufferChannels[2]; //!< points into m_inputBufferSource
 	f_cnt_t m_inputBufferFrames[2];
-	f_cnt_t m_inputBufferSize[2];
 	int m_inputBufferRead;
 	int m_inputBufferWrite;
 
-	std::unique_ptr<SampleFrame[]> m_outputBufferRead;
-	std::unique_ptr<SampleFrame[]> m_outputBufferWrite;
+	AudioBuffer m_outputBufferRead;
+	AudioBuffer m_outputBufferWrite;
 	f_cnt_t m_outputBufferReadIndex;
 
 	// worker thread stuff

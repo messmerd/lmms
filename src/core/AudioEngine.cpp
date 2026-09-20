@@ -75,8 +75,8 @@ AudioEngine::AudioEngine(bool renderOnly)
 		std::max(ConfigManager::inst()->value("audioengine", "samplerate").toInt(), SUPPORTED_SAMPLERATES.front()))
 	, m_inputBufferRead(0)
 	, m_inputBufferWrite(1)
-	, m_outputBufferRead(nullptr)
-	, m_outputBufferWrite(nullptr)
+	, m_outputBufferRead(m_framesPerPeriod, 2)
+	, m_outputBufferWrite(m_framesPerPeriod, 2)
 	, m_outputBufferReadIndex(0)
 	, m_workers()
 	, m_numWorkers(QThread::idealThreadCount() - 1)
@@ -89,18 +89,18 @@ AudioEngine::AudioEngine(bool renderOnly)
 	, m_clearSignal(false)
 	, m_sanitizationEnabled(ConfigManager::inst()->value("audioengine", "sanitizemix", "1").toInt())
 {
-	for( int i = 0; i < 2; ++i )
+	for (int i = 0; i < 2; ++i)
 	{
+		constexpr auto initialSamplesPerChannel = DEFAULT_BUFFER_SIZE * 100;
+
 		m_inputBufferFrames[i] = 0;
-		m_inputBufferSize[i] = DEFAULT_BUFFER_SIZE * 100;
-		m_inputBuffer[i] = new SampleFrame[ DEFAULT_BUFFER_SIZE * 100 ];
-		zeroSampleFrames(m_inputBuffer[i], m_inputBufferSize[i]);
+		m_inputBufferSource[i].resize(initialSamplesPerChannel * DEFAULT_CHANNELS);
+
+		m_inputBufferChannels[i].push_back(m_inputBufferSource[i].data()); // L
+		m_inputBufferChannels[i].push_back(m_inputBufferSource[i].data() + initialSamplesPerChannel); // R
 	}
 
 	BufferManager::init( m_framesPerPeriod );
-	m_outputBufferRead = std::make_unique<SampleFrame[]>(m_framesPerPeriod);
-	m_outputBufferWrite = std::make_unique<SampleFrame[]>(m_framesPerPeriod);
-
 
 	for( int i = 0; i < m_numWorkers+1; ++i )
 	{
@@ -132,12 +132,6 @@ AudioEngine::~AudioEngine()
 
 	delete m_midiClient;
 	delete m_audioDev;
-
-
-	for (const auto& input : m_inputBuffer)
-	{
-		delete[] input;
-	}
 }
 
 
@@ -167,29 +161,42 @@ bool AudioEngine::criticalXRuns() const
 
 
 
-void AudioEngine::pushInputFrames( SampleFrame* _ab, const f_cnt_t _frames )
+void AudioEngine::pushInputFrames(PlanarBufferView<float> buffer)
 {
 	requestChangeInModel();
 
-	f_cnt_t frames = m_inputBufferFrames[ m_inputBufferWrite ];
-	auto size = m_inputBufferSize[m_inputBufferWrite];
-	SampleFrame* buf = m_inputBuffer[ m_inputBufferWrite ];
+	f_cnt_t frames = m_inputBufferFrames[m_inputBufferWrite];
+	const auto framesNeeded = frames + buffer.frames();
 
-	if( frames + _frames > size )
+	auto& sourceBuffer = m_inputBufferSource[m_inputBufferWrite];
+	auto& channelBuffer = m_inputBufferChannels[m_inputBufferWrite];
+	const auto channels = static_cast<ch_cnt_t>(channelBuffer.size());
+
+	const auto totalSamplesNeeded = framesNeeded * channels;
+	if (totalSamplesNeeded > sourceBuffer.size())
 	{
-		size = std::max(size * 2, frames + _frames);
-		auto ab = new SampleFrame[size];
-		memcpy( ab, buf, frames * sizeof( SampleFrame ) );
-		delete [] buf;
+		const auto oldSize = sourceBuffer.size();
+		const auto newSize = std::max(oldSize * 2, totalSamplesNeeded);
+		sourceBuffer.resize(newSize);
 
-		m_inputBufferSize[ m_inputBufferWrite ] = size;
-		m_inputBuffer[ m_inputBufferWrite ] = ab;
+		// Data for each channel in the source buffer (besides the first) needs
+		// to be moved to its new starting position
+		assert(channels > 0);
+		for (ch_cnt_t ch = channels - 1; ch > 0; --ch)
+		{
+			// Move old data to new starting position for this channel
+			float* newStart = sourceBuffer.data() + ch * framesNeeded;
+			std::move_backward(channelBuffer.at(ch), channelBuffer[ch] + frames, newStart);
 
-		buf = ab;
+			// Update channel buffer
+			channelBuffer[ch] = newStart;
+		}
 	}
 
-	memcpy( &buf[ frames ], _ab, _frames * sizeof( SampleFrame ) );
-	m_inputBufferFrames[ m_inputBufferWrite ] += _frames;
+	auto dest = PlanarBufferView<float>{channelBuffer.data(), channels, framesNeeded};
+	MixHelpers::copy(dest, frames, buffer, 0);
+
+	m_inputBufferFrames[m_inputBufferWrite] += buffer.frames();
 
 	doneChangeInModel();
 }
@@ -301,11 +308,11 @@ void AudioEngine::renderStageMix()
 	AudioEngineProfiler::Probe profilerProbe(m_profiler, AudioEngineProfiler::DetailType::Mixing);
 
 	Mixer *mixer = Engine::mixer();
-	mixer->masterMix(m_outputBufferWrite.get());
+	mixer->masterMix(m_outputBufferWrite.allBuffers());
 
-	MixHelpers::multiply(m_outputBufferWrite.get(), m_masterGain, m_framesPerPeriod);
+	MixHelpers::multiply(m_outputBufferWrite.allBuffers(), m_masterGain);
 
-	emit nextAudioBuffer(m_outputBufferRead.get());
+	emit nextAudioBuffer(m_outputBufferRead.allBuffers());
 
 	// and trigger LFOs
 	EnvelopeAndLfoParameters::instances()->trigger();
@@ -315,7 +322,7 @@ void AudioEngine::renderStageMix()
 
 
 
-std::span<const SampleFrame> AudioEngine::renderNextPeriod()
+PlanarBufferView<const float, 2> AudioEngine::renderNextPeriod()
 {
 	const auto lock = std::lock_guard{m_changeMutex};
 
@@ -331,7 +338,7 @@ std::span<const SampleFrame> AudioEngine::renderNextPeriod()
 	m_profiler.finishPeriod(outputSampleRate(), m_framesPerPeriod);
 	m_outputBufferReadIndex = 0;
 
-	return {m_outputBufferRead.get(), m_framesPerPeriod};
+	return PlanarBufferView<const float, 2>{m_outputBufferRead.allBuffers().data(), m_framesPerPeriod};
 }
 
 void AudioEngine::swapBuffers()
@@ -341,7 +348,7 @@ void AudioEngine::swapBuffers()
 	m_inputBufferFrames[m_inputBufferWrite] = 0;
 
 	std::swap(m_outputBufferRead, m_outputBufferWrite);
-	zeroSampleFrames(m_outputBufferWrite.get(), m_framesPerPeriod);
+	m_outputBufferWrite.silenceAllChannels();
 }
 
 void AudioEngine::clear()

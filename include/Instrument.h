@@ -28,6 +28,7 @@
 
 #include <QString>
 
+#include "AudioBufferView.h"
 #include "Flags.h"
 #include "lmms_export.h"
 #include "LmmsTypes.h"
@@ -78,7 +79,7 @@ public:
 	// if the plugin doesn't play each note, it can create an instrument-
 	// play-handle and re-implement this method, so that it mixes its
 	// output buffer only once per audio engine period
-	virtual void play( SampleFrame* _working_buffer );
+	virtual void play(std::optional<PlanarBufferView<float>> out);
 
 	// to be implemented by actual plugin
 	virtual void playNote( NotePlayHandle * /* _note_to_play */,

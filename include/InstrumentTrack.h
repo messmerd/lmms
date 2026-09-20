@@ -67,8 +67,7 @@ public:
 	~InstrumentTrack() override;
 
 	// used by instrument
-	void processAudioBuffer( SampleFrame* _buf, const f_cnt_t _frames,
-							NotePlayHandle * _n );
+	void processAudioBuffer(PlanarBufferView<float> buffer, NotePlayHandle* _n);
 
 	MidiEvent applyMasterKey( const MidiEvent& event );
 

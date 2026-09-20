@@ -210,7 +210,7 @@ InstrumentTrack::~InstrumentTrack()
 
 
 
-void InstrumentTrack::processAudioBuffer( SampleFrame* buf, const f_cnt_t frames, NotePlayHandle* n )
+void InstrumentTrack::processAudioBuffer(PlanarBufferView<float> buffer, NotePlayHandle* n)
 {
 	// we must not play the sound if this InstrumentTrack is muted...
 	if( isMuted() || ( Engine::getSong()->playMode() != Song::PlayMode::MidiClip &&
@@ -223,7 +223,7 @@ void InstrumentTrack::processAudioBuffer( SampleFrame* buf, const f_cnt_t frames
 	// We could do that in all other cases as well but the overhead for silence test is bigger than
 	// what we potentially save. While playing a note, a NotePlayHandle-driven instrument will produce sound in
 	// 99 of 100 cases so that test would be a waste of time.
-	if (m_instrument->isSingleStreamed() && MixHelpers::isSilent(buf, frames))
+	if (m_instrument->isSingleStreamed() && MixHelpers::isSilent(buffer))
 	{
 		// at least pass one silent buffer to allow
 		if( m_silentBuffersProcessed )
