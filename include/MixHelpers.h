@@ -42,9 +42,64 @@ bool isSilent(std::span<const sample_t> buffer);
 
 bool isSilent(PlanarBufferView<const float> buffer);
 
+//! @brief Copies data from @a src to @a dst, upmixing from mono to stereo
+//! @note If the @a dst subset has more channels or frames than the @a src subset,
+//!       the additional channels or frames are unmodified.
+//! @param dst the output buffer
+//! @param src the input buffer
+//! @pre dst.frames() >= src.frames()
+void monoUpmix(PlanarBufferView<float, 2> dst, PlanarBufferView<const float, 1> src);
+
+//! @brief Copies data from @a src to @a dst, upmixing from mono to stereo
+//! @note If the @a dst subset has more channels or frames than the @a src subset,
+//!       the additional channels or frames are zeroed.
+//! @param dst the output buffer
+//! @param src the input buffer
+//! @pre dst.frames() >= src.frames()
+void monoUpmixAndZero(PlanarBufferView<float, 2> dst, PlanarBufferView<const float, 1> src);
+
 //! @brief Copies data from @a src to @a dst, starting from the given offsets
-//! @note The entire subset of @a src from @a srcOffset to the end must be copyable into @a dst at its offset
+//! @note If the @a dst subset has more channels or frames than the @a src subset,
+//!       the additional channels or frames are unmodified.
+//! @param dst the output buffer
+//! @param dstOffset the starting frame within @p dst
+//! @param src the input buffer
+//! @param srcOffset the starting frame within @p src
+//! @pre dstOffset < dst.frames()
+//! @pre srcOffset < src.frames()
+//! @pre dst.channels() >= src.channels()
+//! @pre dst.frames() - dstOffset >= src.frames() - srcOffset
 void copy(PlanarBufferView<float> dst, f_cnt_t dstOffset, PlanarBufferView<const float> src, f_cnt_t srcOffset);
+
+//! @brief Copies data from @a src to @a dst
+//! @note If @a dst has more channels or frames than @a src, the additional channels or frames are unmodified.
+//! @param dst the output buffer
+//! @param src the input buffer
+//! @pre dst.channels() >= src.channels()
+//! @pre dst.frames() >= src.frames()
+void copy(PlanarBufferView<float> dst, PlanarBufferView<const float> src);
+
+//! @brief Copies data from @a src to @a dst
+//! @note If @a dst has more channels or frames than @a src, the additional channels or frames are zeroed.
+//! @param dst the output buffer
+//! @param src the input buffer
+//! @pre dst.channels() >= src.channels()
+//! @pre dst.frames() >= src.frames()
+void copyAndZero(PlanarBufferView<float> dst, PlanarBufferView<const float> src);
+
+//! Same as @ref copy(PlanarBufferView<float>, PlanarBufferView<const float>) but with
+//! one exception: When @a src has 1 channel and @a dst has 2, the data from @a src will be
+//! upmixed from mono to stereo.
+//! @pre dst.channels() >= src.channels()
+//! @pre dst.frames() >= src.frames()
+void copyWithMonoUpmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src);
+
+//! Same as @ref copyAndZero(PlanarBufferView<float>, PlanarBufferView<const float>) but with
+//! one exception: When @a src has 1 channel and @a dst has 2, the data from @a src will be
+//! upmixed from mono to stereo.
+//! @pre dst.channels() >= src.channels()
+//! @pre dst.frames() >= src.frames()
+void copyAndZeroWithMonoUpmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src);
 
 /*! \brief Add samples from src to dst */
 void add( SampleFrame* dst, const SampleFrame* src, int frames );
