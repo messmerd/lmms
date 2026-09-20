@@ -587,6 +587,53 @@ public:
 		}
 		else { return PlanarBufferView<T, channelCount>{this->m_data, newFrameCount}; }
 	}
+
+	/**
+	 * @returns a new view with a subset of this view's channel buffers
+	 * @param start the new first channel
+	 * @param count the number of channels following @p start
+	 * @pre data() != nullptr
+	 * @pre start < channels()
+	 * @pre count <= channels() - start
+	 */
+	constexpr auto channelSubset(ch_cnt_t start, ch_cnt_t count) const noexcept -> PlanarBufferView<T>
+	{
+		assert(this->m_data != nullptr);
+		assert(start < Base::channels());
+		assert(count <= Base::channels() - start);
+		return {this->m_data + start, count, this->m_frames};
+	}
+
+	/**
+	 * @returns a new view with a subset of this view's channel buffers
+	 * @param start the new first channel
+	 * @pre data() != nullptr
+	 * @pre start < channels()
+	 */
+	constexpr auto channelSubset(ch_cnt_t start) const noexcept -> PlanarBufferView<T>
+	{
+		assert(this->m_data != nullptr);
+		assert(start < Base::channels());
+		return {this->m_data + start, Base::channels() - start, this->m_frames};
+	}
+
+	/**
+	 * @returns a new view with a subset of this view's channel buffers
+	 * @tparam start the new first channel
+	 * @tparam count the number of channels following @p start
+	 * @pre data() != nullptr
+	 * @pre start < channels()
+	 * @pre count <= channels() - start
+	 */
+	template<ch_cnt_t start, ch_cnt_t count = channelCount - start>
+		requires (channelCount != DynamicChannelCount)
+	constexpr auto channelSubset() const noexcept -> PlanarBufferView<T, count>
+	{
+		assert(this->m_data != nullptr);
+		static_assert(start < channelCount);
+		static_assert(count <= channelCount - start);
+		return PlanarBufferView<T, count>{this->m_data + start, this->m_frames};
+	}
 };
 
 // Check that the std::span-like space optimization works
