@@ -28,7 +28,7 @@
 #include <QWidget>
 #include <QPixmap>
 
-#include "LmmsTypes.h"
+#include "AudioBufferView.h"
 
 namespace lmms
 {
@@ -74,7 +74,7 @@ protected:
 
 
 protected slots:
-	void updateAudioBuffer(const lmms::SampleFrame* buffer);
+	void updateAudioBuffer(PlanarBufferView<const float> buffer);
 
 private:
 	bool clips(float level) const;
@@ -83,7 +83,7 @@ private:
 	QPixmap m_background;
 	QPointF * m_points;
 
-	SampleFrame* m_buffer;
+	std::unique_ptr<float[]> m_buffer; //!< stereo, planar
 	bool m_active;
 
 	QColor m_leftChannelColor;

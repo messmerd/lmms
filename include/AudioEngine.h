@@ -311,7 +311,7 @@ public:
 signals:
 	void qualitySettingsChanged();
 	void sampleRateChanged();
-	void nextAudioBuffer(const lmms::SampleFrame* buffer); // TODO
+	void nextAudioBuffer(PlanarBufferView<const float> buffer);
 
 
 private:
