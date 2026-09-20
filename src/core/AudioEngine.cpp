@@ -194,7 +194,7 @@ void AudioEngine::pushInputFrames(PlanarBufferView<float> buffer)
 	}
 
 	auto dest = PlanarBufferView<float>{channelBuffer.data(), channels, framesNeeded};
-	MixHelpers::copy(dest, frames, buffer, 0);
+	MixHelpers::copy(dest, buffer, frames, 0);
 
 	m_inputBufferFrames[m_inputBufferWrite] += buffer.frames();
 
@@ -339,6 +339,64 @@ PlanarBufferView<const float, 2> AudioEngine::renderNextPeriod()
 	m_outputBufferReadIndex = 0;
 
 	return PlanarBufferView<const float, 2>{m_outputBufferRead.allBuffers().data(), m_framesPerPeriod};
+}
+
+void AudioEngine::renderNextBuffer(InterleavedBufferView<float> dst)
+{
+	auto outputBufferRead = m_outputBufferRead.allBuffers();
+	assert(outputBufferRead.channels() == 2); // I don't feel like implementing this for channels != 2
+
+	for (auto frame = f_cnt_t{0}; frame < dst.frames(); ++frame)
+	{
+		if (m_outputBufferReadIndex == m_framesPerPeriod) { m_outputBufferReadIndex = 0; }
+		if (m_outputBufferReadIndex == 0) { renderNextPeriod(); }
+
+		switch (dst.channels())
+		{
+		case 0:
+			assert(false);
+			break;
+		case 1:
+			dst.sample(0, frame) = (outputBufferRead[0][m_outputBufferReadIndex]
+				+ outputBufferRead[1][m_outputBufferReadIndex]) / 2; // stereo to mono
+			break;
+		case 2:
+			dst.sample(0, frame) = outputBufferRead[0][m_outputBufferReadIndex];
+			dst.sample(1, frame) = outputBufferRead[1][m_outputBufferReadIndex];
+			break;
+		default:
+			dst.sample(0, frame) = outputBufferRead[0][m_outputBufferReadIndex];
+			dst.sample(1, frame) = outputBufferRead[1][m_outputBufferReadIndex];
+			for (auto channel = 2; channel < dst.channels(); ++channel)
+			{
+				dst.sample(channel, frame) = 0.f;
+			}
+			break;
+		}
+
+		++m_outputBufferReadIndex;
+	}
+}
+
+void AudioEngine::renderNextBuffer(PlanarBufferView<float> dst)
+{
+	auto framesCopied = f_cnt_t{0};
+	while (framesCopied < dst.frames())
+	{
+		if (m_outputBufferReadIndex == m_outputBufferRead.frames()) { m_outputBufferReadIndex = 0; }
+		if (m_outputBufferReadIndex == 0) { renderNextPeriod(); }
+
+		const auto framesToCopy = std::min(m_outputBufferRead.frames(), dst.frames() - framesCopied);
+		MixHelpers::copyAndZeroWithMonoStereoConversion(
+			dst,                                                     // dst
+			m_outputBufferRead.allBuffers().truncated(framesToCopy), // src
+			framesCopied,           // dstOffset
+			m_outputBufferReadIndex // srcOffset
+		);
+
+		m_outputBufferReadIndex += framesToCopy;
+		framesCopied += framesToCopy;
+	}
 }
 
 void AudioEngine::swapBuffers()

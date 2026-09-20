@@ -285,10 +285,10 @@ public:
 	 *
 	 * @param dst An audio buffer view to write into. Both interleaved and planar overloads are provided.
 	 */
-	void renderNextBuffer(InterleavedBufferView<float> dst) { renderNextBuffer<InterleavedBufferView<float>>(dst); }
+	void renderNextBuffer(InterleavedBufferView<float> dst);
 
 	//! @copydoc renderNextBuffer(InterleavedBufferView<float>)
-	void renderNextBuffer(PlanarBufferView<float> dst) { renderNextBuffer<PlanarBufferView<float>>(dst); }
+	void renderNextBuffer(PlanarBufferView<float> dst);
 
 	//! Block until a change in model can be done (i.e. wait for audio thread)
 	void requestChangeInModel();
