@@ -79,6 +79,27 @@ bool isSilent(PlanarBufferView<const float> buffer)
 	return true;
 }
 
+void zero(PlanarBufferView<float> dst, f_cnt_t offset)
+{
+	assert(offset < dst.frames());
+
+	const auto frames = dst.frames() - offset;
+	const auto channels = dst.channels();
+	for (ch_cnt_t ch = 0; ch < channels; ++ch)
+	{
+		std::fill_n(dst.bufferPtr(ch) + offset, frames, 0.f);
+	}
+}
+
+void zero(PlanarBufferView<float> dst)
+{
+	const auto channels = dst.channels();
+	for (ch_cnt_t ch = 0; ch < channels; ++ch)
+	{
+		std::ranges::fill(dst.buffer(ch), 0.f);
+	}
+}
+
 void monoUpmix(PlanarBufferView<float, 2> dst, PlanarBufferView<const float, 1> src,
 	f_cnt_t dstOffset, f_cnt_t srcOffset)
 {
@@ -306,6 +327,22 @@ struct AddSwappedMultipliedOp
 
 	const float m_coeff;
 };
+
+void multiply(PlanarBufferView<float> dst, float coeff, f_cnt_t offset)
+{
+	assert(offset < dst.frames());
+
+	const ch_cnt_t channels = dst.channels();
+	const f_cnt_t frames = dst.frames();
+	for (ch_cnt_t ch = 0; ch < channels; ++ch)
+	{
+		float* dstPtr = dst.bufferPtr(ch);
+		for (f_cnt_t frame = offset; frame < frames; ++frame)
+		{
+			dstPtr[frame] *= coeff;
+		}
+	}
+}
 
 void multiply(PlanarBufferView<float> dst, float coeff)
 {

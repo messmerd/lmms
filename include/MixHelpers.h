@@ -42,6 +42,9 @@ bool isSilent(std::span<const sample_t> buffer);
 
 bool isSilent(PlanarBufferView<const float> buffer);
 
+void zero(PlanarBufferView<float> dst);
+void zero(PlanarBufferView<float> dst, f_cnt_t offset);
+
 //! @brief Copies data from @a src to @a dst, upmixing from mono to stereo
 //!        starting from the given offsets
 //! @note If the @a dst subset has more frames than the @a src subset, the additional
@@ -140,6 +143,9 @@ void add( SampleFrame* dst, const SampleFrame* src, int frames );
 
 /*! \brief Add samples from src to dst */
 void add(PlanarBufferView<sample_t> dst, PlanarBufferView<const sample_t> src);
+
+//! @brief Multiply samples from `dst` by `coeff` starting at `offset`
+void multiply(PlanarBufferView<float> dst, float coeff, f_cnt_t offset);
 
 //! @brief Multiply samples from `dst` by `coeff`
 void multiply(PlanarBufferView<float> dst, float coeff);
