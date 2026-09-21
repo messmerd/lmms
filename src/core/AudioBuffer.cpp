@@ -77,6 +77,17 @@ AudioBuffer::AudioBuffer(f_cnt_t frames, ch_cnt_t channels,
 	}
 }
 
+void swap(AudioBuffer& lhs, AudioBuffer& rhs) noexcept
+{
+	using std::swap;
+	swap(lhs.m_sourceBuffer, rhs.m_sourceBuffer);
+	swap(lhs.m_accessBuffer, rhs.m_accessBuffer);
+	swap(lhs.m_groups, rhs.m_groups);
+	swap(lhs.m_frames, rhs.m_frames);
+	swap(lhs.m_silenceFlags, rhs.m_silenceFlags);
+	swap(lhs.m_silenceTrackingEnabled, rhs.m_silenceTrackingEnabled);
+}
+
 auto AudioBuffer::allocationSize(f_cnt_t frames, ch_cnt_t channels) -> std::size_t
 {
 	return frames * channels * sizeof(float) // for m_sourceBuffer

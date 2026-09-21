@@ -31,30 +31,29 @@
 
 namespace lmms {
 
-//! Specifies how samples should be imported (or how they were imported)
+//! Specifies how samples should be imported
 enum class SampleImportOption : std::uint8_t
 {
-	//! Sample imported as-is, even if mono or multi-channel
-	Unmodified                  = 0,
+	//! Sample will be forced to stereo
+	//! @note This was the only possible option in older versions of LMMS
+	ForceStereo,
 
-	//! Mono sample upmixed to stereo
-	UpmixMonoToStereo           = 1 << 0,
-
-	//! Multi-channel sample downmixed to stereo
-	DownmixMultiChannelToStereo = 1 << 1,
-
-	//! The import behavior in older versions of LMMS which lacked both mono and multi-channel support.
-	//! Samples imported this way are always stereo.
-	Legacy                      = UpmixMonoToStereo | DownmixMultiChannelToStereo,
+	//! Sample will be imported as-is, even if mono or multi-channel
+	Unmodified,
 
 	//! Resolves to one of the other options using @ref inquireSampleImportModification
 	//! @note This option cannot be used in headless mode or saved to a project file.
-	Inquire                     = 1 << 2
+	Inquire
 };
 
-//! Indicates which modifications were made to a sample when imported.
+//! Indicates which modifications were made to a sample when imported
 enum class SampleImportModification
 {
+	//! The sample was already 2 channels
+	Unnecessary,
+
+	//! The sample could have required modifications, but wasn't modified.
+	//! This is the only value that implies non-2-channels.
 	Unmodified,
 
 	//! Mono sample upmixed to stereo
@@ -72,14 +71,14 @@ auto serialize(SampleImportModification modification) -> QString;
 auto deserializeSampleImportModification(const QString& modification) -> SampleImportOption;
 
 //! Determines how a sample should be modified when imported
-auto getSampleImportModification(SampleImportOption options, const QString& sampleName, ch_cnt_t actualChannels)
+auto getSampleImportModification(SampleImportOption option, ch_cnt_t actualChannels, const QString& sampleName = {})
 	-> SampleImportModification;
 
 namespace gui {
 
 //! Asks the user how they want to import a sample with the given channel count,
 //! or uses the options specified in the config file.
-auto inquireSampleImportModification(const QString& sampleName, ch_cnt_t actualChannels)
+auto inquireSampleImportModification(ch_cnt_t actualChannels, const QString& sampleName = {})
 	-> SampleImportModification;
 
 } // namespace gui

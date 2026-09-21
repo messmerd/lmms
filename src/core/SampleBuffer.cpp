@@ -34,17 +34,36 @@
 
 namespace lmms {
 
-SampleBuffer::SampleBuffer(const SampleFrame* data, size_t numFrames, int sampleRate)
-	: m_data(data, data + numFrames)
-	, m_sampleRate(sampleRate)
-{
-}
-
-SampleBuffer::SampleBuffer(std::vector<SampleFrame> data, int sampleRate, const QString& audioFile)
+SampleBuffer::SampleBuffer(AudioBuffer data, SampleImportModification mod, int sampleRate, const QString& audioFile)
 	: m_data(std::move(data))
 	, m_audioFile(audioFile)
 	, m_sampleRate(sampleRate)
+	, m_modification{mod}
 {
+}
+
+SampleBuffer::SampleBuffer(AudioBuffer data, SampleImportModification mod, int sampleRate)
+	: m_data(std::move(data))
+	, m_sampleRate(sampleRate)
+	, m_modification{mod}
+{
+}
+
+SampleBuffer::SampleBuffer(std::span<const SampleFrame> data, SampleImportModification mod, int sampleRate, const QString& audioFile)
+	: m_data(data.size(), 2)
+	, m_audioFile(audioFile)
+	, m_sampleRate(sampleRate)
+	, m_modification{mod}
+{
+	toPlanar(InterleavedBufferView{data}, m_data.allBuffers());
+}
+
+SampleBuffer::SampleBuffer(std::span<const SampleFrame> data, SampleImportModification mod, int sampleRate)
+	: m_data(data.size(), 2)
+	, m_sampleRate(sampleRate)
+	, m_modification{mod}
+{
+	toPlanar(InterleavedBufferView{data}, m_data.allBuffers());
 }
 
 void swap(SampleBuffer& first, SampleBuffer& second) noexcept
@@ -58,9 +77,28 @@ void swap(SampleBuffer& first, SampleBuffer& second) noexcept
 QString SampleBuffer::toBase64() const
 {
 	// TODO: Replace with non-Qt equivalent
-	const auto data = reinterpret_cast<const char*>(m_data.data());
-	const auto size = static_cast<int>(m_data.size() * sizeof(SampleFrame));
-	const auto byteArray = QByteArray{data, size};
+
+	// Planar data is serialized as:
+	//     [B64FrameCount, B64ChannelCount, float_ch0_f0, float_ch0_f1, ..., float_ch0_fN,
+	//                                      float_ch1_f0, float_ch1_f1, ..., float_ch1_fN, ...
+	//                                      float_chN_f0, float_chN_f1, ..., float_chN_fN]
+	auto byteArray = QByteArray{};
+
+	const auto frames = static_cast<B64FrameCount>(m_data.frames());
+
+	// When the source data was mono upmixed, we only need to store the first channel's data
+	const auto channels = m_modification == SampleImportModification::UpmixMonoToStereo
+		? static_cast<B64ChannelCount>(1)
+		: static_cast<B64ChannelCount>(m_data.totalChannels());
+
+	byteArray.append(reinterpret_cast<const char*>(frames), sizeof(B64FrameCount));
+	byteArray.append(reinterpret_cast<const char*>(channels), sizeof(B64ChannelCount));
+
+	for (ch_cnt_t ch = 0; ch < channels; ++ch)
+	{
+		byteArray.append(reinterpret_cast<const char*>(m_data.buffer(ch).data()), frames * sizeof(float));
+	}
+
 	return byteArray.toBase64();
 }
 
@@ -70,14 +108,24 @@ auto SampleBuffer::emptyBuffer() -> std::shared_ptr<const SampleBuffer>
 	return s_buffer;
 }
 
-std::shared_ptr<const SampleBuffer> SampleBuffer::fromFile(const QString& filePath)
+std::shared_ptr<const SampleBuffer> SampleBuffer::fromFileInteractive(const QString& path)
 {
-	if (filePath.isEmpty()) { return SampleBuffer::emptyBuffer(); }
+	return fromFile(path, SampleImportOption::Inquire);
+}
 
-	const auto absolutePath = PathUtil::toAbsolute(filePath);
-	const auto storedPath = PathUtil::toShortestRelative(filePath);
+std::shared_ptr<const SampleBuffer> SampleBuffer::fromFile(const QString& path, SampleImportOption option)
+{
+	if (path.isEmpty()) { return SampleBuffer::emptyBuffer(); }
 
-	auto result = SampleDecoder::decode(absolutePath);
+	if (option == SampleImportOption::Inquire && !gui::getGUI())
+	{
+		throw std::logic_error{"SampleImportOption::Inquire cannot be used in headless mode"};
+	}
+
+	const auto absolutePath = PathUtil::toAbsolute(path);
+	const auto storedPath = PathUtil::toShortestRelative(path);
+
+	auto result = SampleDecoder::decode(absolutePath, option);
 
 	if (!result)
 	{
@@ -98,17 +146,47 @@ std::shared_ptr<const SampleBuffer> SampleBuffer::fromFile(const QString& filePa
 		return SampleBuffer::emptyBuffer();
 	}
 
-	auto& [data, sampleRate] = *result;
-	return std::make_shared<SampleBuffer>(std::move(data), sampleRate, storedPath);
+	auto& [data, sampleRate, modification] = *result;
+	return std::make_shared<SampleBuffer>(std::move(data), modification, sampleRate, storedPath);
 }
 
-std::shared_ptr<const SampleBuffer> SampleBuffer::fromBase64(const QString& str, int sampleRate)
+std::shared_ptr<const SampleBuffer> SampleBuffer::fromBase64(const QString& str,
+	SampleImportOption option, int sampleRate)
+{
+	return fromBase64(false, str, option, sampleRate);
+}
+
+std::shared_ptr<const SampleBuffer> SampleBuffer::fromLegacyBase64(const QString& str, int sampleRate)
+{
+	return fromBase64(true, str, SampleImportOption::Legacy, sampleRate);
+}
+
+std::shared_ptr<const SampleBuffer> SampleBuffer::fromBase64(bool legacyInterleaved,
+	const QString& str, SampleImportOption option, int sampleRate)
 {
 	if (str.isEmpty()) { return SampleBuffer::emptyBuffer(); }
 
 	const auto bytes = QByteArray::fromBase64(str.toUtf8());
 
-	if (bytes.size() % sizeof(SampleFrame) != 0)
+	// NOTE: Interleaved and planar data is serialized differently.
+	//
+	// Interleaved data is serialized as:
+	//     [SampleFrame_f0, SampleFrame_f1, ..., SampleFrame_fN]
+	//
+	// Planar data is serialized as:
+	//     [B64FrameCount, B64ChannelCount, float_ch0_f0, float_ch0_f1, ..., float_ch0_fN,
+	//                                      float_ch1_f0, float_ch1_f1, ..., float_ch1_fN, ...
+	//                                      float_chM_f0, float_chM_f1, ..., float_chM_fN]
+
+	const auto dataSize = legacyInterleaved
+		? bytes.size()
+		: bytes.size() - sizeof(B64FrameCount) - sizeof(B64ChannelCount);
+
+	const bool invalid = legacyInterleaved
+		? dataSize % sizeof(SampleFrame) != 0
+		: (bytes.size() < sizeof(B64FrameCount) + sizeof(B64ChannelCount) || dataSize % sizeof(float) != 0);
+
+	if (invalid)
 	{
 		// TODO: Improve error handling. We dont always want to show a message box on failure when there is a GUI (e.g.
 		// when loading the project), and this function also shouldn't be concerned with handling the error.
@@ -125,9 +203,65 @@ std::shared_ptr<const SampleBuffer> SampleBuffer::fromBase64(const QString& str,
 		return SampleBuffer::emptyBuffer();
 	}
 
-	auto data = std::vector<SampleFrame>(bytes.size() / sizeof(SampleFrame));
-	std::memcpy(reinterpret_cast<char*>(data.data()), bytes, bytes.size());
-	return std::make_shared<SampleBuffer>(std::move(data), sampleRate);
+	const auto frames = legacyInterleaved
+		? static_cast<f_cnt_t>(bytes.size() / sizeof(SampleFrame))
+		: *reinterpret_cast<const B64FrameCount*>(bytes.data());
+
+	const auto channels = legacyInterleaved
+		? 2
+		: *reinterpret_cast<const B64ChannelCount*>(bytes.data() + sizeof(B64FrameCount));
+
+	// As an optimization, mono samples that are upmixed to stereo are stored in base64 as mono samples
+	const auto mod = getSampleImportModification(option, channels);
+	const bool wasMonoUpmixed = channels == 1 && performMonoUpmix;
+	const auto outputChannels = wasMonoUpmixed
+		? static_cast<ch_cnt_t>(2)
+		: static_cast<ch_cnt_t>(channels);
+
+	const void* dataStart = legacyInterleaved
+		? bytes.data()
+		: bytes.data() + sizeof(B64FrameCount) + sizeof(B64ChannelCount);
+
+	if (!legacyInterleaved && dataSize != frames * channels * sizeof(float))
+	{
+		// TODO: Improve error handling. We dont always want to show a message box on failure when there is a GUI (e.g.
+		// when loading the project), and this function also shouldn't be concerned with handling the error.
+		if (gui::getGUI())
+		{
+			QMessageBox::warning(
+				nullptr, QObject::tr("Failed to load sample"), QObject::tr("Checksum failed."));
+		}
+		else
+		{
+			qWarning() << QObject::tr("Failed to load Base64 sample, checksum failed");
+		}
+
+		return SampleBuffer::emptyBuffer();
+	}
+
+	auto data = AudioBuffer{frames, outputChannels};
+	if (legacyInterleaved)
+	{
+		const auto decoded = InterleavedBufferView{static_cast<const SampleFrame*>(dataStart), frames};
+		toPlanar(decoded, data.allBuffers());
+	}
+	else
+	{
+		auto dataBuffers = data.allBuffers();
+		for (ch_cnt_t ch = 0; ch < channels; ++ch)
+		{
+			const auto channelBufferOffset = ch * frames * sizeof(float);
+			const auto channelBuffer = std::span{static_cast<const float*>(dataStart + channelBufferOffset), frames};
+			std::ranges::copy(channelBuffer, dataBuffers.bufferPtr(ch));
+		}
+		if (wasMonoUpmixed)
+		{
+			// Perform mono-to-stereo upmix
+			std::ranges::copy(dataBuffers.buffer(0), dataBuffers.bufferPtr(1));
+		}
+	}
+
+	return std::make_shared<SampleBuffer>(std::move(data), wasMonoUpmixed, sampleRate);
 }
 
 } // namespace lmms

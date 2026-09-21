@@ -162,6 +162,8 @@ public:
 		setGroups(groups, std::forward<F>(groupVisitor));
 	}
 
+	friend void swap(AudioBuffer& lhs, AudioBuffer& rhs) noexcept;
+
 	/**
 	 * @returns the number of bytes needed to allocate buffers with given frame and channel counts.
 	 *          Useful for preallocating a buffer for a shared memory resource.
@@ -219,6 +221,9 @@ public:
 
 	//! @returns the frame count for each channel buffer
 	auto frames() const -> f_cnt_t { return m_frames; }
+
+	//! @returns whether the AudioBuffer is empty
+	auto empty() const -> f_cnt_t { return m_frames == 0; }
 
 	/**
 	 * @brief Adds a new channel group at the end of the list.

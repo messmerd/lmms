@@ -40,9 +40,10 @@ auto serialize(SampleImportModification modification) -> QString
 {
 	switch (modification)
 	{
-		case SampleImportModification::Unmodified: return "0";
-		case SampleImportModification::UpmixMonoToStereo: return "1";
-		case SampleImportModification::DownmixMultiChannelToStereo: return "2";
+		case SampleImportModification::Unnecessary: return "0";
+		case SampleImportModification::Unmodified: return "1";
+		case SampleImportModification::UpmixMonoToStereo: return "2";
+		case SampleImportModification::DownmixMultiChannelToStereo: return "3";
 		default: break;
 	}
 
@@ -53,13 +54,14 @@ auto deserializeSampleImportModification(const QString& modification) -> SampleI
 {
 	bool ok = false;
 	const int parsed = modification.toInt(&ok);
-	if (!ok) { return SampleImportOption::Legacy; }
+	if (!ok) { return SampleImportOption::ForceStereo; }
 
 	switch (parsed)
 	{
-		case 0: return SampleImportOption::Unmodified;
-		case 1: return SampleImportOption::UpmixMonoToStereo;
-		case 2: return SampleImportOption::DownmixMultiChannelToStereo;
+		case 1: return SampleImportOption::Unmodified;
+		case 0: [[fallthrough]];
+		case 2: [[fallthrough]];
+		case 3: return SampleImportOption::ForceStereo;
 		default:
 		{
 			qWarning() << "Unknown SampleImportOption:" << parsed;
@@ -67,35 +69,37 @@ auto deserializeSampleImportModification(const QString& modification) -> SampleI
 		}
 	}
 
-	return SampleImportOption::Legacy;
+	return SampleImportOption::ForceStereo;
 }
 
-auto getSampleImportModification(SampleImportOption options, const QString& sampleName, ch_cnt_t actualChannels)
+auto getSampleImportModification(SampleImportOption option, ch_cnt_t actualChannels, const QString& sampleName)
 	-> SampleImportModification
 {
-	if (options == SampleImportOption::Inquire)
+	if (option == SampleImportOption::Inquire)
 	{
-		return gui::inquireSampleImportModification(sampleName, actualChannels);
+		return gui::inquireSampleImportModification(actualChannels, sampleName);
 	}
 
-	switch (options)
+	if (actualChannels == 2)
 	{
-		case SampleImportOption::Unmodified:
-			return SampleImportModification::Unmodified;
-		case SampleImportOption::UpmixMonoToStereo:
-			return SampleImportModification::UpmixMonoToStereo;
-		case SampleImportOption::DownmixMultiChannelToStereo:
-			return SampleImportModification::DownmixMultiChannelToStereo;
-		default:
-			break;
+		return SampleImportModification::Unnecessary;
 	}
 
-	throw std::logic_error{"Invalid SampleImportOption"};
+	if (actualChannels < 2)
+	{
+		return option == SampleImportOption::ForceStereo
+			? SampleImportModification::UpmixMonoToStereo
+			: SampleImportModification::Unmodified;
+	}
+
+	return option == SampleImportOption::ForceStereo
+		? SampleImportModification::DownmixMultiChannelToStereo
+		: SampleImportModification::Unmodified;
 }
 
 namespace gui {
 
-auto inquireSampleImportModification(const QString& sampleName, ch_cnt_t actualChannels)
+auto inquireSampleImportModification(ch_cnt_t actualChannels, const QString& sampleName)
 	-> SampleImportModification
 {
 	if (!getGUI())
@@ -106,7 +110,7 @@ auto inquireSampleImportModification(const QString& sampleName, ch_cnt_t actualC
 	if (actualChannels == 2)
 	{
 		// Keep as-is
-		return SampleImportModification::Unmodified;
+		return SampleImportModification::Unnecessary;
 	}
 
 	if (actualChannels < 2)
@@ -115,11 +119,15 @@ auto inquireSampleImportModification(const QString& sampleName, ch_cnt_t actualC
 		const auto importMono = ConfigManager::inst()->value("app", "importmonosamples", "ask");
 		if (importMono == "ask")
 		{
+			const auto question = sampleName.isEmpty()
+				? QObject::tr("The sample is mono. Would you like to upmix it to stereo?")
+				: QObject::tr("The sample '%1' is mono. Would you like to upmix it to stereo?")
+					.arg(sampleName);
+
 			auto mb = QMessageBox {
 				QMessageBox::Question,
 				QObject::tr("Sample import preference"),
-				QObject::tr("The sample '%1' is mono. Would you like to upmix it to stereo?")
-					.arg(sampleName),
+				question,
 				QMessageBox::Yes | QMessageBox::No // TODO: Add Cancel button?
 			};
 
@@ -164,11 +172,16 @@ auto inquireSampleImportModification(const QString& sampleName, ch_cnt_t actualC
 
 	if (importMultichannel == "ask")
 	{
+		const auto question = sampleName.isEmpty()
+			? QObject::tr("The sample contains %1 channels. Would you like to downmix it to stereo?")
+				.arg(actualChannels)
+			: QObject::tr("The sample '%1' contains %2 channels. Would you like to downmix it to stereo?")
+				.arg(sampleName).arg(actualChannels);
+
 		auto mb = QMessageBox {
 			QMessageBox::Question,
 			QObject::tr("Sample import preference"),
-			QObject::tr("The sample '%1' contains %2 channels. Would you like to downmix it to stereo?")
-				.arg(sampleName).arg(actualChannels),
+			question,
 			QMessageBox::Yes | QMessageBox::No // TODO: Add Cancel button?
 		};
 

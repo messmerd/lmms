@@ -100,6 +100,17 @@ void zero(PlanarBufferView<float> dst)
 	}
 }
 
+void monoUpmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0)
+{
+	assert(dst.channels() == 2);
+	assert(src.channels() == 1);
+	monoUpmix(
+		PlanarBufferView<float, 2>{dst.data(), dst.frames()},
+		PlanarBufferView<const float, 1>{src.data(), src.frames()}
+	);
+}
+
 void monoUpmix(PlanarBufferView<float, 2> dst, PlanarBufferView<const float, 1> src,
 	f_cnt_t dstOffset, f_cnt_t srcOffset)
 {
@@ -114,6 +125,17 @@ void monoUpmix(PlanarBufferView<float, 2> dst, PlanarBufferView<const float, 1> 
 		dst[0][dstFrame] = sample;
 		dst[1][dstFrame] = sample;
 	}
+}
+
+void stereoDownmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0)
+{
+	assert(dst.channels() == 1);
+	assert(src.channels() == 2);
+	stereoDownmix(
+		PlanarBufferView<float, 1>{dst.data(), dst.frames()},
+		PlanarBufferView<const float, 2>{src.data(), src.frames()}
+	);
 }
 
 void stereoDownmix(PlanarBufferView<float, 1> dst, PlanarBufferView<const float, 2> src,
