@@ -53,9 +53,15 @@ void zero(PlanarBufferView<float> dst, f_cnt_t offset);
 //! @param src the input buffer
 //! @param dstOffset the starting frame within @p dst
 //! @param srcOffset the starting frame within @p src
+//! @pre dst.channels() == 2
+//! @pre src.channels() == 1
 //! @pre dstOffset < dst.frames()
 //! @pre srcOffset < src.frames()
 //! @pre dst.frames() - dstOffset >= src.frames() - srcOffset
+void monoUpmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
+
+//! @copydoc monoUpmix
 void monoUpmix(PlanarBufferView<float, 2> dst, PlanarBufferView<const float, 1> src,
 	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
 
@@ -67,9 +73,15 @@ void monoUpmix(PlanarBufferView<float, 2> dst, PlanarBufferView<const float, 1> 
 //! @param src the input buffer
 //! @param dstOffset the starting frame within @p dst
 //! @param srcOffset the starting frame within @p src
+//! @pre dst.channels() == 1
+//! @pre src.channels() == 2
 //! @pre dstOffset < dst.frames()
 //! @pre srcOffset < src.frames()
 //! @pre dst.frames() - dstOffset >= src.frames() - srcOffset
+void stereoDownmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
+
+//! @copydoc stereoDownmix
 void stereoDownmix(PlanarBufferView<float, 1> dst, PlanarBufferView<const float, 2> src,
 	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
 

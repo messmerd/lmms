@@ -333,6 +333,20 @@ public:
 	{
 	}
 
+	//! Construct from std::span<SampleFrame>
+	InterleavedBufferView(std::span<SampleFrame> data) noexcept
+		requires (std::is_same_v<std::remove_const_t<T>, float> && channelCount == 2)
+		: Base{reinterpret_cast<float*>(data.data()), static_cast<f_cnt_t>(data.size())}
+	{
+	}
+
+	//! Construct from std::span<const SampleFrame>
+	InterleavedBufferView(std::span<const SampleFrame> data) noexcept
+		requires (std::is_same_v<std::remove_const_t<T>, float> && channelCount == 2)
+		: Base{reinterpret_cast<const float*>(data.data()), static_cast<f_cnt_t>(data.size())}
+	{
+	}
+
 	constexpr auto empty() const noexcept -> bool
 	{
 		return !this->m_data || Base::channels() == 0 || this->m_frames == 0;
@@ -478,6 +492,8 @@ static_assert(sizeof(InterleavedBufferView<float, 2>) == sizeof(void*) + sizeof(
 template<typename T> InterleavedBufferView(T*, ch_cnt_t, f_cnt_t) -> InterleavedBufferView<T>;
 InterleavedBufferView(const SampleFrame*, f_cnt_t) -> InterleavedBufferView<const float, 2>;
 InterleavedBufferView(SampleFrame*, f_cnt_t) -> InterleavedBufferView<float, 2>;
+InterleavedBufferView(std::span<const SampleFrame>) -> InterleavedBufferView<const float, 2>;
+InterleavedBufferView(std::span<SampleFrame>) -> InterleavedBufferView<float, 2>;
 
 
 /**
