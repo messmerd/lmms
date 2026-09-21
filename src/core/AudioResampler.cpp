@@ -51,13 +51,35 @@ constexpr auto converterType(AudioResampler::Mode mode) -> int
 }
 } // namespace
 
-AudioResampler::AudioResampler(Mode mode, ch_cnt_t channels)
-	: m_state{src_new(converterType(mode), channels, &m_error)}
-	, m_mode{mode}
+AudioResampler::AudioResampler(Mode mode, ch_cnt_t channels, bool interleaved)
+	: m_mode{mode}
 	, m_channels{channels}
+	, m_interleaved{interleaved}
 {
 	if (channels <= 0) { throw std::logic_error{"Invalid channel count"}; }
-	if (!m_state) { throw std::runtime_error{src_strerror(m_error)}; }
+
+	if (interleaved)
+	{
+		// one single State with `channels` channels
+		auto state = State{src_new(converterType(mode), channels, &m_error)};
+		if (!state) { throw std::runtime_error{src_strerror(m_error)}; }
+		m_states.push_back(std::move(state));
+	}
+	else
+	{
+		if (channels > MaxChannelsPerAudioBuffer)
+		{
+			throw std::invalid_argument{"Too many planar channels"};
+		}
+
+		// `channels` States with 1 channel each
+		for (ch_cnt_t ch = 0; ch < channels; ++ch)
+		{
+			auto state = State{src_new(converterType(mode), 1, &m_error)};
+			if (!state) { throw std::runtime_error{src_strerror(m_error)}; }
+			m_states.push_back(std::move(state));
+		}
+	}
 }
 
 auto AudioResampler::process(InterleavedBufferView<const float> input, InterleavedBufferView<float> output) -> Result
@@ -65,6 +87,11 @@ auto AudioResampler::process(InterleavedBufferView<const float> input, Interleav
 	if (input.channels() != m_channels || output.channels() != m_channels)
 	{
 		throw std::invalid_argument{"Invalid channel count"};
+	}
+
+	if (!interleaved())
+	{
+		throw std::invalid_argument{"Resampler was not configured to process interleaved buffers"};
 	}
 
 	auto data = SRC_DATA{};
@@ -78,7 +105,7 @@ auto AudioResampler::process(InterleavedBufferView<const float> input, Interleav
 	data.src_ratio = m_ratio;
 	data.end_of_input = 0;
 
-	if ((m_error = src_process(static_cast<SRC_STATE*>(m_state.get()), &data)))
+	if ((m_error = src_process(static_cast<SRC_STATE*>(m_states[0].get()), &data)))
 	{
 		throw std::runtime_error{src_strerror(m_error)};
 	}
@@ -86,11 +113,66 @@ auto AudioResampler::process(InterleavedBufferView<const float> input, Interleav
 	return {static_cast<f_cnt_t>(data.input_frames_used), static_cast<f_cnt_t>(data.output_frames_gen)};
 }
 
+auto AudioResampler::process(PlanarBufferView<const float> input, PlanarBufferView<float> output) -> Result
+{
+	if (input.channels() != m_channels || output.channels() != m_channels)
+	{
+		throw std::invalid_argument{"Invalid channel count"};
+	}
+
+	if (interleaved())
+	{
+		throw std::invalid_argument{"Resampler was not configured to process planar buffers"};
+	}
+
+	long inputFramesUsed = 0;
+	long outputFramesGen = 0;
+	for (ch_cnt_t ch = 0; ch < m_channels; ++ch)
+	{
+		auto data = SRC_DATA{};
+
+		data.data_in = input.bufferPtr(ch);
+		data.input_frames = input.frames();
+
+		data.data_out = output.bufferPtr(ch);
+		data.output_frames = output.frames();
+
+		data.src_ratio = m_ratio;
+		data.end_of_input = 0;
+
+		if ((m_error = src_process(static_cast<SRC_STATE*>(m_states[ch].get()), &data)))
+		{
+			throw std::runtime_error{src_strerror(m_error)};
+		}
+
+		if (ch > 0)
+		{
+			if (data.input_frames_used != inputFramesUsed)
+			{
+				throw std::runtime_error{
+					"Resampler used a different number of input frames for one of the channel buffers"};
+			}
+			if (data.output_frames_gen != outputFramesGen)
+			{
+				throw std::runtime_error{
+					"Resampler generated a different number of output frames for one of the channel buffers"};
+			}
+		}
+		inputFramesUsed = data.input_frames_used;
+		outputFramesGen = data.output_frames_gen;
+	}
+
+	return {static_cast<f_cnt_t>(inputFramesUsed), static_cast<f_cnt_t>(outputFramesGen)};
+}
+
 void AudioResampler::reset()
 {
-	if ((m_error = src_reset(static_cast<SRC_STATE*>(m_state.get()))))
+	for (const State& state : m_states)
 	{
-		throw std::runtime_error{src_strerror(m_error)};
+		if ((m_error = src_reset(static_cast<SRC_STATE*>(state.get()))))
+		{
+			throw std::runtime_error{src_strerror(m_error)};
+		}
 	}
 }
 

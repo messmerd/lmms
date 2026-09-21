@@ -26,6 +26,8 @@
 #define LMMS_AUDIO_RESAMPLER_H
 
 #include <memory>
+
+#include "ArrayVector.h"
 #include "AudioBufferView.h"
 #include "lmms_export.h"
 
@@ -44,7 +46,7 @@ public:
 	 * @enum Mode
 	 * @brief Defines the resampling method to use.
 	 */
-	enum class Mode
+	enum class Mode : std::uint8_t
 	{
 		ZOH,		 //!< Zero Order Hold (nearest-neighbor) interpolation.
 		Linear,		 //!< Linear interpolation.
@@ -67,8 +69,9 @@ public:
 	 * @brief Constructs an `AudioResampler` instance.
 	 * @param mode The resampling mode to use.
 	 * @param channels Number of audio channels. Defaults to `2` (stereo).
+	 * @param interleaved Whether this resampler will process interleaved or planar audio.
 	 */
-	AudioResampler(Mode mode, ch_cnt_t channels = 2);
+	AudioResampler(Mode mode, ch_cnt_t channels = 2, bool interleaved = false);
 
 	/**
 	 * @brief Process a block of interleaved audio input from `input` and resample it into `output`.
@@ -76,6 +79,7 @@ public:
 	 * @param input The interleaved audio input.
 	 * @param output The interleaved audio output.
 	 *
+	 * @throws `std::invalid_argument` if `interleaved()` is false
 	 * @throws `std::invalid_argument` if a channel mismatch has been detected.
 	 * @throws `std::runtime_error` if the resampling process has failed.
 	 *
@@ -85,6 +89,23 @@ public:
 	 * @returns the result of the resampling process. See @ref Result for more details.
 	 */
 	[[nodiscard]] auto process(InterleavedBufferView<const float> input, InterleavedBufferView<float> output) -> Result;
+
+	/**
+	 * @brief Process a block of planar audio input from `input` and resample it into `output`.
+	 *
+	 * @param input The planar audio input.
+	 * @param output The planar audio output.
+	 *
+	 * @throws `std::invalid_argument` if `interleaved()` is true
+	 * @throws `std::invalid_argument` if a channel mismatch has been detected.
+	 * @throws `std::runtime_error` if the resampling process has failed.
+	 *
+	 * @remark This utility class does not cache the input and output buffers, making it stateless. In other words,
+	 * `input` is directly resampled into the `output`.
+	 *
+	 * @returns the result of the resampling process. See @ref Result for more details.
+	 */
+	[[nodiscard]] auto process(PlanarBufferView<const float> input, PlanarBufferView<float> output) -> Result;
 
 	/**
 	 * @brief Resets the internal resampler state.
@@ -114,11 +135,20 @@ public:
 	//! @returns the interpolation mode used by this resampler.
 	auto mode() const -> Mode { return m_mode; }
 
+	//! @returns whether this resampler is configured to process
+	auto interleaved() const -> bool { return m_interleaved; }
+
 private:
 	struct LMMS_EXPORT StateDeleter { void operator()(void* state); };
-	std::unique_ptr<void, StateDeleter> m_state;
+	using State = std::unique_ptr<void, StateDeleter>;
+
+	//! If interleaved, there is a single State with `m_channels` channels
+	//! If planar, there are `m_channels` States with 1 channel each
+	ArrayVector<State, MaxChannelsPerAudioBuffer> m_states;
+
 	Mode m_mode;
 	ch_cnt_t m_channels = 0;
+	bool m_interleaved = false;
 	double m_ratio = 1.0;
 	int m_error = 0;
 };
