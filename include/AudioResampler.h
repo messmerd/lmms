@@ -105,7 +105,8 @@ public:
 	 *
 	 * @returns the result of the resampling process. See @ref Result for more details.
 	 */
-	[[nodiscard]] auto process(PlanarBufferView<const float> input, PlanarBufferView<float> output) -> Result;
+	[[nodiscard]] auto process(PlanarBufferView<const float> input, f_cnt_t inputOffset,
+		PlanarBufferView<float> output, f_cnt_t outputOffset) -> Result;
 
 	/**
 	 * @brief Resets the internal resampler state.

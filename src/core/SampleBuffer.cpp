@@ -158,7 +158,7 @@ std::shared_ptr<const SampleBuffer> SampleBuffer::fromBase64(const QString& str,
 
 std::shared_ptr<const SampleBuffer> SampleBuffer::fromLegacyBase64(const QString& str, int sampleRate)
 {
-	return fromBase64(true, str, SampleImportOption::Legacy, sampleRate);
+	return fromBase64(true, str, SampleImportOption::ForceStereo, sampleRate);
 }
 
 std::shared_ptr<const SampleBuffer> SampleBuffer::fromBase64(bool legacyInterleaved,
@@ -213,8 +213,7 @@ std::shared_ptr<const SampleBuffer> SampleBuffer::fromBase64(bool legacyInterlea
 
 	// As an optimization, mono samples that are upmixed to stereo are stored in base64 as mono samples
 	const auto mod = getSampleImportModification(option, channels);
-	const bool wasMonoUpmixed = channels == 1 && performMonoUpmix;
-	const auto outputChannels = wasMonoUpmixed
+	const auto outputChannels = mod == SampleImportModification::UpmixMonoToStereo
 		? static_cast<ch_cnt_t>(2)
 		: static_cast<ch_cnt_t>(channels);
 
@@ -254,14 +253,14 @@ std::shared_ptr<const SampleBuffer> SampleBuffer::fromBase64(bool legacyInterlea
 			const auto channelBuffer = std::span{static_cast<const float*>(dataStart + channelBufferOffset), frames};
 			std::ranges::copy(channelBuffer, dataBuffers.bufferPtr(ch));
 		}
-		if (wasMonoUpmixed)
+		if (mod == SampleImportModification::UpmixMonoToStereo)
 		{
 			// Perform mono-to-stereo upmix
 			std::ranges::copy(dataBuffers.buffer(0), dataBuffers.bufferPtr(1));
 		}
 	}
 
-	return std::make_shared<SampleBuffer>(std::move(data), wasMonoUpmixed, sampleRate);
+	return std::make_shared<SampleBuffer>(std::move(data), mod, sampleRate);
 }
 
 } // namespace lmms

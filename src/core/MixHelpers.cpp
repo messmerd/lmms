@@ -2,6 +2,7 @@
  * MixHelpers.cpp - helper functions for mixing buffers
  *
  * Copyright (c) 2014 Tobias Doerffel <tobydox/at/users.sourceforge.net>
+ * Copyright (c) 2026 Dalton Messmer <messmer.dalton/at/gmail.com>
  *
  * This file is part of LMMS - https://lmms.io
  *
@@ -213,7 +214,7 @@ void copyAndZero(PlanarBufferView<float> dst, PlanarBufferView<const float> src)
 	}
 }
 
-void copyWithMonoStereoConversion(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+void copyConvert(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
 	f_cnt_t dstOffset, f_cnt_t srcOffset)
 {
 	if (dst.channels() == 2 && src.channels() == 1)
@@ -240,7 +241,7 @@ void copyWithMonoStereoConversion(PlanarBufferView<float> dst, PlanarBufferView<
 	}
 }
 
-void copyAndZeroWithMonoStereoConversion(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+void copyConvertAndZero(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
 	f_cnt_t dstOffset, f_cnt_t srcOffset)
 {
 	if (dst.channels() == 2 && src.channels() == 1)

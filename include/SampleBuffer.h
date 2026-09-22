@@ -52,18 +52,18 @@ public:
 	friend void swap(SampleBuffer& first, SampleBuffer& second) noexcept;
 	auto toBase64() const -> QString;
 
+	//! @returns a view providing channel-wise access to the SampleBuffer
+	auto data() const -> PlanarBufferView<const float> { return m_data.allBuffers(); }
+
 	auto audioFile() const -> const QString& { return m_audioFile; }
 	auto sampleRate() const -> sample_rate_t { return m_sampleRate; }
+
+	//! @returns whether the SampleBuffer data was modified from the original when imported
+	auto importModification() const -> SampleImportModification { return m_modification; }
 
 	auto channels() const -> ch_cnt_t { return m_data.totalChannels(); }
 	auto frames() const -> f_cnt_t { return m_data.frames(); }
 	auto empty() const -> bool { return m_data.empty(); }
-
-	//! @returns view providing channel-wise access to the SampleBuffer
-	auto channelBuffers() const -> PlanarBufferView<const float> { return m_data.allBuffers(); }
-
-	//! @returns whether the SampleBuffer data was modified from the original when imported
-	auto importModification() const -> SampleImportModification { return m_modification; }
 
 	static auto emptyBuffer() -> std::shared_ptr<const SampleBuffer>;
 

@@ -387,7 +387,7 @@ void AudioEngine::renderNextBuffer(PlanarBufferView<float> dst)
 		if (m_outputBufferReadIndex == 0) { renderNextPeriod(); }
 
 		const auto framesToCopy = std::min(m_outputBufferRead.frames(), dst.frames() - framesCopied);
-		MixHelpers::copyAndZeroWithMonoStereoConversion(
+		MixHelpers::copyConvertAndZero(
 			dst,                                                     // dst
 			m_outputBufferRead.allBuffers().truncated(framesToCopy), // src
 			framesCopied,           // dstOffset
