@@ -30,7 +30,8 @@
 namespace lmms {
 
 Sample::Sample(const SampleFrame* data, f_cnt_t numFrames, int sampleRate)
-	: m_buffer(std::make_shared<SampleBuffer>(data, numFrames, sampleRate))
+	: m_buffer(std::make_shared<SampleBuffer>(
+		std::span{data, numFrames}, SampleImportModification::Unmodified, sampleRate))
 	, m_startFrame(0)
 	, m_endFrame(m_buffer->frames())
 	, m_loopStartFrame(0)
@@ -239,7 +240,6 @@ f_cnt_t Sample::render(PlaybackState* state, Loop loop) const
 		case Loop::On:
 		{
 			const auto dstFrames = dst.frames();
-			const auto srcFrames = src.frames();
 			const auto loopStartFrame = m_loopStartFrame.load();
 			const auto loopEndFrame = m_loopEndFrame.load();
 			const auto backwards = state->m_backwards;
@@ -269,7 +269,6 @@ f_cnt_t Sample::render(PlaybackState* state, Loop loop) const
 		case Loop::PingPong:
 		{
 			const auto dstFrames = dst.frames();
-			const auto srcFrames = src.frames();
 			const auto loopStartFrame = m_loopStartFrame.load();
 			const auto loopEndFrame = m_loopEndFrame.load();
 

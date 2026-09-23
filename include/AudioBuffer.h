@@ -124,7 +124,7 @@ public:
 		ch_cnt_t m_channels = 0;
 	};
 
-	AudioBuffer() = delete;
+	AudioBuffer() = default; // TODO: = delete?
 
 	AudioBuffer(const AudioBuffer&) = delete;
 	AudioBuffer(AudioBuffer&&) noexcept = default;

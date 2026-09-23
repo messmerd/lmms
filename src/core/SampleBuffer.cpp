@@ -34,7 +34,8 @@
 
 namespace lmms {
 
-SampleBuffer::SampleBuffer(AudioBuffer data, SampleImportModification mod, int sampleRate, const QString& audioFile)
+SampleBuffer::SampleBuffer(AudioBuffer data, SampleImportModification mod,
+	int sampleRate, const QString& audioFile)
 	: m_data(std::move(data))
 	, m_audioFile(audioFile)
 	, m_sampleRate(sampleRate)
@@ -42,24 +43,10 @@ SampleBuffer::SampleBuffer(AudioBuffer data, SampleImportModification mod, int s
 {
 }
 
-SampleBuffer::SampleBuffer(AudioBuffer data, SampleImportModification mod, int sampleRate)
-	: m_data(std::move(data))
-	, m_sampleRate(sampleRate)
-	, m_modification{mod}
-{
-}
-
-SampleBuffer::SampleBuffer(std::span<const SampleFrame> data, SampleImportModification mod, int sampleRate, const QString& audioFile)
+SampleBuffer::SampleBuffer(std::span<const SampleFrame> data, SampleImportModification mod,
+	int sampleRate, const QString& audioFile)
 	: m_data(data.size(), 2)
 	, m_audioFile(audioFile)
-	, m_sampleRate(sampleRate)
-	, m_modification{mod}
-{
-	toPlanar(InterleavedBufferView{data}, m_data.allBuffers());
-}
-
-SampleBuffer::SampleBuffer(std::span<const SampleFrame> data, SampleImportModification mod, int sampleRate)
-	: m_data(data.size(), 2)
 	, m_sampleRate(sampleRate)
 	, m_modification{mod}
 {
@@ -168,6 +155,7 @@ std::shared_ptr<const SampleBuffer> SampleBuffer::fromBase64(bool legacyInterlea
 	if (str.isEmpty()) { return SampleBuffer::emptyBuffer(); }
 
 	const auto bytes = QByteArray::fromBase64(str.toUtf8());
+	const auto bytesSize = static_cast<std::size_t>(bytes.size());
 
 	// NOTE: Interleaved and planar data is serialized differently.
 	//
@@ -180,12 +168,12 @@ std::shared_ptr<const SampleBuffer> SampleBuffer::fromBase64(bool legacyInterlea
 	//                                      float_chM_f0, float_chM_f1, ..., float_chM_fN]
 
 	const auto dataSize = legacyInterleaved
-		? bytes.size()
-		: bytes.size() - sizeof(B64FrameCount) - sizeof(B64ChannelCount);
+		? bytesSize
+		: bytesSize - sizeof(B64FrameCount) - sizeof(B64ChannelCount);
 
 	const bool invalid = legacyInterleaved
 		? dataSize % sizeof(SampleFrame) != 0
-		: (bytes.size() < sizeof(B64FrameCount) + sizeof(B64ChannelCount) || dataSize % sizeof(float) != 0);
+		: (bytesSize < sizeof(B64FrameCount) + sizeof(B64ChannelCount) || dataSize % sizeof(float) != 0);
 
 	if (invalid)
 	{
@@ -218,7 +206,7 @@ std::shared_ptr<const SampleBuffer> SampleBuffer::fromBase64(bool legacyInterlea
 		? static_cast<ch_cnt_t>(2)
 		: static_cast<ch_cnt_t>(channels);
 
-	const void* dataStart = legacyInterleaved
+	const char* dataStart = legacyInterleaved
 		? bytes.data()
 		: bytes.data() + sizeof(B64FrameCount) + sizeof(B64ChannelCount);
 
@@ -242,7 +230,7 @@ std::shared_ptr<const SampleBuffer> SampleBuffer::fromBase64(bool legacyInterlea
 	auto data = AudioBuffer{frames, outputChannels};
 	if (legacyInterleaved)
 	{
-		const auto decoded = InterleavedBufferView{static_cast<const SampleFrame*>(dataStart), frames};
+		const auto decoded = InterleavedBufferView{reinterpret_cast<const SampleFrame*>(dataStart), frames};
 		toPlanar(decoded, data.allBuffers());
 	}
 	else
@@ -251,7 +239,7 @@ std::shared_ptr<const SampleBuffer> SampleBuffer::fromBase64(bool legacyInterlea
 		for (ch_cnt_t ch = 0; ch < channels; ++ch)
 		{
 			const auto channelBufferOffset = ch * frames * sizeof(float);
-			const auto channelBuffer = std::span{static_cast<const float*>(dataStart + channelBufferOffset), frames};
+			const auto channelBuffer = std::span{reinterpret_cast<const float*>(dataStart + channelBufferOffset), frames};
 			std::ranges::copy(channelBuffer, dataBuffers.bufferPtr(ch));
 		}
 		if (mod == SampleImportModification::UpmixMonoToStereo)

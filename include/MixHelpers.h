@@ -46,60 +46,73 @@ LMMS_EXPORT bool isSilent(std::span<const sample_t> buffer);
 LMMS_EXPORT bool isSilent(PlanarBufferView<const float> buffer);
 
 LMMS_EXPORT void zero(PlanarBufferView<float> dst);
-LMMS_EXPORT void zero(PlanarBufferView<float> dst, f_cnt_t offset);
+LMMS_EXPORT void zero(PlanarBufferView<float> dst, f_cnt_t dstOffset);
 
 //! @brief Copies data from @a src to @a dst, upmixing from mono to stereo
 //!        starting from the given offsets
 //! @note If the @a dst subset has more frames than the @a src subset, the additional
 //!       frames are left unmodified.
 //! @param dst the output buffer
-//! @param src the input buffer
 //! @param dstOffset the starting frame within @p dst
+//! @param src the input buffer
 //! @param srcOffset the starting frame within @p src
 //! @pre dst.channels() == 2
 //! @pre src.channels() == 1
 //! @pre dstOffset < dst.frames()
 //! @pre srcOffset < src.frames()
 //! @pre dst.frames() - dstOffset >= src.frames() - srcOffset
-LMMS_EXPORT void monoUpmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
-	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
+LMMS_EXPORT void monoUpmix(PlanarBufferView<float> dst, f_cnt_t dstOffset,
+	PlanarBufferView<const float> src, f_cnt_t srcOffset = 0);
 
-//! @copydoc monoUpmix
-LMMS_EXPORT void monoUpmix(PlanarBufferView<float, 2> dst, PlanarBufferView<const float, 1> src,
-	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
+//! @brief Copies data from @a src to @a dst, upmixing from mono to stereo
+//! @note If @a dst has more frames than @a src, the additional
+//!       frames are left unmodified.
+//! @param dst the output buffer
+//! @param src the input buffer
+//! @pre dst.channels() == 2
+//! @pre src.channels() == 1
+//! @pre dst.frames() >= src.frames()
+LMMS_EXPORT void monoUpmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src);
 
 //! @brief Copies data from @a src to @a dst, downmixing from stereo to mono
 //!        starting from the given offsets
 //! @note If the @a dst subset has more frames than the @a src subset, the additional
 //!       frames are left unmodified.
 //! @param dst the output buffer
-//! @param src the input buffer
 //! @param dstOffset the starting frame within @p dst
+//! @param src the input buffer
 //! @param srcOffset the starting frame within @p src
 //! @pre dst.channels() == 1
 //! @pre src.channels() == 2
 //! @pre dstOffset < dst.frames()
 //! @pre srcOffset < src.frames()
 //! @pre dst.frames() - dstOffset >= src.frames() - srcOffset
-LMMS_EXPORT void stereoDownmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
-	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
+LMMS_EXPORT void stereoDownmix(PlanarBufferView<float> dst, f_cnt_t dstOffset,
+	PlanarBufferView<const float> src, f_cnt_t srcOffset = 0);
 
-//! @copydoc stereoDownmix
-LMMS_EXPORT void stereoDownmix(PlanarBufferView<float, 1> dst, PlanarBufferView<const float, 2> src,
-	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
+//! @brief Copies data from @a src to @a dst, downmixing from stereo to mono
+//! @note If @a dst has more frames than @a src, the additional
+//!       frames are left unmodified.
+//! @param dst the output buffer
+//! @param src the input buffer
+//! @pre dst.channels() == 1
+//! @pre src.channels() == 2
+//! @pre dst.frames() >= src.frames()
+LMMS_EXPORT void stereoDownmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src);
 
 //! @brief Copies data from @a src to @a dst, starting from the given offsets
 //! @note If the @a dst subset has more channels or frames than the @a src subset,
 //!       the additional channels or frames are left unmodified.
 //! @param dst the output buffer
-//! @param src the input buffer
 //! @param dstOffset the starting frame within @p dst
+//! @param src the input buffer
 //! @param srcOffset the starting frame within @p src
 //! @pre dstOffset < dst.frames()
 //! @pre srcOffset < src.frames()
 //! @pre dst.channels() >= src.channels()
 //! @pre dst.frames() - dstOffset >= src.frames() - srcOffset
-LMMS_EXPORT void copy(PlanarBufferView<float> dst, PlanarBufferView<const float> src, f_cnt_t dstOffset, f_cnt_t srcOffset = 0);
+LMMS_EXPORT void copy(PlanarBufferView<float> dst, f_cnt_t dstOffset,
+	PlanarBufferView<const float> src, f_cnt_t srcOffset = 0);
 
 //! @brief Copies data from @a src to @a dst
 //! @note If @a dst has more channels or frames than @a src, the additional channels or frames are left unmodified.
@@ -109,21 +122,32 @@ LMMS_EXPORT void copy(PlanarBufferView<float> dst, PlanarBufferView<const float>
 //! @pre dst.frames() >= src.frames()
 LMMS_EXPORT void copy(PlanarBufferView<float> dst, PlanarBufferView<const float> src);
 
+//! @brief Copies data from @a src to @a dst, starting from the given offset
+//! @note If the @a dst subset has more channels or frames than the @a src subset,
+//!       the additional channels or frames are left unmodified.
+//! @param dst the output buffer
+//! @param dstOffset the starting frame within @p dst
+//! @param src the input buffer
+//! @pre dstOffset < dst.frames()
+//! @pre dst.channels() >= src.channels()
+//! @pre dst.frames() - dstOffset >= src.frames()
+LMMS_EXPORT void copy(PlanarBufferView<float> dst, f_cnt_t dstOffset, InterleavedBufferView<const float> src);
+
 //! @brief Copies data from @a src to @a dst, starting from the given offsets
 //! @note If the @a dst subset has more channels than the @a src subset, the additional channels are zeroed, but
 //!       only within the same span of @a dst frames as the other channels that were copied.
 //! @note If the @a dst subset has more frames than the @a src subset,
 //!       the additional frames are left unmodified.
 //! @param dst the output buffer
-//! @param src the input buffer
 //! @param dstOffset the starting frame within @p dst
+//! @param src the input buffer
 //! @param srcOffset the starting frame within @p src
 //! @pre dstOffset < dst.frames()
 //! @pre srcOffset < src.frames()
 //! @pre dst.channels() >= src.channels()
 //! @pre dst.frames() - dstOffset >= src.frames() - srcOffset
-LMMS_EXPORT void copyAndZero(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
-	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
+LMMS_EXPORT void copyAndZero(PlanarBufferView<float> dst, f_cnt_t dstOffset,
+	PlanarBufferView<const float> src, f_cnt_t srcOffset = 0);
 
 //! @brief Copies data from @a src to @a dst
 //! @note If @a dst has more channels than @a src, the additional channels are zeroed,
@@ -135,23 +159,23 @@ LMMS_EXPORT void copyAndZero(PlanarBufferView<float> dst, PlanarBufferView<const
 //! @pre dst.frames() >= src.frames()
 LMMS_EXPORT void copyAndZero(PlanarBufferView<float> dst, PlanarBufferView<const float> src);
 
-//! Same as @ref copy(PlanarBufferView<float>, PlanarBufferView<const float>, f_cnt_t, f_cnt_t) but
+//! Same as @ref copy(PlanarBufferView<float>, f_cnt_t, PlanarBufferView<const float>, f_cnt_t) but
 //! applies @ref monoUpmix or @ref stereoDownmix if possible.
 //! @pre dstOffset < dst.frames()
 //! @pre srcOffset < src.frames()
 //! @pre dst.channels() >= src.channels() || (dst.channels() == 1 && src.channels() == 2)
 //! @pre dst.frames() >= src.frames()
-LMMS_EXPORT void copyConvert(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
-	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
+LMMS_EXPORT void copyConvert(PlanarBufferView<float> dst, f_cnt_t dstOffset,
+	PlanarBufferView<const float> src, f_cnt_t srcOffset = 0);
 
-//! Same as @ref copyAndZero(PlanarBufferView<float>, PlanarBufferView<const float>, f_cnt_t, f_cnt_t) but
+//! Same as @ref copyAndZero(PlanarBufferView<float>, f_cnt_t, PlanarBufferView<const float>, f_cnt_t) but
 //! applies @ref monoUpmix or @ref stereoDownmix if possible.
 //! @pre dstOffset < dst.frames()
 //! @pre srcOffset < src.frames()
 //! @pre dst.channels() >= src.channels() || (dst.channels() == 1 && src.channels() == 2)
 //! @pre dst.frames() >= src.frames()
-LMMS_EXPORT void copyConvertAndZero(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
-	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
+LMMS_EXPORT void copyConvertAndZero(PlanarBufferView<float> dst, f_cnt_t dstOffset,
+	PlanarBufferView<const float> src, f_cnt_t srcOffset = 0);
 
 /*! \brief Add samples from src to dst */
 LMMS_EXPORT void add( SampleFrame* dst, const SampleFrame* src, int frames );

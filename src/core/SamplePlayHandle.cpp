@@ -26,6 +26,7 @@
 #include "AudioEngine.h"
 #include "AudioBusHandle.h"
 #include "Engine.h"
+#include "MixHelpers.h"
 #include "PatternTrack.h"
 #include "SampleClip.h"
 #include "SampleTrack.h"
@@ -35,6 +36,7 @@ namespace lmms
 
 SamplePlayHandle::SamplePlayHandle(Sample* sample, bool ownAudioBusHandle)
 	: PlayHandle(Type::SamplePlayHandle)
+	, m_state(sample->sampleChannels(), AudioResampler::Mode::Linear, 0)
 	, m_sample(sample)
 	, m_ownAudioBusHandle(ownAudioBusHandle)
 {
@@ -47,8 +49,8 @@ SamplePlayHandle::SamplePlayHandle(Sample* sample, bool ownAudioBusHandle)
 
 
 
-SamplePlayHandle::SamplePlayHandle( const QString& sampleFile ) :
-	SamplePlayHandle(new Sample(SampleBuffer::fromFile(sampleFile)), true)
+SamplePlayHandle::SamplePlayHandle(const QString& sampleFile, SampleImportOption option)
+	: SamplePlayHandle(new Sample(SampleBuffer::fromFile(sampleFile, option)), true)
 {
 }
 
@@ -77,24 +79,25 @@ SamplePlayHandle::~SamplePlayHandle()
 
 
 
-void SamplePlayHandle::play( SampleFrame* buffer )
+void SamplePlayHandle::play(std::optional<PlanarBufferView<float>> buffer)
 {
-	const f_cnt_t fpp = Engine::audioEngine()->framesPerPeriod();
+	assert(buffer.has_value());
+
 	//play( 0, _try_parallelizing );
 	if( framesDone() >= totalFrames() )
 	{
-		zeroSampleFrames(buffer, fpp);
+		MixHelpers::zero(*buffer);
 		return;
 	}
 
-	SampleFrame* workingBuffer = buffer;
-	f_cnt_t frames = fpp;
+	f_cnt_t bufferOffset = 0;
+	f_cnt_t frames = buffer->frames();
 
 	// apply offset for the first period
 	if( framesDone() == 0 )
 	{
-		zeroSampleFrames(buffer, offset());
-		workingBuffer += offset();
+		MixHelpers::zero(buffer->truncated(offset()));
+		bufferOffset += offset();
 		frames -= offset();
 	}
 
@@ -106,9 +109,9 @@ void SamplePlayHandle::play( SampleFrame* buffer )
 				m_volumeModel->value() / DefaultVolume } };*/
 		// SamplePlayHandle always plays the sample at its original pitch;
 		// it is used only for previews, SampleTracks and the metronome.
-		if (!m_sample->play(workingBuffer, &m_state, frames))
+		if (!m_sample->play(*buffer, bufferOffset, &m_state))
 		{
-			zeroSampleFrames(workingBuffer, frames);
+			MixHelpers::zero(*buffer, bufferOffset);
 		}
 	}
 

@@ -41,13 +41,11 @@ class LMMS_EXPORT SampleBuffer
 {
 public:
 	SampleBuffer() = default;
-	SampleBuffer(AudioBuffer data, SampleImportModification mod, int sampleRate, const QString& audioFile = "");
+	// TODO: Give `mod` parameters default values then simplify call sites
 	SampleBuffer(AudioBuffer data, SampleImportModification mod,
-		int sampleRate = Engine::audioEngine()->outputSampleRate());
+		int sampleRate = Engine::audioEngine()->outputSampleRate(), const QString& audioFile = "");
 	SampleBuffer(std::span<const SampleFrame> data, SampleImportModification mod,
-		int sampleRate, const QString& audioFile = "");
-	SampleBuffer(std::span<const SampleFrame> data, SampleImportModification mod,
-		int sampleRate = Engine::audioEngine()->outputSampleRate());
+		int sampleRate = Engine::audioEngine()->outputSampleRate(), const QString& audioFile = "");
 
 	friend void swap(SampleBuffer& first, SampleBuffer& second) noexcept;
 	auto toBase64() const -> QString;

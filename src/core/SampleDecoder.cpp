@@ -199,7 +199,7 @@ auto decodeSampleDS(const QString& audioFile, SampleImportOption option)
 			break;
 	}
 
-	auto result = AudioBuffer{frames, desiredChannels};
+	auto result = AudioBuffer{static_cast<f_cnt_t>(frames), desiredChannels};
 
 	src_short_to_float_array(data.get(), result.buffer(0).data(), frames);
 	if (mod == SampleImportModification::UpmixMonoToStereo)

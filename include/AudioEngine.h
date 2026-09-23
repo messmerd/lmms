@@ -36,6 +36,7 @@
 #include "AudioBufferView.h"
 #include "AudioDevice.h"
 #include "LmmsTypes.h"
+#include "MixHelpers.h"
 #include "SampleFrame.h"
 #include "LocklessList.h"
 #include "AudioEngineProfiler.h"
@@ -228,7 +229,26 @@ public:
 
 	bool criticalXRuns() const;
 
-	void pushInputFrames(PlanarBufferView<float> buffer);
+	void pushInputFrames(AudioBufferView<const float> auto buffer)
+	{
+		requestChangeInModel();
+
+		const f_cnt_t frames = m_inputBufferFrames[m_inputBufferWrite];
+		const auto framesNeeded = frames + buffer.frames();
+		preparePushInputFrames(framesNeeded);
+
+		auto& channelBuffer = m_inputBufferChannels[m_inputBufferWrite];
+		auto dest = PlanarBufferView {
+			channelBuffer.data(),
+			static_cast<ch_cnt_t>(channelBuffer.size()),
+			framesNeeded
+		};
+		MixHelpers::copy(dest, frames, buffer);
+
+		m_inputBufferFrames[m_inputBufferWrite] += buffer.frames();
+
+		doneChangeInModel();
+	}
 
 	PlanarBufferView<const float> inputBuffer()
 	{
@@ -344,8 +364,8 @@ private:
 	void renderStageEffects();
 	void renderStageMix();
 
-
 	void swapBuffers();
+	void preparePushInputFrames(f_cnt_t framesNeeded);
 
 	void clearInternal();
 

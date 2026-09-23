@@ -81,7 +81,9 @@ std::shared_ptr<const SampleBuffer> AudioSampleRecorder::createSampleBuffer()
 	}
 
 	// create according sample-buffer out of big buffer
-	return std::make_shared<const SampleBuffer>(std::move(bigBuffer), sampleRate());
+	// TODO: Remove unnecessary copy
+	return std::make_shared<const SampleBuffer>(
+		bigBuffer, SampleImportModification::Unmodified, sampleRate());
 }
 
 void AudioSampleRecorder::writeBuffer(const SampleFrame* _ab, const f_cnt_t _frames)

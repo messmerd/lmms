@@ -167,12 +167,14 @@ public:
 
 	static sample_t userWaveSample(const SampleBuffer* buffer, const float sample)
 	{
-		if (buffer == nullptr || buffer->size() == 0) { return 0; }
-		const auto frames = buffer->size();
+		if (buffer == nullptr || buffer->empty()) { return 0; }
+
+		const auto frames = buffer->frames();
 		const auto frame = absFraction(sample) * frames;
 		const auto f1 = static_cast<f_cnt_t>(frame);
 
-		return std::lerp(buffer->data()[f1][0], buffer->data()[(f1 + 1) % frames][0], fraction(frame));
+		const auto data = buffer->data().bufferPtr(0);
+		return std::lerp(data[f1], data[(f1 + 1) % frames], fraction(frame));
 	}
 
 	struct wtSampleControl {

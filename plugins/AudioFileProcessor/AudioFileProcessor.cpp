@@ -203,7 +203,7 @@ void AudioFileProcessor::saveSettings(QDomDocument& doc, QDomElement& elem)
 	{
 		elem.setAttribute("src", m_sample.sampleFile());
 	}
-	elem.setAttribute("sampleimportmod", m_sample.sampleImportModification());
+	serialize(elem, m_sample.sampleImportModification());
 	m_reverseModel.saveSettings(doc, elem, "reversed");
 	m_loopModel.saveSettings(doc, elem, "looped");
 	m_ampModel.saveSettings(doc, elem, "amp");
@@ -219,7 +219,8 @@ void AudioFileProcessor::saveSettings(QDomDocument& doc, QDomElement& elem)
 
 void AudioFileProcessor::loadSettings(const QDomElement& elem)
 {
-	const auto option = deserializeSampleImportModification(elem.attribute("sampleimportmod"));
+	SampleImportOption option;
+	deserialize(elem, option);
 	if (auto srcFile = elem.attribute("src"); !srcFile.isEmpty())
 	{
 		if (QFileInfo(PathUtil::toAbsolute(srcFile)).exists())

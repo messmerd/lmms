@@ -158,21 +158,15 @@ bool AudioEngine::criticalXRuns() const
 	return cpuLoad() >= 99 && Engine::getSong()->isExporting() == false;
 }
 
-
-
-
-void AudioEngine::pushInputFrames(PlanarBufferView<float> buffer)
+void AudioEngine::preparePushInputFrames(f_cnt_t framesNeeded)
 {
-	requestChangeInModel();
-
-	f_cnt_t frames = m_inputBufferFrames[m_inputBufferWrite];
-	const auto framesNeeded = frames + buffer.frames();
+	const f_cnt_t frames = m_inputBufferFrames[m_inputBufferWrite];
 
 	auto& sourceBuffer = m_inputBufferSource[m_inputBufferWrite];
 	auto& channelBuffer = m_inputBufferChannels[m_inputBufferWrite];
 	const auto channels = static_cast<ch_cnt_t>(channelBuffer.size());
-
 	const auto totalSamplesNeeded = framesNeeded * channels;
+
 	if (totalSamplesNeeded > sourceBuffer.size())
 	{
 		const auto oldSize = sourceBuffer.size();
@@ -192,16 +186,7 @@ void AudioEngine::pushInputFrames(PlanarBufferView<float> buffer)
 			channelBuffer[ch] = newStart;
 		}
 	}
-
-	auto dest = PlanarBufferView<float>{channelBuffer.data(), channels, framesNeeded};
-	MixHelpers::copy(dest, buffer, frames, 0);
-
-	m_inputBufferFrames[m_inputBufferWrite] += buffer.frames();
-
-	doneChangeInModel();
 }
-
-
 
 void AudioEngine::renderStageNoteSetup()
 {
@@ -388,10 +373,10 @@ void AudioEngine::renderNextBuffer(PlanarBufferView<float> dst)
 
 		const auto framesToCopy = std::min(m_outputBufferRead.frames(), dst.frames() - framesCopied);
 		MixHelpers::copyConvertAndZero(
-			dst,                                                     // dst
+			dst,          // dst
+			framesCopied, // dstOffset
 			m_outputBufferRead.allBuffers().truncated(framesToCopy), // src
-			framesCopied,           // dstOffset
-			m_outputBufferReadIndex // srcOffset
+			m_outputBufferReadIndex                                  // srcOffset
 		);
 
 		m_outputBufferReadIndex += framesToCopy;

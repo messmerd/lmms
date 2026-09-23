@@ -409,7 +409,12 @@ int AudioJack::processCallback(jack_nframes_t nframes)
 		jack_default_audio_sample_t* jack_input_buffer = (jack_default_audio_sample_t*) jack_port_get_buffer(m_inputPorts[c], nframes);
 		m_inputFrameBuffers.at(c) = jack_input_buffer;
 	}
-	auto inputFrameBuffers = PlanarBufferView<float>{m_inputFrameBuffers.data(), m_inputFrameBuffers.size(), nframes};
+
+	const auto inputFrameBuffers = PlanarBufferView {
+		m_inputFrameBuffers.data(),
+		static_cast<ch_cnt_t>(m_inputFrameBuffers.size()),
+		nframes
+	};
 
 	audioEngine()->pushInputFrames(inputFrameBuffers);
 	return 0;
