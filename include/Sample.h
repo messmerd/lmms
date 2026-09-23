@@ -86,11 +86,12 @@ public:
 	auto play(PlanarBufferView<float> dst, f_cnt_t dstOffset, PlaybackState* state, Loop loopMode = Loop::Off,
 		double ratio = 1.0) const -> bool;
 
+	// TODO: Remove the "sample" prefix from some of these method names
 	auto sampleDuration() const -> std::chrono::milliseconds;
 	auto sampleFile() const -> const QString& { return m_buffer->audioFile(); }
 	auto sampleRate() const -> int { return m_buffer->sampleRate(); }
 	auto sampleChannels() const -> ch_cnt_t { return m_buffer->channels(); }
-	auto sampleFrames() const -> f_cnt_t { return m_buffer->frames(); }
+	auto frames() const -> f_cnt_t { return m_buffer->frames(); }
 	auto sampleEmpty() const -> bool { return m_buffer->empty(); }
 	auto sampleImportModification() const -> SampleImportModification { return m_buffer->importModification(); }
 

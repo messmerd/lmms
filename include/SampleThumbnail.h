@@ -104,7 +104,7 @@ private:
 
 		Thumbnail() = default;
 		Thumbnail(std::vector<Peak> peaks, double samplesPerPeak);
-		Thumbnail(const float* buffer, size_t size, size_t width);
+		Thumbnail(PlanarBufferView<const float> buffer);
 
 		Thumbnail zoomOut(float factor) const;
 
@@ -112,7 +112,7 @@ private:
 		Peak& operator[](size_t index) { return m_peaks[index]; }
 		const Peak& operator[](size_t index) const { return m_peaks[index]; }
 
-		int width() const { return m_peaks.size(); }
+		std::size_t width() const { return m_peaks.size(); }
 		double samplesPerPeak() const { return m_samplesPerPeak; }
 
 	private:
