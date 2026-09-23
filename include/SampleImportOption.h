@@ -29,46 +29,58 @@
 
 #include "LmmsTypes.h"
 
+class QDomElement;
+
 namespace lmms {
 
 //! Specifies how samples should be imported
 enum class SampleImportOption : std::uint8_t
 {
+	//! Sample will be imported as-is, even if mono or multi-channel
+	Unmodified,
+
+	//! Sample will be forced to mono
+	//! @note If the original sample is stereo, it will be mixed down to mono, otherwise
+	//!        channels >1 will be discarded
+	ForceMono,
+
 	//! Sample will be forced to stereo
 	//! @note This was the only possible option in older versions of LMMS
 	ForceStereo,
 
-	//! Sample will be imported as-is, even if mono or multi-channel
-	Unmodified,
-
 	//! Resolves to one of the other options using @ref inquireSampleImportModification
-	//! @note This option cannot be used in headless mode or saved to a project file.
+	//! @note This option cannot be used in headless mode
 	Inquire
 };
 
 //! Indicates which modifications were made to a sample when imported
 enum class SampleImportModification
 {
-	//! The sample was already 2 channels
-	Unnecessary,
-
-	//! The sample could have required modifications, but wasn't modified.
-	//! This is the only value that implies non-2-channels.
+	//! The original sample was not modified upon import
 	Unmodified,
 
-	//! Mono sample upmixed to stereo
+	//! The original sample was either stereo mixed down to mono, or multi-channel
+	//! with channels >1 removed.
+	ForcedMono,
+
+	//! The original sample was mono, but was upmixed to stereo upon import
 	UpmixMonoToStereo,
 
-	//! Multi-channel sample downmixed to stereo
+	//! The original sample was multi-channel, but was downmixed to stereo upon import
 	DownmixMultiChannelToStereo
 };
 
-//! Serialize a sample import modification so it can be saved to a project file
-auto serialize(SampleImportModification modification) -> QString;
+inline constexpr const char* SampleImportModificationAttributeName = "samplechannels";
+
+//! Serialize a sample import modification to a project file
+void serialize(QDomElement& elem, SampleImportModification modification,
+	const char* attrName = SampleImportModificationAttributeName);
 
 //! Deserialize a sample import modification previously saved to a project file.
 //! It deserializes as a @a SampleImportOption so it can be used to import the sample.
-auto deserializeSampleImportModification(const QString& modification) -> SampleImportOption;
+//! @returns true if the XML attribute @a attrName existed and was valid
+auto deserialize(const QDomElement& elem, SampleImportOption& out,
+	const char* attrName = SampleImportModificationAttributeName) -> bool;
 
 //! Determines how a sample should be modified when imported
 auto getSampleImportModification(SampleImportOption option, ch_cnt_t actualChannels, const QString& sampleName = {})

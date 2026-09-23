@@ -72,11 +72,11 @@ public:
 	static std::shared_ptr<const SampleBuffer> fromFileInteractive(const QString& path);
 
 	//! Loads sample from path, following the import options
-	static std::shared_ptr<const SampleBuffer> fromFile(const QString& path, SampleImportOption options);
+	static std::shared_ptr<const SampleBuffer> fromFile(const QString& path, SampleImportOption option);
 
 	//! Loads sample from planar base64 data
 	static std::shared_ptr<const SampleBuffer> fromBase64(const QString& str,
-		SampleImportOption options, int sampleRate = Engine::audioEngine()->outputSampleRate());
+		SampleImportOption option, int sampleRate = Engine::audioEngine()->outputSampleRate());
 
 	//! Loads sample from old `SampleFrame` base64 data
 	static std::shared_ptr<const SampleBuffer> fromLegacyBase64(const QString& str,
@@ -84,7 +84,7 @@ public:
 
 private:
 	static std::shared_ptr<const SampleBuffer> fromBase64(bool legacyInterleaved,
-		const QString& str, SampleImportOption options, int sampleRate);
+		const QString& str, SampleImportOption option, int sampleRate);
 
 	using B64FrameCount = std::uint64_t;
 	using B64ChannelCount = std::uint16_t;

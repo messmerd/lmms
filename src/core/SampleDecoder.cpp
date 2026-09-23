@@ -60,6 +60,66 @@ static constexpr std::array<Decoder, 3> decoders = {&decodeSampleSF,
 #endif
 	&decodeSampleDS};
 
+void postProcess(AudioBuffer& dst, SampleImportModification mod,
+	const float* src, ch_cnt_t srcChannels)
+{
+	const auto frames = dst.frames();
+	if (mod == SampleImportModification::UpmixMonoToStereo)
+	{
+		// Upmix mono sample to stereo
+		assert(srcChannels == 1);
+		const float* channelBuffer[1] = { src };
+		const auto srcAsPlanar = PlanarBufferView{channelBuffer, 1, frames};
+
+		MixHelpers::monoUpmix(dst.allBuffers(), srcAsPlanar);
+	}
+	else
+	{
+		const auto srcAsInterleaved = InterleavedBufferView{src, srcChannels, frames};
+		auto dstBuffers = dst.allBuffers();
+
+		if (mod == SampleImportModification::ForcedMono)
+		{
+			f_cnt_t idx = 0;
+			if (srcChannels == 2)
+			{
+				// Downmix stereo to mono
+				for (const float* frame : srcAsInterleaved.framesView())
+				{
+					dstBuffers[0][idx] = (frame[0] + frame[1]) / 2;
+					++idx;
+				}
+			}
+			else
+			{
+				// Multichannel - discard channels >1
+				assert(srcChannels > 2);
+				for (const float* frame : srcAsInterleaved.framesView())
+				{
+					dstBuffers[0][idx] = frame[0];
+					++idx;
+				}
+			}
+		}
+		else if (mod == SampleImportModification::DownmixMultiChannelToStereo)
+		{
+			assert(srcChannels > 2);
+			f_cnt_t idx = 0;
+			for (const float* frame : srcAsInterleaved.framesView())
+			{
+				dstBuffers[0][idx] = frame[0];
+				dstBuffers[1][idx] = frame[1];
+				++idx;
+			}
+		}
+		else
+		{
+			assert(mod == SampleImportModification::Unmodified);
+			toPlanar(srcAsInterleaved, dstBuffers);
+		}
+	}
+}
+
 auto decodeSampleSF(const QString& audioFile, SampleImportOption option)
 	-> std::optional<SampleDecoder::Result>
 {
@@ -73,52 +133,36 @@ auto decodeSampleSF(const QString& audioFile, SampleImportOption option)
 	sndFile = sf_open_fd(file.handle(), SFM_READ, &sfInfo, false);
 	if (sf_error(sndFile) != 0) { return std::nullopt; }
 
-	auto buf = std::vector<sample_t>(sfInfo.channels * sfInfo.frames);
-	sf_read_float(sndFile, buf.data(), buf.size());
+	auto buffer = std::vector<float>(sfInfo.channels * sfInfo.frames);
+	sf_read_float(sndFile, buffer.data(), buffer.size());
 
 	sf_close(sndFile);
 	file.close();
 
-	const auto mod = getSampleImportModification(option, audioFile, static_cast<ch_cnt_t>(sfInfo.channels));
-	const auto desiredChannels = mod == SampleImportModification::Unmodified
-		? static_cast<ch_cnt_t>(sfInfo.channels)
-		: static_cast<ch_cnt_t>(2);
+	// Determine what modifications to make to the sample we're importing (if any)
+	const auto mod = getSampleImportModification(option, static_cast<ch_cnt_t>(sfInfo.channels), audioFile);
+	ch_cnt_t desiredChannels;
+	switch (mod)
+	{
+		case SampleImportModification::Unmodified:
+			desiredChannels = static_cast<ch_cnt_t>(sfInfo.channels);
+			break;
+		case SampleImportModification::ForcedMono:
+			desiredChannels = 1;
+			break;
+		default:
+			assert(false);
+			[[fallthrough]];
+		case SampleImportModification::UpmixMonoToStereo: [[fallthrough]];
+		case SampleImportModification::DownmixMultiChannelToStereo:
+			desiredChannels = 2;
+			break;
+	}
 
 	const auto frames = static_cast<f_cnt_t>(sfInfo.frames);
 	auto result = AudioBuffer{frames, desiredChannels};
 
-	if (mod == SampleImportModification::UpmixMonoToStereo)
-	{
-		// Upmix mono sample to stereo
-		assert(sfInfo.channels == 1);
-		float* channelBuffer[1] = { buf.data() };
-		const auto bufAsPlanar = PlanarBufferView{channelBuffer, 1, frames};
-
-		MixHelpers::monoUpmix(result.allBuffers(), bufAsPlanar);
-	}
-	else
-	{
-		const auto bufAsInterleaved = InterleavedBufferView {
-			buf.data(), static_cast<ch_cnt_t>(sfInfo.channels), frames
-		};
-
-		auto resultBuffers = result.allBuffers();
-		if (mod == SampleImportModification::DownmixMultiChannelToStereo)
-		{
-			assert(numChannels > 2);
-			f_cnt_t idx = 0;
-			for (const float* frame : bufAsInterleaved.framesView())
-			{
-				resultBuffers[0][idx] = frame[0];
-				resultBuffers[1][idx] = frame[1];
-				++idx;
-			}
-		}
-		else
-		{
-			toPlanar(bufAsInterleaved, resultBuffers);
-		}
-	}
+	postProcess(result, mod, buffer.data(), static_cast<ch_cnt_t>(sfInfo.channels));
 
 	return SampleDecoder::Result{std::move(result), static_cast<int>(sfInfo.samplerate), mod};
 }
@@ -136,10 +180,28 @@ auto decodeSampleDS(const QString& audioFile, SampleImportOption option)
 
 	if (frames <= 0 || !data) { return std::nullopt; }
 
-	const auto mod = getSampleImportModification(option, audioFile, 1);
-	auto result = AudioBuffer{frames, mod == SampleImportModification::Unmodified ? 1 : 2};
+	// Determine what modifications to make to the sample we're importing (if any)
+	const auto mod = getSampleImportModification(option, 1, audioFile);
+	ch_cnt_t desiredChannels;
+	switch (mod)
+	{
+		case SampleImportModification::Unmodified: [[fallthrough]];
+		case SampleImportModification::ForcedMono:
+			desiredChannels = 1;
+			break;
+		default:
+			[[fallthrough]];
+		case SampleImportModification::DownmixMultiChannelToStereo:
+			assert(false);
+			[[fallthrough]];
+		case SampleImportModification::UpmixMonoToStereo:
+			desiredChannels = 2;
+			break;
+	}
 
-	src_short_to_float_array(data.get(), result.buffer(0).data(), frames * 1);
+	auto result = AudioBuffer{frames, desiredChannels};
+
+	src_short_to_float_array(data.get(), result.buffer(0).data(), frames);
 	if (mod == SampleImportModification::UpmixMonoToStereo)
 	{
 		std::ranges::copy(result.buffer(0), result.buffer(1).data());
@@ -209,48 +271,33 @@ auto decodeSampleOggVorbis(const QString& audioFile, SampleImportOption option)
 		totalSamplesRead += samplesRead;
 	}
 
-	const auto mod = getSampleImportModification(option, audioFile, 1);
-	const auto desiredChannels = mod == SampleImportModification::Unmodified
-		? static_cast<ch_cnt_t>(numChannels)
-		: static_cast<ch_cnt_t>(2);
-	
+	// Determine what modifications to make to the sample we're importing (if any)
+	const auto mod = getSampleImportModification(option, numChannels, audioFile);
+	ch_cnt_t desiredChannels;
+	switch (mod)
+	{
+		case SampleImportModification::Unmodified:
+			desiredChannels = static_cast<ch_cnt_t>(numChannels);
+			break;
+		case SampleImportModification::ForcedMono:
+			desiredChannels = 1;
+			break;
+		default:
+			assert(false);
+			[[fallthrough]];
+		case SampleImportModification::UpmixMonoToStereo: [[fallthrough]];
+		case SampleImportModification::DownmixMultiChannelToStereo:
+			desiredChannels = 2;
+			break;
+	}
+
 	const auto frames = static_cast<f_cnt_t>(totalSamplesRead / numChannels);
 	auto result = AudioBuffer{frames, desiredChannels};
 
-	if (mod == SampleImportModification::UpmixMonoToStereo)
-	{
-		// Upmix mono OGG sample to stereo
-		assert(numChannels == 1);
-		float* channelBuffer[1] = { buffer.data() };
-		const auto bufferAsPlanar = PlanarBufferView{channelBuffer, 1, frames};
-
-		MixHelpers::monoUpmix(result.allBuffers(), bufferAsPlanar);
-	}
-	else
-	{
-		const auto bufferAsInterleaved = InterleavedBufferView {
-			buffer.data(), static_cast<ch_cnt_t>(numChannels), frames
-		};
-
-		auto resultBuffers = result.allBuffers();
-		if (mod == SampleImportModification::DownmixMultiChannelToStereo)
-		{
-			assert(numChannels > 2);
-			f_cnt_t idx = 0;
-			for (const float* frame : bufferAsInterleaved.framesView())
-			{
-				resultBuffers[0][idx] = frame[0];
-				resultBuffers[1][idx] = frame[1];
-				++idx;
-			}
-		}
-		else
-		{
-			toPlanar(bufferAsInterleaved, resultBuffers);
-		}
-	}
+	postProcess(result, mod, buffer.data(), static_cast<ch_cnt_t>(numChannels));
 
 	ov_clear(&vorbisFile);
+
 	return SampleDecoder::Result{std::move(result), static_cast<int>(sampleRate), mod};
 }
 #endif // LMMS_HAVE_OGGVORBIS

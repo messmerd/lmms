@@ -48,6 +48,7 @@
 #include "Note.h"
 #include "PluginFactory.h"
 #include "ProjectVersion.h"
+#include "SampleImportOption.h"
 #include "SongEditor.h"
 #include "TextFloat.h"
 #include "Track.h"
@@ -87,7 +88,8 @@ const std::vector<DataFile::UpgradeMethod> DataFile::UPGRADE_METHODS = {
 	&DataFile::upgrade_loopsRename      ,   &DataFile::upgrade_noteTypes,
 	&DataFile::upgrade_fixCMTDelays     ,   &DataFile::upgrade_fixBassLoopsTypo,
 	&DataFile::findProblematicLadspaPlugins,
-	&DataFile::upgrade_noHiddenAutomationTracks
+	&DataFile::upgrade_noHiddenAutomationTracks,
+	&DataFile::upgrade_sampleChannelCounts
 };
 
 // Vector of all versions that have upgrade routines.
@@ -2056,6 +2058,28 @@ void DataFile::upgrade_fixBassLoopsTypo()
 	};
 
 	mapSrcAttributeInElementsWithResources(replacementMap);
+}
+
+void DataFile::upgrade_sampleChannelCounts()
+{
+	// AFP, SlicerT, and sample clips all forced their samples to be stereo in previous versions
+	const char* tagNames[] = {
+		"audiofileprocessor",
+		"slicert",
+		"sampleclip",
+	};
+
+	for (const char* tagName : tagNames)
+	{
+		const QDomNodeList list = elementsByTagName(tagName);
+		for (int i = 0; !list.item(i).isNull(); ++i)
+		{
+			QDomElement elem = list.item(i).toElement();
+
+			// Force sample to be loaded as stereo
+			serialize(elem, SampleImportModification::DownmixMultiChannelToStereo);
+		}
+	}
 }
 
 void DataFile::upgrade()

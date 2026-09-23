@@ -72,6 +72,7 @@ void swap(SampleBuffer& first, SampleBuffer& second) noexcept
 	swap(first.m_data, second.m_data);
 	swap(first.m_audioFile, second.m_audioFile);
 	swap(first.m_sampleRate, second.m_sampleRate);
+	swap(first.m_modification, second.m_modification);
 }
 
 QString SampleBuffer::toBase64() const

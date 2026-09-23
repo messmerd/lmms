@@ -28,6 +28,7 @@
 
 #include <QCheckBox>
 #include <QDebug>
+#include <QDomElement>
 #include <QMessageBox>
 #include <stdexcept>
 
@@ -36,40 +37,67 @@
 
 namespace lmms {
 
-auto serialize(SampleImportModification modification) -> QString
+void serialize(QDomElement& elem, SampleImportModification modification, const char* attrName)
 {
+	int value;
 	switch (modification)
 	{
-		case SampleImportModification::Unnecessary: return "0";
-		case SampleImportModification::Unmodified: return "1";
-		case SampleImportModification::UpmixMonoToStereo: return "2";
-		case SampleImportModification::DownmixMultiChannelToStereo: return "3";
-		default: break;
+		case SampleImportModification::Unmodified:
+			value = 0;
+			break;
+		case SampleImportModification::ForcedMono:
+			value = 1;
+			break;
+		case SampleImportModification::UpmixMonoToStereo: [[fallthrough]];
+		case SampleImportModification::DownmixMultiChannelToStereo:
+			value = 2;
+			break;
+		default:
+			throw std::invalid_argument{"cannot serialize"};
 	}
 
-	throw std::invalid_argument{"cannot serialize"};
+	// Only save if not Unmodified, since Unmodified is the default
+	if (value != 0)
+	{
+		elem.setAttribute(attrName, value);
+	}
 }
 
-auto deserializeSampleImportModification(const QString& modification) -> SampleImportOption
+auto deserialize(const QDomElement& elem, SampleImportOption& out, const char* attrName) -> bool
 {
+	const auto modification = elem.attribute(attrName);
+
 	bool ok = false;
 	const int parsed = modification.toInt(&ok);
-	if (!ok) { return SampleImportOption::ForceStereo; }
+	if (!ok)
+	{
+		// Projects without a "samplechannels" XML attribute are imported unmodified.
+		// Note that old LMMS projects from before multi-channel sample support was added also
+		// do not contain a "samplechannels" attribute, but they are handled in a DataFile upgrade
+		// routine to ensure they are forced to stereo.
+		out = SampleImportOption::Unmodified;
+		return false;
+	}
 
 	switch (parsed)
 	{
-		case 1: return SampleImportOption::Unmodified;
-		case 0: [[fallthrough]];
-		case 2: [[fallthrough]];
-		case 3: return SampleImportOption::ForceStereo;
+		case 0:
+			out = SampleImportOption::Unmodified;
+			return true;
+		case 1:
+			out = SampleImportOption::ForceMono;
+			return true;
+		case 2:
+			out = SampleImportOption::ForceStereo;
+			return true;
 		default:
 		{
 			qWarning() << "Unknown SampleImportOption:" << parsed;
-			break;
+			out = SampleImportOption::ForceStereo;
 		}
 	}
 
-	return SampleImportOption::ForceStereo;
+	return false;
 }
 
 auto getSampleImportModification(SampleImportOption option, ch_cnt_t actualChannels, const QString& sampleName)
@@ -82,7 +110,9 @@ auto getSampleImportModification(SampleImportOption option, ch_cnt_t actualChann
 
 	if (actualChannels == 2)
 	{
-		return SampleImportModification::Unnecessary;
+		return option == SampleImportOption::ForceMono
+			? SampleImportModification::ForcedMono
+			: SampleImportModification::Unmodified;
 	}
 
 	if (actualChannels < 2)
@@ -92,9 +122,17 @@ auto getSampleImportModification(SampleImportOption option, ch_cnt_t actualChann
 			: SampleImportModification::Unmodified;
 	}
 
-	return option == SampleImportOption::ForceStereo
-		? SampleImportModification::DownmixMultiChannelToStereo
-		: SampleImportModification::Unmodified;
+	// multi-channel sample
+	switch (option)
+	{
+		case SampleImportOption::ForceStereo:
+			return SampleImportModification::DownmixMultiChannelToStereo;
+		case SampleImportOption::ForceMono:
+			return SampleImportModification::ForcedMono;
+		default: break;
+	}
+
+	return SampleImportModification::Unmodified;
 }
 
 namespace gui {
@@ -110,7 +148,7 @@ auto inquireSampleImportModification(ch_cnt_t actualChannels, const QString& sam
 	if (actualChannels == 2)
 	{
 		// Keep as-is
-		return SampleImportModification::Unnecessary;
+		return SampleImportModification::Unmodified;
 	}
 
 	if (actualChannels < 2)

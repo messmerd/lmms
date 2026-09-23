@@ -92,7 +92,7 @@ public:
 	auto sampleChannels() const -> ch_cnt_t { return m_buffer->channels(); }
 	auto sampleFrames() const -> f_cnt_t { return m_buffer->frames(); }
 	auto sampleEmpty() const -> bool { return m_buffer->empty(); }
-	auto sampleImportModification() const -> QString { return serialize(m_buffer->importModification()); }
+	auto sampleImportModification() const -> SampleImportModification { return m_buffer->importModification(); }
 
 	auto toBase64() const -> QString { return m_buffer->toBase64(); }
 
