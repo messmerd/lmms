@@ -89,12 +89,45 @@ bool Instrument::isFromTrack( const Track * _track ) const
 }
 
 // helper function for Instrument::applyFadeIn
-static int countZeroCrossings(SampleFrame* buf, f_cnt_t start, f_cnt_t frames)
+static std::uint16_t countZeroCrossings(PlanarBufferView<const float> buf, f_cnt_t start)
+{
+	// zero point crossing counts of all channels
+	auto zeroCrossings = std::array<std::uint16_t, MaxChannelsPerAudioBuffer>{};
+	const auto channels = buf.channels();
+	const auto frames = buf.frames();
+	assert(channels < zeroCrossings.size());
+
+	// maximum zero point crossing of all channels
+	std::uint16_t maxZeroCrossings = 0;
+
+	// determine the zero point crossing counts
+	for (ch_cnt_t ch = 0; ch < channels; ++ch)
+	{
+		for (f_cnt_t f = start; f < frames; ++f)
+		{
+			// we don't want to count [-1, 0, 1] as two crossings
+			if ((buf[ch][f - 1] <= 0.0 && buf[ch][f] > 0.0)
+				|| (buf[ch][f - 1] >= 0.0 && buf[ch][f] < 0.0))
+			{
+				++zeroCrossings[ch];
+				if (zeroCrossings[ch] > maxZeroCrossings)
+				{
+					maxZeroCrossings = zeroCrossings[ch];
+				}
+			}
+		}
+	}
+
+	return maxZeroCrossings;
+}
+
+// helper function for Instrument::applyFadeIn
+static std::uint16_t countZeroCrossings(SampleFrame* buf, f_cnt_t start, f_cnt_t frames)
 {
 	// zero point crossing counts of all channels
 	auto zeroCrossings = std::array<int, DEFAULT_CHANNELS>{};
 	// maximum zero point crossing of all channels
-	int maxZeroCrossings = 0;
+	std::uint16_t maxZeroCrossings = 0;
 
 	// determine the zero point crossing counts
 	for (f_cnt_t f = start; f < frames; ++f)
@@ -118,7 +151,7 @@ static int countZeroCrossings(SampleFrame* buf, f_cnt_t start, f_cnt_t frames)
 }
 
 // helper function for Instrument::applyFadeIn
-f_cnt_t getFadeInLength(float maxLength, f_cnt_t frames, int zeroCrossings)
+static f_cnt_t getFadeInLength(float maxLength, f_cnt_t frames, int zeroCrossings)
 {
 	// calculate the length of the fade in
 	// Length is inversely proportional to the max of zeroCrossings,
@@ -127,6 +160,60 @@ f_cnt_t getFadeInLength(float maxLength, f_cnt_t frames, int zeroCrossings)
 	return (f_cnt_t) (maxLength  / ((float) zeroCrossings / ((float) frames / 128.0f) + 1.0f));
 }
 
+void Instrument::applyFadeIn(PlanarBufferView<float> inOut, NotePlayHandle* nph)
+{
+	const static float MAX_FADE_IN_LENGTH = 85.0;
+	const auto channels = inOut.channels();
+	f_cnt_t total = nph->totalFramesPlayed();
+	if (total == 0)
+	{
+		const f_cnt_t frames = nph->framesLeftForCurrentPeriod();
+		const f_cnt_t offset = nph->offset();
+
+		// We need to skip the first sample because it almost always
+		// produces a zero crossing; it's not helpful while
+		// determining the fade in length. Hence 1
+		int maxZeroCrossings = countZeroCrossings(inOut.truncated(offset + frames), offset + 1);
+
+		f_cnt_t length = getFadeInLength(MAX_FADE_IN_LENGTH, frames, maxZeroCrossings);
+		nph->m_fadeInLength = length;
+
+		// apply fade in
+		length = length < frames ? length : frames;
+		for (ch_cnt_t ch = 0; ch < channels; ++ch)
+		{
+			for (f_cnt_t f = 0; f < length; ++f)
+			{
+				inOut[ch][offset + f] *= 0.5 - 0.5 * std::cos(
+					std::numbers::pi_v<float> * static_cast<float>(f) / static_cast<float>(nph->m_fadeInLength));
+			}
+		}
+	}
+	else if (total < nph->m_fadeInLength)
+	{
+		const f_cnt_t frames = nph->framesLeftForCurrentPeriod();
+
+		int new_zc = countZeroCrossings(inOut.truncated(frames), 1);
+		f_cnt_t new_length = getFadeInLength(MAX_FADE_IN_LENGTH, frames, new_zc);
+
+		for (ch_cnt_t ch = 0; ch < channels; ++ch)
+		{
+			for (f_cnt_t f = 0; f < frames; ++f)
+			{
+				float currentLength = nph->m_fadeInLength * (1.0f - (float) f / frames)
+					+ new_length * ((float) f / frames);
+				inOut[ch][f] *= 0.5 - 0.5 * std::cos(
+					std::numbers::pi_v<float> * static_cast<float>(total + f) / currentLength);
+				if (total + f >= currentLength)
+				{
+					nph->m_fadeInLength = currentLength;
+					return;
+				}
+			}
+		}
+		nph->m_fadeInLength = new_length;
+	}
+}
 
 void Instrument::applyFadeIn(SampleFrame* buf, NotePlayHandle * n)
 {

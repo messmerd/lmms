@@ -47,8 +47,9 @@ public:
 	class LMMS_EXPORT PlaybackState
 	{
 	public:
-		PlaybackState(AudioResampler::Mode interpolationMode = AudioResampler::Mode::Linear,
-			ch_cnt_t channels = 2, f_cnt_t frameIndex = 0)
+		explicit PlaybackState(ch_cnt_t channels,
+			AudioResampler::Mode interpolationMode = AudioResampler::Mode::Linear,
+			f_cnt_t frameIndex = 0)
 			: m_resampler(interpolationMode, channels, false)
 			, m_buffer(DEFAULT_BUFFER_SIZE, channels)
 			, m_frameIndex(frameIndex)

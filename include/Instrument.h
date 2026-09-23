@@ -182,11 +182,13 @@ public:
 
 protected:
 	// fade in to prevent clicks
+	void applyFadeIn(PlanarBufferView<float> inOut, NotePlayHandle* nph);
 	void applyFadeIn(SampleFrame* buf, NotePlayHandle * n);
 
 	// instruments may use this to apply a soft fade out at the end of
 	// notes - method does this only if really less or equal
 	// desiredReleaseFrames() frames are left
+	void applyRelease(PlanarBufferView<float> buf, const NotePlayHandle* nph);
 	void applyRelease( SampleFrame* buf, const NotePlayHandle * _n );
 
 	float computeReleaseTimeMsByFrameCount(f_cnt_t frames) const;

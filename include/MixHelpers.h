@@ -28,6 +28,8 @@
 
 #include "AudioBufferView.h"
 
+#include "lmms_export.h"
+
 namespace lmms
 {
 
@@ -37,14 +39,14 @@ class SampleFrame;
 namespace MixHelpers
 {
 
-bool isSilent(const SampleFrame* src, int frames);
+LMMS_EXPORT bool isSilent(const SampleFrame* src, int frames);
 
-bool isSilent(std::span<const sample_t> buffer);
+LMMS_EXPORT bool isSilent(std::span<const sample_t> buffer);
 
-bool isSilent(PlanarBufferView<const float> buffer);
+LMMS_EXPORT bool isSilent(PlanarBufferView<const float> buffer);
 
-void zero(PlanarBufferView<float> dst);
-void zero(PlanarBufferView<float> dst, f_cnt_t offset);
+LMMS_EXPORT void zero(PlanarBufferView<float> dst);
+LMMS_EXPORT void zero(PlanarBufferView<float> dst, f_cnt_t offset);
 
 //! @brief Copies data from @a src to @a dst, upmixing from mono to stereo
 //!        starting from the given offsets
@@ -59,11 +61,11 @@ void zero(PlanarBufferView<float> dst, f_cnt_t offset);
 //! @pre dstOffset < dst.frames()
 //! @pre srcOffset < src.frames()
 //! @pre dst.frames() - dstOffset >= src.frames() - srcOffset
-void monoUpmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+LMMS_EXPORT void monoUpmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
 	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
 
 //! @copydoc monoUpmix
-void monoUpmix(PlanarBufferView<float, 2> dst, PlanarBufferView<const float, 1> src,
+LMMS_EXPORT void monoUpmix(PlanarBufferView<float, 2> dst, PlanarBufferView<const float, 1> src,
 	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
 
 //! @brief Copies data from @a src to @a dst, downmixing from stereo to mono
@@ -79,11 +81,11 @@ void monoUpmix(PlanarBufferView<float, 2> dst, PlanarBufferView<const float, 1> 
 //! @pre dstOffset < dst.frames()
 //! @pre srcOffset < src.frames()
 //! @pre dst.frames() - dstOffset >= src.frames() - srcOffset
-void stereoDownmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+LMMS_EXPORT void stereoDownmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
 	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
 
 //! @copydoc stereoDownmix
-void stereoDownmix(PlanarBufferView<float, 1> dst, PlanarBufferView<const float, 2> src,
+LMMS_EXPORT void stereoDownmix(PlanarBufferView<float, 1> dst, PlanarBufferView<const float, 2> src,
 	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
 
 //! @brief Copies data from @a src to @a dst, starting from the given offsets
@@ -97,7 +99,7 @@ void stereoDownmix(PlanarBufferView<float, 1> dst, PlanarBufferView<const float,
 //! @pre srcOffset < src.frames()
 //! @pre dst.channels() >= src.channels()
 //! @pre dst.frames() - dstOffset >= src.frames() - srcOffset
-void copy(PlanarBufferView<float> dst, PlanarBufferView<const float> src, f_cnt_t dstOffset, f_cnt_t srcOffset = 0);
+LMMS_EXPORT void copy(PlanarBufferView<float> dst, PlanarBufferView<const float> src, f_cnt_t dstOffset, f_cnt_t srcOffset = 0);
 
 //! @brief Copies data from @a src to @a dst
 //! @note If @a dst has more channels or frames than @a src, the additional channels or frames are left unmodified.
@@ -105,7 +107,7 @@ void copy(PlanarBufferView<float> dst, PlanarBufferView<const float> src, f_cnt_
 //! @param src the input buffer
 //! @pre dst.channels() >= src.channels()
 //! @pre dst.frames() >= src.frames()
-void copy(PlanarBufferView<float> dst, PlanarBufferView<const float> src);
+LMMS_EXPORT void copy(PlanarBufferView<float> dst, PlanarBufferView<const float> src);
 
 //! @brief Copies data from @a src to @a dst, starting from the given offsets
 //! @note If the @a dst subset has more channels than the @a src subset, the additional channels are zeroed, but
@@ -120,7 +122,7 @@ void copy(PlanarBufferView<float> dst, PlanarBufferView<const float> src);
 //! @pre srcOffset < src.frames()
 //! @pre dst.channels() >= src.channels()
 //! @pre dst.frames() - dstOffset >= src.frames() - srcOffset
-void copyAndZero(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+LMMS_EXPORT void copyAndZero(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
 	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
 
 //! @brief Copies data from @a src to @a dst
@@ -131,7 +133,7 @@ void copyAndZero(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
 //! @param src the input buffer
 //! @pre dst.channels() >= src.channels()
 //! @pre dst.frames() >= src.frames()
-void copyAndZero(PlanarBufferView<float> dst, PlanarBufferView<const float> src);
+LMMS_EXPORT void copyAndZero(PlanarBufferView<float> dst, PlanarBufferView<const float> src);
 
 //! Same as @ref copy(PlanarBufferView<float>, PlanarBufferView<const float>, f_cnt_t, f_cnt_t) but
 //! applies @ref monoUpmix or @ref stereoDownmix if possible.
@@ -139,7 +141,7 @@ void copyAndZero(PlanarBufferView<float> dst, PlanarBufferView<const float> src)
 //! @pre srcOffset < src.frames()
 //! @pre dst.channels() >= src.channels() || (dst.channels() == 1 && src.channels() == 2)
 //! @pre dst.frames() >= src.frames()
-void copyConvert(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+LMMS_EXPORT void copyConvert(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
 	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
 
 //! Same as @ref copyAndZero(PlanarBufferView<float>, PlanarBufferView<const float>, f_cnt_t, f_cnt_t) but
@@ -148,49 +150,49 @@ void copyConvert(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
 //! @pre srcOffset < src.frames()
 //! @pre dst.channels() >= src.channels() || (dst.channels() == 1 && src.channels() == 2)
 //! @pre dst.frames() >= src.frames()
-void copyConvertAndZero(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+LMMS_EXPORT void copyConvertAndZero(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
 	f_cnt_t dstOffset = 0, f_cnt_t srcOffset = 0);
 
 /*! \brief Add samples from src to dst */
-void add( SampleFrame* dst, const SampleFrame* src, int frames );
+LMMS_EXPORT void add( SampleFrame* dst, const SampleFrame* src, int frames );
 
 /*! \brief Add samples from src to dst */
-void add(PlanarBufferView<sample_t> dst, PlanarBufferView<const sample_t> src);
+LMMS_EXPORT void add(PlanarBufferView<sample_t> dst, PlanarBufferView<const sample_t> src);
 
 //! @brief Multiply samples from `dst` by `coeff` starting at `offset`
-void multiply(PlanarBufferView<float> dst, float coeff, f_cnt_t offset);
+LMMS_EXPORT void multiply(PlanarBufferView<float> dst, float coeff, f_cnt_t offset);
 
 //! @brief Multiply samples from `dst` by `coeff`
-void multiply(PlanarBufferView<float> dst, float coeff);
+LMMS_EXPORT void multiply(PlanarBufferView<float> dst, float coeff);
 
 /*! \brief Multiply samples from `dst` by `coeff` */
-void multiply(SampleFrame* dst, float coeff, int frames);
+LMMS_EXPORT void multiply(SampleFrame* dst, float coeff, int frames);
 
 //! @brief Add samples from src multiplied by coeffSrc to dst
-void addMultiplied(PlanarBufferView<float> dst, PlanarBufferView<const float> src, float coeffSrc);
+LMMS_EXPORT void addMultiplied(PlanarBufferView<float> dst, PlanarBufferView<const float> src, float coeffSrc);
 
 /*! \brief Add samples from src multiplied by coeffSrc to dst */
-void addMultiplied( SampleFrame* dst, const SampleFrame* src, float coeffSrc, int frames );
+LMMS_EXPORT void addMultiplied( SampleFrame* dst, const SampleFrame* src, float coeffSrc, int frames );
 
 /*! \brief Add samples from src multiplied by coeffSrc to dst, swap inputs */
-void addSwappedMultiplied( SampleFrame* dst, const SampleFrame* src, float coeffSrc, int frames );
+LMMS_EXPORT void addSwappedMultiplied( SampleFrame* dst, const SampleFrame* src, float coeffSrc, int frames );
 
 //! @brief Add samples from src multiplied by coeffSrc and coeffSrcBuf to dst
-void addMultipliedByBuffer(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+LMMS_EXPORT void addMultipliedByBuffer(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
 	float coeffSrc, const ValueBuffer* coeffSrcBuf);
 
 //! @brief Add samples from src multiplied by coeffSrcBuf1 and coeffSrcBuf2 to dst
-void addMultipliedByBuffers(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
+LMMS_EXPORT void addMultipliedByBuffers(PlanarBufferView<float> dst, PlanarBufferView<const float> src,
 	const ValueBuffer* coeffSrcBuf1, const ValueBuffer* coeffSrcBuf2);
 
 /*! \brief Add samples from src multiplied by coeffSrcLeft/coeffSrcRight to dst */
-void addMultipliedStereo( SampleFrame* dst, const SampleFrame* src, float coeffSrcLeft, float coeffSrcRight, int frames );
+LMMS_EXPORT void addMultipliedStereo( SampleFrame* dst, const SampleFrame* src, float coeffSrcLeft, float coeffSrcRight, int frames );
 
 /*! \brief Multiply dst by coeffDst and add samples from src multiplied by coeffSrc */
-void multiplyAndAddMultiplied( SampleFrame* dst, const SampleFrame* src, float coeffDst, float coeffSrc, int frames );
+LMMS_EXPORT void multiplyAndAddMultiplied( SampleFrame* dst, const SampleFrame* src, float coeffDst, float coeffSrc, int frames );
 
 /*! \brief Multiply dst by coeffDst and add samples from srcLeft/srcRight multiplied by coeffSrc */
-void multiplyAndAddMultipliedJoined( SampleFrame* dst, const sample_t* srcLeft, const sample_t* srcRight, float coeffDst, float coeffSrc, int frames );
+LMMS_EXPORT void multiplyAndAddMultipliedJoined( SampleFrame* dst, const sample_t* srcLeft, const sample_t* srcRight, float coeffDst, float coeffSrc, int frames );
 
 } // namespace MixHelpers
 

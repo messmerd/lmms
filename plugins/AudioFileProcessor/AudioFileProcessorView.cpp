@@ -196,11 +196,20 @@ void AudioFileProcessorView::dropEvent(QDropEvent* de)
 	const auto type = StringPairDrag::decodeKey(de);
 	const auto value = StringPairDrag::decodeValue(de);
 
-	if (type == "samplefile") { castModel<AudioFileProcessor>()->setAudioFile(value); }
+	if (type == "samplefile")
+	{
+		castModel<AudioFileProcessor>()->setAudioFile(value, SampleImportOption::Inquire);
+	}
 	else if (type == QString("clip_%1").arg(static_cast<int>(Track::Type::Sample)))
 	{
 		DataFile dataFile(value.toUtf8());
-		castModel<AudioFileProcessor>()->setAudioFile(dataFile.content().firstChild().toElement().attribute("src"));
+		const auto file = dataFile.content().firstChild().toElement().attribute("src");
+
+		// Copy the import option from the other clip
+		const auto optionStr = dataFile.content().firstChild().toElement().attribute("sampleimportmod");
+		const auto option = deserializeSampleImportModification(optionStr);
+
+		castModel<AudioFileProcessor>()->setAudioFile(file, option);
 	}
 	else
 	{
@@ -259,7 +268,7 @@ void AudioFileProcessorView::openAudioFile()
 	QString af = FileDialog::openAudioFile();
 	if (af.isEmpty()) { return; }
 
-	castModel<AudioFileProcessor>()->setAudioFile(af);
+	castModel<AudioFileProcessor>()->setAudioFile(af, SampleBuffer::MonoUpmixPreference::Auto);
 	Engine::getSong()->setModified();
 	m_waveView->updateSampleRange();
 }
