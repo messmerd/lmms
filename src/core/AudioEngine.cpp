@@ -297,7 +297,8 @@ void AudioEngine::renderStageMix()
 
 	MixHelpers::multiply(m_outputBufferWrite.allBuffers(), m_masterGain);
 
-	emit nextAudioBuffer(m_outputBufferRead.allBuffers());
+	const auto buffer = m_outputBufferRead.allBuffers();
+	emit nextAudioBuffer(buffer.data(), buffer.channels(), buffer.frames());
 
 	// and trigger LFOs
 	EnvelopeAndLfoParameters::instances()->trigger();

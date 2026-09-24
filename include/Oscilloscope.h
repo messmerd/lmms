@@ -74,7 +74,7 @@ protected:
 
 
 protected slots:
-	void updateAudioBuffer(PlanarBufferView<const float> buffer);
+	void updateAudioBuffer(const float* const* in, unsigned short channels, unsigned long frames);
 
 private:
 	bool clips(float level) const;

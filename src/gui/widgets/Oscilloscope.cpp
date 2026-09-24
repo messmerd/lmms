@@ -69,10 +69,11 @@ Oscilloscope::~Oscilloscope()
 
 
 
-void Oscilloscope::updateAudioBuffer(PlanarBufferView<const float> buffer)
+void Oscilloscope::updateAudioBuffer(const float* const* in, unsigned short channels, unsigned long frames)
 {
 	if (Engine::getSong()->isExporting()) { return; }
 
+	const auto buffer = PlanarBufferView{in, channels, frames};
 	assert(buffer.channels() > 0);
 	if (buffer.channels() == 1)
 	{
@@ -97,18 +98,15 @@ void Oscilloscope::setActive( bool _active )
 		connect( getGUI()->mainWindow(),
 					SIGNAL(periodicUpdate()),
 					this, SLOT(update()));
-		connect( Engine::audioEngine(),
-			SIGNAL(nextAudioBuffer(PlanarBufferView<const float>)),
-			this, SLOT(updateAudioBuffer(PlanarBufferView<const float>)));
+		connect(Engine::audioEngine(), &AudioEngine::nextAudioBuffer, this, &Oscilloscope::updateAudioBuffer);
 	}
 	else
 	{
 		disconnect( getGUI()->mainWindow(),
 					SIGNAL(periodicUpdate()),
 					this, SLOT(update()));
-		disconnect( Engine::audioEngine(),
-			SIGNAL(nextAudioBuffer(PlanarBufferView<const float>)),
-			this, SLOT(updateAudioBuffer(PlanarBufferView<const float>)));
+		disconnect(Engine::audioEngine(), &AudioEngine::nextAudioBuffer, this, &Oscilloscope::updateAudioBuffer);
+
 		// we have to update (remove last waves),
 		// because timer doesn't do that anymore
 		update();
