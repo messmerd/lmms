@@ -116,7 +116,7 @@ std::shared_ptr<const SampleBuffer> SampleRecordHandle::createSampleBuffer()
 
 		const float* channelBuffers[2] = {buf.get(), buf.get() + numFrames};
 		auto from = PlanarBufferView<const float, 2>{channelBuffers, numFrames};
-		auto to = InterleavedBufferView<float, 2>{bigBuffer.data() + framesCopied, numFrames};
+		auto to = InterleavedBufferSpan<float, 2>{bigBuffer.data() + framesCopied, numFrames};
 
 		toInterleaved(from, to);
 

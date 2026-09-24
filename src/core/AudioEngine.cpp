@@ -326,7 +326,7 @@ PlanarBufferView<const float> AudioEngine::renderNextPeriod()
 	return m_outputBufferRead.allBuffers();
 }
 
-void AudioEngine::renderNextBuffer(InterleavedBufferView<float> dst)
+void AudioEngine::renderNextBuffer(InterleavedBufferSpan<float> dst)
 {
 	auto outputBufferRead = m_outputBufferRead.allBuffers();
 	assert(outputBufferRead.channels() == 2); // I don't feel like implementing this for channels != 2
@@ -372,11 +372,9 @@ void AudioEngine::renderNextBuffer(PlanarBufferView<float> dst)
 		if (m_outputBufferReadIndex == 0) { renderNextPeriod(); }
 
 		const auto framesToCopy = std::min(m_outputBufferRead.frames(), dst.frames() - framesCopied);
-		MixHelpers::copyConvertAndZero(
-			dst,          // dst
-			framesCopied, // dstOffset
-			m_outputBufferRead.allBuffers().truncated(framesToCopy), // src
-			m_outputBufferReadIndex                                  // srcOffset
+		MixHelpers::copyMixAndZero(
+			PlanarBufferSpan{dst, framesCopied},
+			PlanarBufferSpan{m_outputBufferRead.allBuffers(), m_outputBufferReadIndex, framesToCopy}
 		);
 
 		m_outputBufferReadIndex += framesToCopy;

@@ -184,11 +184,11 @@ void AudioSdl::sdlInputAudioCallback(void *_udata, Uint8 *_buf, int _len) {
 void AudioSdl::sdlInputAudioCallback(Uint8 *_buf, int _len)
 {
 	const auto channels = this->channels();
-	assert(channels() > 0);
+	assert(channels > 0);
 
 	const auto frames = static_cast<f_cnt_t>(_len / (sizeof(float) * channels));
 
-	const auto buffer = InterleavedBufferView {
+	const auto buffer = InterleavedBufferSpan {
 		reinterpret_cast<const float*>(_buf),
 		channels,
 		frames

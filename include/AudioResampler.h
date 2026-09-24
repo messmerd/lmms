@@ -28,7 +28,7 @@
 #include <memory>
 
 #include "ArrayVector.h"
-#include "AudioBufferView.h"
+#include "AudioBufferSpan.h"
 #include "lmms_export.h"
 
 namespace lmms {
@@ -88,7 +88,8 @@ public:
 	 *
 	 * @returns the result of the resampling process. See @ref Result for more details.
 	 */
-	[[nodiscard]] auto process(InterleavedBufferView<const float> input, InterleavedBufferView<float> output) -> Result;
+	[[nodiscard]] auto process(InterleavedBufferSpan<const float> input,
+		InterleavedBufferSpan<float> output) -> Result;
 
 	/**
 	 * @brief Process a block of planar audio input from `input` and resample it into `output`.
@@ -105,8 +106,7 @@ public:
 	 *
 	 * @returns the result of the resampling process. See @ref Result for more details.
 	 */
-	[[nodiscard]] auto process(PlanarBufferView<const float> input, f_cnt_t inputOffset,
-		PlanarBufferView<float> output, f_cnt_t outputOffset) -> Result;
+	[[nodiscard]] auto process(PlanarBufferSpan<const float> input, PlanarBufferSpan<float> output) -> Result;
 
 	/**
 	 * @brief Resets the internal resampler state.

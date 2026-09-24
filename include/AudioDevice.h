@@ -27,7 +27,7 @@
 
 #include <atomic>
 
-#include "AudioBufferView.h"
+#include "AudioBufferSpan.h"
 
 class QThread;
 

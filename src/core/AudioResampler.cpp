@@ -82,7 +82,7 @@ AudioResampler::AudioResampler(Mode mode, ch_cnt_t channels, bool interleaved)
 	}
 }
 
-auto AudioResampler::process(InterleavedBufferView<const float> input, InterleavedBufferView<float> output) -> Result
+auto AudioResampler::process(InterleavedBufferSpan<const float> input, InterleavedBufferSpan<float> output) -> Result
 {
 	if (input.channels() != m_channels || output.channels() != m_channels)
 	{
@@ -113,8 +113,7 @@ auto AudioResampler::process(InterleavedBufferView<const float> input, Interleav
 	return {static_cast<f_cnt_t>(data.input_frames_used), static_cast<f_cnt_t>(data.output_frames_gen)};
 }
 
-auto AudioResampler::process(PlanarBufferView<const float> input, f_cnt_t inputOffset,
-	PlanarBufferView<float> output, f_cnt_t outputOffset) -> Result
+auto AudioResampler::process(PlanarBufferSpan<const float> input, PlanarBufferSpan<float> output) -> Result
 {
 	if (input.channels() != m_channels || output.channels() != m_channels)
 	{
@@ -132,11 +131,11 @@ auto AudioResampler::process(PlanarBufferView<const float> input, f_cnt_t inputO
 	{
 		auto data = SRC_DATA{};
 
-		data.data_in = input.bufferPtr(ch) + inputOffset;
-		data.input_frames = input.frames() - inputOffset;
+		data.data_in = input.bufferPtr(ch);
+		data.input_frames = input.frames();
 
-		data.data_out = output.bufferPtr(ch) + outputOffset;
-		data.output_frames = output.frames() - outputOffset;
+		data.data_out = output.bufferPtr(ch);
+		data.output_frames = output.frames();
 
 		data.src_ratio = m_ratio;
 		data.end_of_input = 0;

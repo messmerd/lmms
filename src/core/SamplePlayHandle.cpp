@@ -81,7 +81,7 @@ SamplePlayHandle::~SamplePlayHandle()
 
 void SamplePlayHandle::play(std::optional<PlanarBufferView<float>> buffer)
 {
-	assert(buffer.has_value());
+	auto dst = PlanarBufferSpan{buffer.value()};
 
 	//play( 0, _try_parallelizing );
 	if( framesDone() >= totalFrames() )
@@ -90,14 +90,13 @@ void SamplePlayHandle::play(std::optional<PlanarBufferView<float>> buffer)
 		return;
 	}
 
-	f_cnt_t bufferOffset = 0;
 	f_cnt_t frames = buffer->frames();
 
 	// apply offset for the first period
 	if( framesDone() == 0 )
 	{
-		MixHelpers::zero(buffer->truncated(offset()));
-		bufferOffset += offset();
+		MixHelpers::zero(dst.truncated(offset()));
+		dst = dst.subspan(offset());
 		frames -= offset();
 	}
 
@@ -109,9 +108,9 @@ void SamplePlayHandle::play(std::optional<PlanarBufferView<float>> buffer)
 				m_volumeModel->value() / DefaultVolume } };*/
 		// SamplePlayHandle always plays the sample at its original pitch;
 		// it is used only for previews, SampleTracks and the metronome.
-		if (!m_sample->play(*buffer, bufferOffset, &m_state))
+		if (!m_sample->play(dst, &m_state))
 		{
-			MixHelpers::zero(*buffer, bufferOffset);
+			MixHelpers::zero(dst);
 		}
 	}
 

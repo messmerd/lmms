@@ -25,7 +25,7 @@
 #ifndef LMMS_INSTRUMENT_SOUND_SHAPING_H
 #define LMMS_INSTRUMENT_SOUND_SHAPING_H
 
-#include "AudioBufferView.h"
+#include "AudioBufferSpan.h"
 #include "ComboBoxModel.h"
 #include "EnvelopeAndLfoParameters.h"
 

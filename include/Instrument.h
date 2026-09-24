@@ -28,7 +28,7 @@
 
 #include <QString>
 
-#include "AudioBufferView.h"
+#include "AudioBufferSpan.h"
 #include "Flags.h"
 #include "lmms_export.h"
 #include "LmmsTypes.h"

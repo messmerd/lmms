@@ -66,12 +66,12 @@ bool isSilent(const SampleFrame* src, int frames)
 	return isSilent({&src[0][0], static_cast<std::size_t>(frames * 2)});
 }
 
-bool isSilent(std::span<const sample_t> buffer)
+bool isSilent(std::span<const float> buffer)
 {
-	return std::ranges::all_of(buffer, [&](const sample_t s) { return std::abs(s) < SilenceThreshold; });
+	return std::ranges::all_of(buffer, [&](const float s) { return std::abs(s) < SilenceThreshold; });
 }
 
-bool isSilent(PlanarBufferView<const float> buffer)
+bool isSilent(PlanarBufferSpan<const float> buffer)
 {
 	for (ch_cnt_t ch = 0; ch < buffer.channels(); ++ch)
 	{
@@ -80,50 +80,21 @@ bool isSilent(PlanarBufferView<const float> buffer)
 	return true;
 }
 
-void zero(PlanarBufferView<float> dst, f_cnt_t dstOffset)
+void zero(PlanarBufferSpan<float> dst)
 {
-	assert(offset < dst.frames());
-
-	const auto frames = dst.frames() - dstOffset;
+	const auto frames = dst.frames();
 	const auto channels = dst.channels();
 	for (ch_cnt_t ch = 0; ch < channels; ++ch)
 	{
-		std::fill_n(dst.bufferPtr(ch) + dstOffset, frames, 0.f);
+		std::fill_n(dst.bufferPtr(ch), frames, 0.f);
 	}
 }
 
-void zero(PlanarBufferView<float> dst)
-{
-	const auto channels = dst.channels();
-	for (ch_cnt_t ch = 0; ch < channels; ++ch)
-	{
-		std::ranges::fill(dst.buffer(ch), 0.f);
-	}
-}
-
-void monoUpmix(PlanarBufferView<float> dst, f_cnt_t dstOffset,
-	PlanarBufferView<const float> src, f_cnt_t srcOffset)
+void monoUpmix(PlanarBufferSpan<float> dst, PlanarBufferSpan<const float> src)
 {
 	assert(dst.channels() == 2);
 	assert(src.channels() == 1);
-	assert(dstOffset < dst.frames());
-	assert(srcOffset < src.frames());
-	assert(dst.frames() - dstOffset >= src.frames() - srcOffset);
-
-	const auto frames = src.frames();
-	for (f_cnt_t srcFrame = srcOffset, dstFrame = dstOffset; srcFrame < frames; ++srcFrame, ++dstFrame)
-	{
-		float sample = src[0][srcFrame];
-		dst[0][dstFrame] = sample;
-		dst[1][dstFrame] = sample;
-	}
-}
-
-void monoUpmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src)
-{
-	assert(dstOffset < dst.frames());
-	assert(srcOffset < src.frames());
-	assert(dst.frames() - dstOffset >= src.frames() - srcOffset);
+	assert(dst.frames() >= src.frames());
 
 	const auto frames = src.frames();
 	for (f_cnt_t frame = 0; frame < frames; ++frame)
@@ -134,27 +105,9 @@ void monoUpmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src)
 	}
 }
 
-void stereoDownmix(PlanarBufferView<float> dst, f_cnt_t dstOffset,
-	PlanarBufferView<const float> src, f_cnt_t srcOffset)
+void stereoDownmix(PlanarBufferSpan<float> dst, PlanarBufferSpan<const float> src)
 {
-	assert(dst.channels() == 1);
-	assert(src.channels() == 2);
-	assert(dstOffset < dst.frames());
-	assert(srcOffset < src.frames());
-	assert(dst.frames() - dstOffset >= src.frames() - srcOffset);
-
-	const auto frames = src.frames();
-	for (f_cnt_t srcFrame = srcOffset, dstFrame = dstOffset; srcFrame < frames; ++srcFrame, ++dstFrame)
-	{
-		dst[0][dstFrame] = (src[0][srcFrame] + src[1][srcFrame]) / 2;
-	}
-}
-
-void stereoDownmix(PlanarBufferView<float> dst, PlanarBufferView<const float> src)
-{
-	assert(dstOffset < dst.frames());
-	assert(srcOffset < src.frames());
-	assert(dst.frames() - dstOffset >= src.frames() - srcOffset);
+	assert(dst.frames() >= src.frames());
 
 	const auto frames = src.frames();
 	for (f_cnt_t frame = 0; frame < frames; ++frame)
@@ -163,28 +116,7 @@ void stereoDownmix(PlanarBufferView<float> dst, PlanarBufferView<const float> sr
 	}
 }
 
-void copy(PlanarBufferView<float> dst, f_cnt_t dstOffset,
-	PlanarBufferView<const float> src, f_cnt_t srcOffset)
-{
-	assert(dstOffset < dst.frames());
-	assert(srcOffset < src.frames());
-	assert(dst.channels() >= src.channels());
-	assert(dst.frames() - dstOffset >= src.frames() - srcOffset);
-
-	const auto frames = src.frames();
-	const auto channels = src.channels();
-	for (ch_cnt_t ch = 0; ch < channels; ++ch)
-	{
-		float* dstPtr = dst.bufferPtr(ch);
-		const float* srcPtr = src.bufferPtr(ch);
-		for (f_cnt_t srcFrame = srcOffset, dstFrame = dstOffset; srcFrame < frames; ++srcFrame, ++dstFrame)
-		{
-			dstPtr[dstFrame] = srcPtr[srcFrame];
-		}
-	}
-}
-
-void copy(PlanarBufferView<float> dst, PlanarBufferView<const float> src)
+void copy(PlanarBufferSpan<float> dst, PlanarBufferSpan<const float> src)
 {
 	assert(dst.channels() >= src.channels());
 	assert(dst.frames() >= src.frames());
@@ -202,9 +134,8 @@ void copy(PlanarBufferView<float> dst, PlanarBufferView<const float> src)
 	}
 }
 
-void copy(PlanarBufferView<float> dst, f_cnt_t dstOffset, InterleavedBufferView<const float> src)
+void copy(PlanarBufferSpan<float> dst, InterleavedBufferSpan<const float> src)
 {
-	assert(dstOffset < dst.frames());
 	assert(dst.channels() >= src.channels());
 	assert(dst.frames() >= src.frames());
 
@@ -222,19 +153,7 @@ void copy(PlanarBufferView<float> dst, f_cnt_t dstOffset, InterleavedBufferView<
 	}
 }
 
-void copyAndZero(PlanarBufferView<float> dst, f_cnt_t dstOffset,
-	PlanarBufferView<const float> src, f_cnt_t srcOffset)
-{
-	copy(dst, dstOffset, src, srcOffset);
-
-	// Zero any additional channels in the output buffer
-	for (ch_cnt_t ch = src.channels(); ch < dst.channels(); ++ch)
-	{
-		std::ranges::fill(dst.buffer(ch).subspan(dstOffset, src.frames() - srcOffset), 0.f);
-	}
-}
-
-void copyAndZero(PlanarBufferView<float> dst, PlanarBufferView<const float> src)
+void copyAndZero(PlanarBufferSpan<float> dst, PlanarBufferSpan<const float> src)
 {
 	copy(dst, src);
 
@@ -245,37 +164,35 @@ void copyAndZero(PlanarBufferView<float> dst, PlanarBufferView<const float> src)
 	}
 }
 
-void copyConvert(PlanarBufferView<float> dst, f_cnt_t dstOffset,
-	PlanarBufferView<const float> src, f_cnt_t srcOffset)
+void copyMix(PlanarBufferSpan<float> dst, PlanarBufferSpan<const float> src)
 {
 	if (dst.channels() == 2 && src.channels() == 1)
 	{
-		monoUpmix(dst, dstOffset, src, srcOffset);
+		monoUpmix(dst, src);
 	}
 	else if (dst.channels() == 1 && src.channels() == 2)
 	{
-		stereoDownmix(dst, dstOffset, src, srcOffset);
+		stereoDownmix(dst, src);
 	}
 	else
 	{
-		copy(dst, dstOffset, src, srcOffset);
+		copy(dst, src);
 	}
 }
 
-void copyConvertAndZero(PlanarBufferView<float> dst, f_cnt_t dstOffset,
-	PlanarBufferView<const float> src, f_cnt_t srcOffset)
+void copyMixAndZero(PlanarBufferSpan<float> dst, PlanarBufferSpan<const float> src)
 {
 	if (dst.channels() == 2 && src.channels() == 1)
 	{
-		monoUpmix(dst, dstOffset, src, srcOffset);
+		monoUpmix(dst, src);
 	}
 	else if (dst.channels() == 1 && src.channels() == 2)
 	{
-		stereoDownmix(dst, dstOffset, src, srcOffset);
+		stereoDownmix(dst, src);
 	}
 	else
 	{
-		copyAndZero(dst, dstOffset, src, srcOffset);
+		copyAndZero(dst, src);
 	}
 }
 

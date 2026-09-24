@@ -33,7 +33,7 @@
 #include <memory>
 #include <vector>
 
-#include "AudioBufferView.h"
+#include "AudioBufferSpan.h"
 #include "AudioDevice.h"
 #include "LmmsTypes.h"
 #include "MixHelpers.h"
@@ -229,21 +229,22 @@ public:
 
 	bool criticalXRuns() const;
 
-	void pushInputFrames(AudioBufferView<const float> auto buffer)
+	void pushInputFrames(AudioBufferSpan<const float> auto buffer)
 	{
 		requestChangeInModel();
 
-		const f_cnt_t frames = m_inputBufferFrames[m_inputBufferWrite];
-		const auto framesNeeded = frames + buffer.frames();
+		const f_cnt_t frameOffset = m_inputBufferFrames[m_inputBufferWrite];
+		const auto framesNeeded = frameOffset + buffer.frames();
 		preparePushInputFrames(framesNeeded);
 
 		auto& channelBuffer = m_inputBufferChannels[m_inputBufferWrite];
-		auto dest = PlanarBufferView {
+		auto dest = PlanarBufferSpan {
 			channelBuffer.data(),
 			static_cast<ch_cnt_t>(channelBuffer.size()),
-			framesNeeded
+			framesNeeded,
+			frameOffset
 		};
-		MixHelpers::copy(dest, frames, buffer);
+		MixHelpers::copy(dest, buffer);
 
 		m_inputBufferFrames[m_inputBufferWrite] += buffer.frames();
 
@@ -305,7 +306,7 @@ public:
 	 *
 	 * @param dst An audio buffer view to write into. Both interleaved and planar overloads are provided.
 	 */
-	void renderNextBuffer(InterleavedBufferView<float> dst);
+	void renderNextBuffer(InterleavedBufferSpan<float> dst);
 
 	/**
 	 * @brief Renders an audio buffer into @a dst.

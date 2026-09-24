@@ -29,7 +29,7 @@
 #include <memory_resource>
 #include <vector>
 
-#include "AudioBufferView.h"
+#include "AudioBufferSpan.h"
 #include "ArrayVector.h"
 #include "LmmsTypes.h"
 #include "lmms_constants.h"

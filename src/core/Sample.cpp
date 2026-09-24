@@ -100,11 +100,9 @@ auto Sample::operator=(Sample&& other) noexcept -> Sample&
 	return *this;
 }
 
-auto Sample::play(PlanarBufferView<float> dst, f_cnt_t dstOffset, PlaybackState* state,
+auto Sample::play(PlanarBufferSpan<float> dst, PlaybackState* state,
 	Loop loop, double ratio) const -> bool
 {
-	assert(dstOffset <= dst.frames());
-
 	if (!m_buffer || m_buffer->empty()) { return false; }
 
 	state->m_frameIndex = std::max<int>(m_startFrame, state->m_frameIndex);
@@ -115,31 +113,28 @@ auto Sample::play(PlanarBufferView<float> dst, f_cnt_t dstOffset, PlaybackState*
 
 	// TODO: These kind of playback pipelines/graphs are repeated within other parts of the codebase that work with
 	// audio samples. We should find a way to unify this but the right abstraction is not so clear yet.
-	f_cnt_t numFrames = dst.frames() - dstOffset;
+	f_cnt_t numFrames = dst.frames();
 	while (numFrames > 0)
 	{
-		if (state->m_bufferView.frames() - state->m_bufferViewOffset == 0)
+		if (state->m_bufferSpan.empty())
 		{
 			const auto rendered = render(state, loop);
-			state->m_bufferView = state->m_buffer.allBuffers().truncated(rendered);
-			state->m_bufferViewOffset = 0;
+			state->m_bufferSpan = PlanarBufferSpan{state->m_buffer.allBuffers().truncated(rendered)};
 		}
 
 		const auto [inputFramesUsed, outputFramesGenerated] = state->m_resampler.process(
-			state->m_bufferView,
-			state->m_bufferViewOffset,
-			dst,
-			dstOffset
+			state->m_bufferSpan,
+			dst
 		);
 
 		if (inputFramesUsed == 0 && outputFramesGenerated == 0)
 		{
-			MixHelpers::zero(dst, dstOffset);
+			MixHelpers::zero(dst);
 			break;
 		}
 
-		state->m_bufferViewOffset += inputFramesUsed;
-		dstOffset += outputFramesGenerated;
+		state->m_bufferSpan = state->m_bufferSpan.subspan(inputFramesUsed);
+		dst = dst.subspan(outputFramesGenerated);
 		numFrames -= outputFramesGenerated;
 	}
 

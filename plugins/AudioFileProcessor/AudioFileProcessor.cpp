@@ -157,7 +157,7 @@ void AudioFileProcessor::playNote(NotePlayHandle* nph, std::optional<PlanarBuffe
 
 	if (!nph->isFinished())
 	{
-		if (m_sample.play(*out, offset,
+		if (m_sample.play(PlanarBufferSpan{*out, offset},
 			static_cast<Sample::PlaybackState*>(nph->m_pluginData),
 			static_cast<Sample::Loop>(m_loopModel.value()),
 			DefaultBaseFreq / nph->frequency()))

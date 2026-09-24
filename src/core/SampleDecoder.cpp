@@ -75,7 +75,7 @@ void postProcess(AudioBuffer& dst, SampleImportModification mod,
 	}
 	else
 	{
-		const auto srcAsInterleaved = InterleavedBufferView{src, srcChannels, frames};
+		const auto srcAsInterleaved = InterleavedBufferSpan{src, srcChannels, frames};
 		auto dstBuffers = dst.allBuffers();
 
 		if (mod == SampleImportModification::ForcedMono)

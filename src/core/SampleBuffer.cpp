@@ -50,7 +50,7 @@ SampleBuffer::SampleBuffer(std::span<const SampleFrame> data, SampleImportModifi
 	, m_sampleRate(sampleRate)
 	, m_modification{mod}
 {
-	toPlanar(InterleavedBufferView{data}, m_data.allBuffers());
+	toPlanar(InterleavedBufferSpan{data}, m_data.allBuffers());
 }
 
 void swap(SampleBuffer& first, SampleBuffer& second) noexcept
@@ -230,7 +230,7 @@ std::shared_ptr<const SampleBuffer> SampleBuffer::fromBase64(bool legacyInterlea
 	auto data = AudioBuffer{frames, outputChannels};
 	if (legacyInterleaved)
 	{
-		const auto decoded = InterleavedBufferView{reinterpret_cast<const SampleFrame*>(dataStart), frames};
+		const auto decoded = InterleavedBufferSpan{reinterpret_cast<const SampleFrame*>(dataStart), frames};
 		toPlanar(decoded, data.allBuffers());
 	}
 	else

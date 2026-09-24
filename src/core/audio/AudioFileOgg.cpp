@@ -101,7 +101,7 @@ void AudioFileOgg::writeBuffer(PlanarBufferView<const float> buffer)
 		const auto frames = static_cast<int>(buffer.frames());
 		const auto output = PlanarBufferView{vorbis_analysis_buffer(&m_vds, frames), channels(), buffer.frames()};
 
-		MixHelpers::copyConvertAndZero(output, 0, buffer);
+		MixHelpers::copyMixAndZero(output, buffer);
 
 		vorbis_analysis_wrote(&m_vds, frames);
 	}

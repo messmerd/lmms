@@ -185,7 +185,7 @@ void KickerInstrument::playNote(NotePlayHandle* _n, std::optional<PlanarBufferVi
 	}
 
 	auto so = static_cast<SweepOsc*>(_n->m_pluginData);
-	so->update(*out, offset, Engine::audioEngine()->outputSampleRate());
+	so->update({*out, offset}, Engine::audioEngine()->outputSampleRate());
 
 	if( _n->isReleased() )
 	{

@@ -101,7 +101,7 @@ void AudioFileWave::writeBuffer(PlanarBufferView<const float> buffer)
 	if (bitDepth == OutputSettings::BitDepth::Depth32Bit || bitDepth == OutputSettings::BitDepth::Depth24Bit)
 	{
 		auto interleaved = std::make_unique_for_overwrite<float[]>(buffer.frames() * channels());
-		toInterleaved(buffer, InterleavedBufferView{interleaved.get(), channels(), buffer.frames()});
+		toInterleaved(buffer, InterleavedBufferSpan{interleaved.get(), channels(), buffer.frames()});
 
 		sf_writef_float(m_sf, interleaved.get(), frames);
 	}

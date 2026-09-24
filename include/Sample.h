@@ -65,8 +65,7 @@ public:
 	private:
 		AudioResampler m_resampler;
 		AudioBuffer m_buffer;
-		PlanarBufferView<float> m_bufferView;
-		f_cnt_t m_bufferViewOffset = 0;
+		PlanarBufferSpan<float> m_bufferSpan;
 
 		f_cnt_t m_frameIndex = 0;
 		bool m_backwards = false;
@@ -83,7 +82,7 @@ public:
 	auto operator=(const Sample&) -> Sample&;
 	auto operator=(Sample&&) noexcept -> Sample&;
 
-	auto play(PlanarBufferView<float> dst, f_cnt_t dstOffset, PlaybackState* state, Loop loopMode = Loop::Off,
+	auto play(PlanarBufferSpan<float> dst, PlaybackState* state, Loop loopMode = Loop::Off,
 		double ratio = 1.0) const -> bool;
 
 	// TODO: Remove the "sample" prefix from some of these method names

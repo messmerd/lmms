@@ -28,7 +28,7 @@
 #include <QWidget>
 #include <QPixmap>
 
-#include "AudioBufferView.h"
+#include "AudioBufferSpan.h"
 
 namespace lmms
 {
