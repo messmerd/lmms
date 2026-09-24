@@ -139,7 +139,7 @@ void OscillatorObject::oscUserDefWaveDblClick()
 	auto af = gui::FileDialog::openWaveformFile();
 	if( af != "" )
 	{
-		m_sampleBuffer = SampleBuffer::fromFile(af);
+		m_sampleBuffer = SampleBuffer::fromFile(af, SampleImportOption::ForceMono);
 		m_userAntiAliasWaveTable = Oscillator::generateAntiAliasUserWaveTable(m_sampleBuffer.get());
 		// TODO:
 		//m_usrWaveBtn->setToolTip(m_sampleBuffer->audioFile());
@@ -284,7 +284,7 @@ void TripleOscillator::loadSettings( const QDomElement & _this )
 		{
 			if (QFileInfo(PathUtil::toAbsolute(userWaveFile)).exists())
 			{
-				m_osc[i]->m_sampleBuffer = SampleBuffer::fromFile(userWaveFile);
+				m_osc[i]->m_sampleBuffer = SampleBuffer::fromFile(userWaveFile, SampleImportOption::ForceMono);
 				m_osc[i]->m_userAntiAliasWaveTable = Oscillator::generateAntiAliasUserWaveTable(m_osc[i]->m_sampleBuffer.get());
 			}
 			else { Engine::getSong()->collectError(QString("%1: %2").arg(tr("Sample not found"), userWaveFile)); }
@@ -303,9 +303,10 @@ QString TripleOscillator::nodeName() const
 
 
 
-void TripleOscillator::playNote( NotePlayHandle * _n,
-						SampleFrame* _working_buffer )
+void TripleOscillator::playNote(NotePlayHandle* _n, std::optional<PlanarBufferView<float>> dst)
 {
+	assert(dst.has_value());
+	assert(dst->channels() == 2);
 	if (!_n->m_pluginData)
 	{
 		auto oscs_l = std::array<Oscillator*, NUM_OF_OSCILLATORS>{};
@@ -374,11 +375,11 @@ void TripleOscillator::playNote( NotePlayHandle * _n,
 	const f_cnt_t frames = _n->framesLeftForCurrentPeriod();
 	const f_cnt_t offset = _n->noteOffset();
 
-	osc_l->update( _working_buffer + offset, frames, 0 );
-	osc_r->update( _working_buffer + offset, frames, 1 );
+	osc_l->update(dst->buffer(0).subspan(offset, frames));
+	osc_r->update(dst->buffer(1).subspan(offset, frames));
 
-	applyFadeIn(_working_buffer, _n);
-	applyRelease( _working_buffer, _n );
+	applyFadeIn(*dst, _n);
+	applyRelease(*dst, _n);
 }
 
 
