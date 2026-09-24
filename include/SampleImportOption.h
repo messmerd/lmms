@@ -28,6 +28,7 @@
 #include <QString>
 
 #include "LmmsTypes.h"
+#include "lmms_export.h"
 
 class QDomElement;
 
@@ -48,7 +49,8 @@ enum class SampleImportOption : std::uint8_t
 	//! @note This was the only possible option in older versions of LMMS
 	ForceStereo,
 
-	//! Resolves to one of the other options using @ref inquireSampleImportModification
+	//! Resolves to one of the other options by either asking the user or
+	//! using the user preference specified in the config file.
 	//! @note This option cannot be used in headless mode
 	Inquire
 };
@@ -73,27 +75,19 @@ enum class SampleImportModification
 inline constexpr const char* SampleImportModificationAttributeName = "samplechannels";
 
 //! Serialize a sample import modification to a project file
-void serialize(QDomElement& elem, SampleImportModification modification,
+LMMS_EXPORT void serialize(QDomElement& elem, SampleImportModification modification,
 	const char* attrName = SampleImportModificationAttributeName);
 
 //! Deserialize a sample import modification previously saved to a project file.
 //! It deserializes as a @a SampleImportOption so it can be used to import the sample.
 //! @returns true if the XML attribute @a attrName existed and was valid
-auto deserialize(const QDomElement& elem, SampleImportOption& out,
+LMMS_EXPORT auto deserialize(const QDomElement& elem, SampleImportOption& out,
 	const char* attrName = SampleImportModificationAttributeName) -> bool;
 
 //! Determines how a sample should be modified when imported
-auto getSampleImportModification(SampleImportOption option, ch_cnt_t actualChannels, const QString& sampleName = {})
-	-> SampleImportModification;
+LMMS_EXPORT auto getSampleImportModification(SampleImportOption option, ch_cnt_t actualChannels,
+	const QString& sampleName = {}) -> SampleImportModification;
 
-namespace gui {
-
-//! Asks the user how they want to import a sample with the given channel count,
-//! or uses the options specified in the config file.
-auto inquireSampleImportModification(ch_cnt_t actualChannels, const QString& sampleName = {})
-	-> SampleImportModification;
-
-} // namespace gui
 } // namespace lmms
 
 #endif // LMMS_SAMPLE_IMPORT_OPTION_H
