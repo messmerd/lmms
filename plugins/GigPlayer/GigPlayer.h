@@ -174,8 +174,8 @@ public:
 	AudioResampler m_resampler;
 	std::array<SampleFrame, DEFAULT_BUFFER_SIZE> m_sourceBuffer;
 	std::array<SampleFrame, DEFAULT_BUFFER_SIZE> m_mixBuffer;
-	std::span<SampleFrame> m_sourceBufferView;
-	std::span<SampleFrame> m_mixBufferView;
+	InterleavedBufferSpan<float, 2> m_sourceBufferView;
+	InterleavedBufferSpan<float, 2> m_mixBufferView;
 
 	// Used changing the pitch of the note if desired
 	float sampleFreq;
@@ -243,17 +243,16 @@ public:
 	GigInstrument( InstrumentTrack * _instrument_track );
 	~GigInstrument() override;
 
-	void play( SampleFrame* _working_buffer ) override;
+	void play(std::optional<PlanarBufferView<float>> out) override;
 
-	void playNote( NotePlayHandle * _n,
-						SampleFrame* _working_buffer ) override;
+	void playNote(NotePlayHandle* _n, std::optional<PlanarBufferView<float>> out) override;
 	void deleteNotePluginData( NotePlayHandle * _n ) override;
 
 
 	void saveSettings( QDomDocument & _doc, QDomElement & _parent ) override;
 	void loadSettings( const QDomElement & _this ) override;
 
-	void loadFile( const QString & _file ) override;
+	void loadFile(const QString& file, bool previewMode) override;
 
 	auto midiPatch() const -> std::optional<MidiPatch> override;
 	AutomatableModel* childModel(std::string_view modelName) override;
