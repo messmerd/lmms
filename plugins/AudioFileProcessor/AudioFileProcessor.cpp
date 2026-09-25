@@ -167,7 +167,7 @@ void AudioFileProcessor::playNote(NotePlayHandle* nph, std::optional<PlanarBuffe
 		}
 		else
 		{
-			MixHelpers::zero(out->truncated(frames + offset));
+			MixHelpers::zero(out->first(frames + offset));
 			emit isPlaying( 0 );
 		}
 	}

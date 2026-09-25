@@ -502,7 +502,7 @@ public:
 	 * @returns a new view with an equal or smaller frame count
 	 * @pre newFrames <= frames()
 	 */
-	constexpr auto truncated(f_cnt_t newFrames) const noexcept -> InterleavedBufferSpan<T, channelCount>
+	constexpr auto first(f_cnt_t newFrames) const noexcept -> InterleavedBufferSpan<T, channelCount>
 	{
 		assert(newFrames <= this->m_frames);
 		if constexpr (channelCount == DynamicChannelCount)
@@ -623,7 +623,7 @@ public:
 	 * @returns a new view with an equal or smaller frame count
 	 * @pre newFrames <= frames()
 	 */
-	constexpr auto truncated(f_cnt_t newFrames) const noexcept -> PlanarBufferView<T, channelCount>
+	constexpr auto first(f_cnt_t newFrames) const noexcept -> PlanarBufferView<T, channelCount>
 	{
 		assert(newFrames <= this->m_frames);
 		if constexpr (channelCount == DynamicChannelCount)
@@ -843,7 +843,7 @@ public:
 	 * @returns a new span with an equal or smaller frame count
 	 * @pre newFrames <= frames()
 	 */
-	constexpr auto truncated(f_cnt_t newFrames) const noexcept -> PlanarBufferSpan<T, channelCount>
+	constexpr auto first(f_cnt_t newFrames) const noexcept -> PlanarBufferSpan<T, channelCount>
 	{
 		assert(newFrames <= this->m_frames);
 		if constexpr (channelCount == DynamicChannelCount)

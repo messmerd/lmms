@@ -119,7 +119,7 @@ auto Sample::play(PlanarBufferSpan<float> dst, PlaybackState* state,
 		if (state->m_bufferSpan.empty())
 		{
 			const auto rendered = render(state, loop);
-			state->m_bufferSpan = PlanarBufferSpan{state->m_buffer.allBuffers().truncated(rendered)};
+			state->m_bufferSpan = PlanarBufferSpan{state->m_buffer.allBuffers().first(rendered)};
 		}
 
 		const auto [inputFramesUsed, outputFramesGenerated] = state->m_resampler.process(

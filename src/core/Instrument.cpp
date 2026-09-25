@@ -89,13 +89,13 @@ bool Instrument::isFromTrack( const Track * _track ) const
 }
 
 // helper function for Instrument::applyFadeIn
-static std::uint16_t countZeroCrossings(PlanarBufferView<const float> buf, f_cnt_t start)
+static std::uint16_t countZeroCrossings(PlanarBufferSpan<const float> buf)
 {
 	// zero point crossing counts of all channels
 	auto zeroCrossings = std::array<std::uint16_t, MaxChannelsPerAudioBuffer>{};
 	const auto channels = buf.channels();
 	const auto frames = buf.frames();
-	assert(channels < zeroCrossings.size());
+	assert(channels <= zeroCrossings.size());
 
 	// maximum zero point crossing of all channels
 	std::uint16_t maxZeroCrossings = 0;
@@ -103,7 +103,10 @@ static std::uint16_t countZeroCrossings(PlanarBufferView<const float> buf, f_cnt
 	// determine the zero point crossing counts
 	for (ch_cnt_t ch = 0; ch < channels; ++ch)
 	{
-		for (f_cnt_t f = start; f < frames; ++f)
+		// We need to skip the first sample because it almost always
+		// produces a zero crossing; it's not helpful while
+		// determining the fade in length. Hence 1
+		for (f_cnt_t f = 1; f < frames; ++f)
 		{
 			// we don't want to count [-1, 0, 1] as two crossings
 			if ((buf[ch][f - 1] <= 0.0 && buf[ch][f] > 0.0)
@@ -141,10 +144,7 @@ void Instrument::applyFadeIn(PlanarBufferView<float> inOut, NotePlayHandle* nph)
 		const f_cnt_t frames = nph->framesLeftForCurrentPeriod();
 		const f_cnt_t offset = nph->offset();
 
-		// We need to skip the first sample because it almost always
-		// produces a zero crossing; it's not helpful while
-		// determining the fade in length. Hence 1
-		int maxZeroCrossings = countZeroCrossings(inOut.truncated(offset + frames), offset + 1);
+		int maxZeroCrossings = countZeroCrossings({inOut, offset, frames});
 
 		f_cnt_t length = getFadeInLength(MAX_FADE_IN_LENGTH, frames, maxZeroCrossings);
 		nph->m_fadeInLength = length;
@@ -164,7 +164,7 @@ void Instrument::applyFadeIn(PlanarBufferView<float> inOut, NotePlayHandle* nph)
 	{
 		const f_cnt_t frames = nph->framesLeftForCurrentPeriod();
 
-		int new_zc = countZeroCrossings(inOut.truncated(frames), 1);
+		int new_zc = countZeroCrossings(inOut.first(frames));
 		f_cnt_t new_length = getFadeInLength(MAX_FADE_IN_LENGTH, frames, new_zc);
 
 		for (ch_cnt_t ch = 0; ch < channels; ++ch)

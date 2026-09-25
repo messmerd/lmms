@@ -586,7 +586,7 @@ void InstrumentTrack::playNote(NotePlayHandle* nph, std::optional<PlanarBufferVi
 			assert(out.has_value());
 			const f_cnt_t frames = nph->framesLeftForCurrentPeriod();
 			const f_cnt_t offset = nph->noteOffset();
-			processAudioBuffer(out->truncated(frames + offset), nph);
+			processAudioBuffer(out->first(frames + offset), nph);
 		}
 	}
 }

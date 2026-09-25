@@ -95,7 +95,7 @@ void SamplePlayHandle::play(std::optional<PlanarBufferView<float>> buffer)
 	// apply offset for the first period
 	if( framesDone() == 0 )
 	{
-		MixHelpers::zero(dst.truncated(offset()));
+		MixHelpers::zero(dst.first(offset()));
 		dst = dst.subspan(offset());
 		frames -= offset();
 	}
