@@ -60,6 +60,16 @@ if(LMMS_BUILD_WIN32)
 		COMMAND_EXPAND_LISTS
 	)
 endif()
-IF(NOT LMMS_BUILD_APPLE AND NOT LMMS_BUILD_OPENBSD)
+if(NOT LMMS_BUILD_APPLE AND NOT LMMS_BUILD_OPENBSD)
 	target_link_libraries(veal PRIVATE -shared)
-ENDIF()
+endif()
+
+if(NOT MSVC)
+	# veal raises these warnings, which will prevent compilation with -Werror
+	# TODO: Check if these warnings indicate bugs
+	target_compile_options(veal PRIVATE
+		-Wno-error=deprecated-enum-float-conversion
+		-Wno-error=format-truncation
+		-Wno-error=volatile
+	)
+endif()

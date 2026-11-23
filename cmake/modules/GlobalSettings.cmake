@@ -52,7 +52,7 @@ target_compile_definitions(lmmsglobal INTERFACE $<$<AND:$<NOT:$<BOOL:${WIN32}>>,
 target_compile_options(lmmsglobal INTERFACE $<$<AND:$<BOOL:${APPLE}>,$<CXX_COMPILER_ID:Clang,AppleClang>>:-stdlib=libc++>)
 
 # Fix linking on macOS 10.14+. See issue #4762 on GitHub
-target_link_directories(lmmsglobal INTERFACE $<$<BOOL:${APPLE}>:"${APPLE_PREFIX}/lib">)
+target_link_directories(lmmsglobal INTERFACE $<$<BOOL:${APPLE}>:${APPLE_PREFIX}/lib>)
 
 # Paths relative to lmms executable
 file(RELATIVE_PATH _lib_dir_relative "/${BIN_DIR}" "/${LIB_DIR}")
