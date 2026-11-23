@@ -9,30 +9,6 @@ find_package(ZLIB REQUIRED)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# definitions for ZynAddSubFX
-IF(LMMS_BUILD_LINUX OR LMMS_BUILD_APPLE OR LMMS_BUILD_OPENBSD OR LMMS_BUILD_FREEBSD OR LMMS_BUILD_CYGWIN)
-	FIND_PACKAGE(X11)
-	include_directories(SYSTEM ${X11_INCLUDE_DIR})
-	ADD_DEFINITIONS(-DOS_LINUX)
-ELSE()
-	ADD_DEFINITIONS(-DOS_WINDOWS)
-ENDIF()
-
-# use asm optimizations when on x86 or x86_64
-if(NOT MSVC AND (LMMS_HOST_X86 OR LMMS_HOST_X86_64))
-	ADD_DEFINITIONS(-DASM_F2I_YES)
-endif()
-
-if(MSVC)
-	# enable updated C++ language standards, disable certain permissive behavior
-	set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} /Zc:__cplusplus /permissive-")
-	# workaround _WIN32 vs WIN32 differences
-	add_compile_definitions(WIN32)
-else()
-	# build ZynAddSubFX with full optimizations, treat nonconformant code as warnings
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -fpermissive")
-endif()
-
 IF(MINGW_PREFIX)
 	SET(FLTK_FLUID_EXECUTABLE "${MINGW_PREFIX}/bin/fluid")
 ENDIF()
@@ -45,28 +21,50 @@ IF(NOT EXISTS ${FLTK_FLUID_EXECUTABLE})
     ENDIF()
 ENDIF()
 
-include_directories(SYSTEM
-	"${FLTK_INCLUDE_DIR}"
-	${FFTW3F_INCLUDE_DIRS}
-)
-include_directories(
-	"${CMAKE_CURRENT_SOURCE_DIR}"
-	"${CMAKE_CURRENT_BINARY_DIR}"
-	"${CMAKE_BINARY_DIR}"
+##################################################
+# Settings common to all zynaddsubfx sub-targets #
+##################################################
+
+add_library(zynaddsubfx_common INTERFACE)
+target_link_libraries(zynaddsubfx_common INTERFACE lmmsglobal)
+target_include_directories(zynaddsubfx_common INTERFACE
+	"${CMAKE_BINARY_DIR}/src" # lmms_export.h
+	"${CMAKE_CURRENT_SOURCE_DIR}" # ThreadShims.h
 )
 
-ADD_DEFINITIONS(-DPLUGINVERSION)	# removes exit confirmation dialogs etc. in MasterUI.fl
+# Work around _WIN32 vs WIN32 differences
+target_compile_definitions(zynaddsubfx_common INTERFACE $<$<CXX_COMPILER_ID:MSVC>:WIN32>)
+
+# Full optimizations
+target_compile_options(zynaddsubfx_common INTERFACE
+	$<$<CXX_COMPILER_ID:MSVC>:/O2>
+	$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-O2>
+)
+
+# Use asm optimizations when targeting x86 or x86_64
+if(NOT MSVC AND (LMMS_HOST_X86 OR LMMS_HOST_X86_64))
+	target_compile_definitions(zynaddsubfx_common INTERFACE -DASM_F2I_YES)
+endif()
+
+###################
+# zynaddsubfx_nio #
+###################
+
 add_subdirectory(zynaddsubfx/src/Nio)
-add_subdirectory(zynaddsubfx/src/UI)
+target_link_libraries(zynaddsubfx_nio PUBLIC zynaddsubfx_common)
+
+#####################
+# zynaddsubfx_synth #
+#####################
 
 add_library(zynaddsubfx_synth OBJECT
-    zynaddsubfx/src/DSP/AnalogFilter.cpp
-    zynaddsubfx/src/DSP/FFTwrapper.cpp
-    zynaddsubfx/src/DSP/Filter.cpp
-    zynaddsubfx/src/DSP/FormantFilter.cpp
-    zynaddsubfx/src/DSP/SVFilter.cpp
-    zynaddsubfx/src/DSP/Unison.cpp
-    zynaddsubfx/src/Effects/Alienwah.cpp
+	zynaddsubfx/src/DSP/AnalogFilter.cpp
+	zynaddsubfx/src/DSP/FFTwrapper.cpp
+	zynaddsubfx/src/DSP/Filter.cpp
+	zynaddsubfx/src/DSP/FormantFilter.cpp
+	zynaddsubfx/src/DSP/SVFilter.cpp
+	zynaddsubfx/src/DSP/Unison.cpp
+	zynaddsubfx/src/Effects/Alienwah.cpp
 	zynaddsubfx/src/Effects/Chorus.cpp
 	zynaddsubfx/src/Effects/Distorsion.cpp
 	zynaddsubfx/src/Effects/DynamicFilter.cpp
@@ -108,45 +106,67 @@ add_library(zynaddsubfx_synth OBJECT
 	zynaddsubfx/src/Synth/SUBnote.cpp
 )
 
-set_target_properties(zynaddsubfx_nio PROPERTIES SYSTEM TRUE)
-set_target_properties(zynaddsubfx_gui PROPERTIES SYSTEM TRUE)
-set_target_properties(zynaddsubfx_synth PROPERTIES SYSTEM TRUE)
+target_link_libraries(zynaddsubfx_synth PUBLIC zynaddsubfx_common)
+target_include_directories(zynaddsubfx_synth SYSTEM PRIVATE ${FFTW3F_INCLUDE_DIRS})
 
-# Relative include paths don't work automatically for the GUI, because the
-# generated C++ files aren't in the source directory. Thus, add the expected
-# source directory as an additional include directory.
-target_include_directories(zynaddsubfx_gui PUBLIC zynaddsubfx/src/UI)
+# Unfortunately there's a Qt dependency due to src/Misc/QtXmlWrapper.cpp
+target_link_libraries(zynaddsubfx_synth PRIVATE ${QT_LIBRARIES})
+target_include_directories(zynaddsubfx_synth SYSTEM PRIVATE ${QT_INCLUDE_DIRS})
 
-add_library(ZynAddSubFxCore STATIC
+####################
+# zynaddsubfx_core #
+####################
+
+add_library(zynaddsubfx_core STATIC
 	LocalZynAddSubFx.cpp
 )
-target_include_directories(ZynAddSubFxCore SYSTEM PUBLIC
+target_include_directories(zynaddsubfx_core PUBLIC
+	"${CMAKE_SOURCE_DIR}/include"
+	"${CMAKE_BINARY_DIR}" # lmmsconfig.h
+)
+target_include_directories(zynaddsubfx_core SYSTEM PUBLIC
 	zynaddsubfx/src
 	"${CMAKE_CURRENT_BINARY_DIR}/zynaddsubfx/src"
 )
-target_static_libraries(ZynAddSubFxCore PUBLIC
+target_static_libraries(zynaddsubfx_core PUBLIC
 	zynaddsubfx_nio
 	zynaddsubfx_synth
 )
-target_link_libraries(ZynAddSubFxCore INTERFACE
+target_link_libraries(zynaddsubfx_core PUBLIC
 	${FFTW3F_LIBRARIES}
 	${QT_LIBRARIES}
-	Qt${QT_VERSION_MAJOR}::Widgets
-	Qt${QT_VERSION_MAJOR}::Xml
 	Threads::Threads
 	ZLIB::ZLIB
 )
 
-LINK_DIRECTORIES("${CMAKE_CURRENT_BINARY_DIR}/..")
-IF(LMMS_BUILD_LINUX)
-	LINK_LIBRARIES(-Wl,--enable-new-dtags)
-	SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-	SET(CMAKE_INSTALL_RPATH "$ORIGIN")
-ELSE()
-	SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${PLUGIN_DIR}")
-ENDIF()
-BUILD_PLUGIN(zynaddsubfx ZynAddSubFx.cpp ZynAddSubFx.h MOCFILES ZynAddSubFx.h EMBEDDED_RESOURCES artwork.png logo.png)
-target_static_libraries(zynaddsubfx ZynAddSubFxCore)
+target_include_directories(zynaddsubfx_core SYSTEM PUBLIC
+	${QT_INCLUDE_DIRS}
+)
+
+######################
+# zynaddsubfx plugin #
+######################
+
+build_plugin(zynaddsubfx
+	ZynAddSubFx.cpp ZynAddSubFx.h
+	MOCFILES ZynAddSubFx.h
+	EMBEDDED_RESOURCES artwork.png logo.png
+)
+
+target_static_libraries(zynaddsubfx PRIVATE zynaddsubfx_core)
+target_link_directories(zynaddsubfx PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/..")
+
+if(LMMS_BUILD_LINUX)
+	target_link_options(zynaddsubfx PRIVATE -Wl,--enable-new-dtags)
+	set_target_properties(zynaddsubfx PROPERTIES
+		BUILD_WITH_INSTALL_RPATH TRUE
+		INSTALL_RPATH "$ORIGIN"
+	)
+else()
+	set_target_properties(zynaddsubfx PROPERTIES
+		INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${PLUGIN_DIR}"
+	)
+endif()
 
 if(MSVC)
 	set(WINRC "${CMAKE_CURRENT_BINARY_DIR}/zynaddsubfx.rc")
@@ -160,18 +180,60 @@ elseif(WIN32)
 				DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/zynaddsubfx.rc")
 endif()
 
+###################
+# zynaddsubfx_gui #
+###################
+
+add_subdirectory(zynaddsubfx/src/UI)
+target_link_libraries(zynaddsubfx_gui PUBLIC zynaddsubfx_common)
+target_include_directories(zynaddsubfx_gui SYSTEM PRIVATE "${FLTK_INCLUDE_DIR}")
+
+# Remove exit confirmation dialogs etc. in MasterUI.fl
+target_compile_definitions(zynaddsubfx_gui PRIVATE -DPLUGINVERSION)
+
+if(LMMS_BUILD_LINUX OR LMMS_BUILD_APPLE OR LMMS_BUILD_OPENBSD OR LMMS_BUILD_FREEBSD OR LMMS_BUILD_CYGWIN)
+	find_package(X11)
+	target_include_directories(zynaddsubfx_gui SYSTEM PRIVATE ${X11_INCLUDE_DIR})
+	target_compile_definitions(zynaddsubfx_gui PRIVATE -DOS_LINUX)
+else()
+	target_compile_definitions(zynaddsubfx_gui PRIVATE -DOS_WINDOWS)
+endif()
+
+# Relative include paths don't work automatically for the GUI, because the
+# generated C++ files aren't in the source directory. Thus, add the expected
+# source directory as an additional include directory.
+target_include_directories(zynaddsubfx_gui PUBLIC zynaddsubfx/src/UI)
+
+# Ensure zynaddsubfx_gui has the include directories it needs (#8535)
+find_program(FLTK_CONFIG fltk-config)
+if(FLTK_CONFIG AND NOT LMMS_BUILD_WIN32)
+	execute_process(COMMAND ${FLTK_CONFIG} --cxxflags OUTPUT_VARIABLE _fltk_include_dirs OUTPUT_STRIP_TRAILING_WHITESPACE)
+	string(REPLACE " " ";" _fltk_include_dirs ${_fltk_include_dirs})
+	list(REMOVE_DUPLICATES _fltk_include_dirs)
+	list(FILTER _fltk_include_dirs INCLUDE REGEX "^-I.+")
+	list(TRANSFORM _fltk_include_dirs REPLACE "^-I(.+)" "\\1")
+	target_include_directories(zynaddsubfx_gui SYSTEM PUBLIC ${_fltk_include_dirs})
+endif()
+
+#####################
+# RemoteZynAddSubFx #
+#####################
+
 # Use libraries in non-standard directories (e.g., another version of Qt)
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-ADD_SUBDIRECTORY("${LMMS_SOURCE_DIR}/src/common" common)
+add_subdirectory("${LMMS_SOURCE_DIR}/src/common" common)
 
 add_executable(RemoteZynAddSubFx
 	RemoteZynAddSubFx.cpp
 	${LMMS_COMMON_SRCS}
 	"${WINRC}"
 )
-target_static_libraries(RemoteZynAddSubFx ZynAddSubFxCore zynaddsubfx_gui)
+
+target_static_libraries(RemoteZynAddSubFx PRIVATE zynaddsubfx_core zynaddsubfx_gui)
+
 INSTALL(TARGETS RemoteZynAddSubFx RUNTIME DESTINATION "${PLUGIN_DIR}")
+
 # Needed to deploy dependencies of RemoteZynAddSubFx
 SET_PROPERTY(GLOBAL APPEND PROPERTY PLUGINS_BUILT "RemoteZynAddSubFx")
 
@@ -184,34 +246,23 @@ ENDIF()
 # Remove useless dependencies from FLTK. Use fltk-config to avoid static library
 # in older environments
 SET(FLTK_FILTERED_LDFLAGS ${FLTK_LIBRARIES})
-FIND_PROGRAM(FLTK_CONFIG fltk-config)
 IF(FLTK_CONFIG AND NOT (LMMS_BUILD_APPLE OR LMMS_BUILD_WIN32))
 	EXECUTE_PROCESS(COMMAND ${FLTK_CONFIG} --ldflags OUTPUT_VARIABLE FLTK_FILTERED_LDFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
 	STRING(REPLACE " " ";" FLTK_FILTERED_LDFLAGS ${FLTK_FILTERED_LDFLAGS})
 	LIST(REMOVE_ITEM FLTK_FILTERED_LDFLAGS -lX11)
 ENDIF()
-target_link_libraries(RemoteZynAddSubFx ${FLTK_FILTERED_LDFLAGS})
-
-# Ensure zynaddsubfx_gui has the include directories it needs (#8535)
-if(FLTK_CONFIG AND NOT LMMS_BUILD_WIN32)
-	execute_process(COMMAND ${FLTK_CONFIG} --cxxflags OUTPUT_VARIABLE _fltk_include_dirs OUTPUT_STRIP_TRAILING_WHITESPACE)
-	string(REPLACE " " ";" _fltk_include_dirs ${_fltk_include_dirs})
-	list(REMOVE_DUPLICATES _fltk_include_dirs)
-	list(FILTER _fltk_include_dirs INCLUDE REGEX "^-I.+")
-	list(TRANSFORM _fltk_include_dirs REPLACE "^-I(.+)" "\\1")
-	target_include_directories(zynaddsubfx_gui SYSTEM PUBLIC ${_fltk_include_dirs})
-endif()
+target_link_libraries(RemoteZynAddSubFx PRIVATE ${FLTK_FILTERED_LDFLAGS})
 
 if(LMMS_HAVE_LIBRT)
-	target_link_libraries(RemoteZynAddSubFx rt)
+	target_link_libraries(RemoteZynAddSubFx PRIVATE rt)
 endif()
 
 # Support qt_version_tag in Qt 5.6
-TARGET_LINK_LIBRARIES(RemoteZynAddSubFx Qt${QT_VERSION_MAJOR}::Core)
+TARGET_LINK_LIBRARIES(RemoteZynAddSubFx PRIVATE Qt${QT_VERSION_MAJOR}::Core)
 
 # link Qt libraries when on win32
 IF(LMMS_BUILD_WIN32)
-	TARGET_LINK_LIBRARIES(RemoteZynAddSubFx ${QT_LIBRARIES})
+	TARGET_LINK_LIBRARIES(RemoteZynAddSubFx PRIVATE ${QT_LIBRARIES})
 ENDIF(LMMS_BUILD_WIN32)
 
 

@@ -26,25 +26,39 @@ if(LMMS_HAVE_WEAKCARLA)
 endif()
 
 if(LMMS_HAVE_CARLA OR LMMS_HAVE_WEAKCARLA)
-        # Mimic the missing "config.h"
-        SET(CARLA_INCLUDE_DIRS ${CARLA_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/CarlaConfig)
-        SET(CARLA_INCLUDE_DIRS ${CARLA_INCLUDE_DIRS} PARENT_SCOPE)
+	# Mimic the missing "config.h"
+	set(CARLA_INCLUDE_DIRS ${CARLA_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/CarlaConfig)
 
-        INCLUDE(BuildPlugin)
-        include_directories(SYSTEM ${CARLA_INCLUDE_DIRS})
-        LINK_DIRECTORIES(${CARLA_LIBRARY_DIRS})
-        LINK_LIBRARIES(${CARLA_LIBRARIES})
-        BUILD_PLUGIN(carlabase Carla.cpp Carla.h
-            MOCFILES Carla.h
-            EMBEDDED_RESOURCES artwork-patchbay.png artwork-rack.png
-            EXPORT_BASE_NAME carlabase
-            LINK SHARED)
-        SET_TARGET_PROPERTIES(carlabase
-                PROPERTIES SKIP_BUILD_RPATH TRUE
-                BUILD_WITH_INSTALL_RPATH TRUE
-                INSTALL_RPATH_USE_LINK_PATH TRUE
-                INSTALL_RPATH "${CARLA_RPATH}")
-        IF(LMMS_HAVE_WEAKCARLA)
-                ADD_DEPENDENCIES(carlabase ${CARLA_NATIVE_LIB})
-        ENDIF()
+	include(BuildPlugin)
+	build_plugin(carlabase Carla.cpp Carla.h
+		MOCFILES Carla.h
+		EMBEDDED_RESOURCES artwork-patchbay.png artwork-rack.png
+		EXPORT_BASE_NAME carlabase
+		LINK SHARED
+	)
+
+	target_include_directories(carlabase SYSTEM PUBLIC
+		${CARLA_INCLUDE_DIRS}
+		${CMAKE_CURRENT_SOURCE_DIR}
+	)
+	target_link_directories(carlabase PUBLIC
+		${CARLA_LIBRARY_DIRS}
+		${CMAKE_CURRENT_BINARY_DIR}
+	)
+	target_link_libraries(carlabase PUBLIC
+		${CARLA_LIBRARIES}
+	)
+	target_compile_definitions(carlabase PUBLIC
+		-DCARLA_PLUGIN_SYNTH
+	)
+
+	SET_TARGET_PROPERTIES(carlabase
+		PROPERTIES SKIP_BUILD_RPATH TRUE
+		BUILD_WITH_INSTALL_RPATH TRUE
+		INSTALL_RPATH_USE_LINK_PATH TRUE
+		INSTALL_RPATH "${CARLA_RPATH}"
+	)
+	if(LMMS_HAVE_WEAKCARLA)
+		add_dependencies(carlabase ${CARLA_NATIVE_LIB})
+	endif()
 endif()

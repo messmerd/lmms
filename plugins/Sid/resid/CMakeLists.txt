@@ -29,6 +29,7 @@ add_library(resid_objects OBJECT
 	resid/version.cc
 )
 
+target_link_libraries(resid_objects PUBLIC lmmsglobal)
 target_include_directories(resid_objects PUBLIC
 	"${CMAKE_CURRENT_SOURCE_DIR}/resid"
 	"${CMAKE_CURRENT_BINARY_DIR}/resid"

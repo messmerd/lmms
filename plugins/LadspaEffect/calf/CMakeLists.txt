@@ -24,12 +24,14 @@ FOREACH(_item ${SOURCES})
 	ENDFOREACH()
 ENDFOREACH()
 
-ADD_LIBRARY(veal MODULE ${SOURCES})
-INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/include"
-                    "${CMAKE_BINARY_DIR}"
-                    "${CMAKE_CURRENT_BINARY_DIR}"
-                    "${CMAKE_CURRENT_SOURCE_DIR}/veal/src")
-		
+add_library(veal MODULE ${SOURCES})
+target_include_directories(veal PRIVATE
+	"${CMAKE_SOURCE_DIR}/include"
+	"${CMAKE_BINARY_DIR}"
+	"${CMAKE_CURRENT_BINARY_DIR}"
+	"${CMAKE_CURRENT_SOURCE_DIR}/veal/src"
+)
+
 INSTALL(TARGETS veal LIBRARY DESTINATION "${PLUGIN_DIR}/ladspa")
 SET_TARGET_PROPERTIES(veal PROPERTIES PREFIX "")
 

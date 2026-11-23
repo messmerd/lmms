@@ -32,4 +32,4 @@ build_plugin(xpressive
 	MOCFILES Xpressive.h
 	EMBEDDED_RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.png"
 )
-target_link_libraries(xpressive exprtk)
+target_link_libraries(xpressive PRIVATE exprtk)

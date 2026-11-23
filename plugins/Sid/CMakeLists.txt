@@ -1,14 +1,14 @@
-INCLUDE(BuildPlugin)
-
 if(NOT LMMS_HAVE_SID)
 	return()
 endif()
 
-BUILD_PLUGIN(sid
+include(BuildPlugin)
+build_plugin(sid
 	SidInstrument.cpp
 	SidInstrument.h
 	MOCFILES SidInstrument.h
-	EMBEDDED_RESOURCES *.png)
+	EMBEDDED_RESOURCES *.png
+)
 
 add_subdirectory(resid)
-target_link_libraries(sid resid)
+target_link_libraries(sid PRIVATE resid)

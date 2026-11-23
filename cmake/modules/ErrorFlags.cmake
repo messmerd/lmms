@@ -68,9 +68,9 @@ elseif(MSVC)
 
 	# Silence deprecation warnings for the std::atomic_...<std::shared_ptr> family of functions.
 	# TODO: Remove once C++20's std::atomic<std::shared_ptr> is fully supported.
-	add_compile_definitions("_SILENCE_CXX20_OLD_SHARED_PTR_ATOMIC_SUPPORT_DEPRECATION_WARNING")
+	target_compile_definitions(lmmsglobal INTERFACE "_SILENCE_CXX20_OLD_SHARED_PTR_ATOMIC_SUPPORT_DEPRECATION_WARNING")
 endif()
 
 # Add the flags to the whole directory tree. We use the third-party flags for
 # targets whose SYSTEM property is true, and the normal flags otherwise.
-add_compile_options("$<IF:$<BOOL:$<TARGET_PROPERTY:SYSTEM>>,${THIRD_PARTY_COMPILE_ERROR_FLAGS},${COMPILE_ERROR_FLAGS}>")
+target_compile_options(lmmsglobal INTERFACE "$<IF:$<BOOL:$<TARGET_PROPERTY:SYSTEM>>,${THIRD_PARTY_COMPILE_ERROR_FLAGS},${COMPILE_ERROR_FLAGS}>")

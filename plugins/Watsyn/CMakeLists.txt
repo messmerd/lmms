@@ -5,4 +5,4 @@ build_plugin(watsyn
 	MOCFILES Watsyn.h
 	EMBEDDED_RESOURCES *.png
 )
-target_link_libraries(watsyn SampleRate::samplerate)
+target_link_libraries(watsyn PRIVATE SampleRate::samplerate)

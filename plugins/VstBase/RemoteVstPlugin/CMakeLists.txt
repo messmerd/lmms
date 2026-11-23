@@ -6,7 +6,10 @@ endif()
 
 project(RemoteVstPlugin 
 	LANGUAGES CXX)
+
+# Enable C++20
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(CheckCXXPreprocessor)
 include(CheckCXXSourceCompiles)
@@ -27,11 +30,11 @@ FOREACH( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
 	SET("CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG}" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 ENDFOREACH()
 
+# Compiler options, definitions, and other settings to apply to all sub-targets
+add_library(lmmsglobal INTERFACE)
+
 # Add warning and error flags
 include(ErrorFlags)
-
-# Import of windows.h breaks min()/max()
-add_definitions(-DNOMINMAX)
 
 ADD_SUBDIRECTORY("${LMMS_SOURCE_DIR}/src/common" common)
 
@@ -41,21 +44,26 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/")
 else()
 set(EXE_NAME RemoteVstPlugin${BITNESS})
 endif()
+
 add_executable(${EXE_NAME} WIN32
 	../RemoteVstPlugin.cpp
 	${LMMS_COMMON_SRCS}
 )
+
+# NOTE: lmmsglobal here only applies the warning/error flags
+target_link_libraries(${EXE_NAME} PRIVATE lmmsglobal)
+
 if(IS_WIN)
-	target_link_libraries(${EXE_NAME} ole32)
+	target_link_libraries(${EXE_NAME} PRIVATE ole32)
 else()
-	target_link_libraries(${EXE_NAME} dl X11)
+	target_link_libraries(${EXE_NAME} PRIVATE dl X11)
 endif()
 if(NOT WIN32)
-	target_link_libraries(${EXE_NAME} pthread)
+	target_link_libraries(${EXE_NAME} PRIVATE pthread)
 endif()
 
 if(LMMS_HAVE_LIBRT)
-	target_link_libraries(${EXE_NAME} rt)
+	target_link_libraries(${EXE_NAME} PRIVATE rt)
 endif()
 
 target_include_directories(${EXE_NAME}
@@ -64,7 +72,10 @@ target_include_directories(${EXE_NAME}
 		"${LMMS_BINARY_DIR}"
 )
 
-target_compile_definitions(${EXE_NAME} PRIVATE BUILD_REMOTE_PLUGIN_CLIENT)
+target_compile_definitions(${EXE_NAME} PRIVATE
+	BUILD_REMOTE_PLUGIN_CLIENT
+	NOMINMAX # Import of windows.h breaks min()/max()
+)
 
 # Workaround for missing WinMain
 if(MSVC)

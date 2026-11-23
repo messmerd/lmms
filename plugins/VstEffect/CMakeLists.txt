@@ -2,16 +2,25 @@ if(NOT LMMS_HAVE_VST)
 	return()
 endif()
 
-INCLUDE(BuildPlugin)
-INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/../vst_base")
-LINK_DIRECTORIES("${CMAKE_CURRENT_BINARY_DIR}/..")
-IF(LMMS_BUILD_LINUX)
-	LINK_LIBRARIES(-Wl,--enable-new-dtags)
-	SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-	SET(CMAKE_INSTALL_RPATH "$ORIGIN")
-ELSE()
-	SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${PLUGIN_DIR}")
-ENDIF()
+include(BuildPlugin)
+build_plugin(vsteffect
+	VstEffect.cpp VstEffectControls.cpp VstEffectControlDialog.cpp VstSubPluginFeatures.cpp
+	VstEffect.h VstEffectControls.h VstEffectControlDialog.h VstSubPluginFeatures.h
+	MOCFILES VstEffectControlDialog.h VstEffectControls.h
+	EMBEDDED_RESOURCES *.png *.svg
+)
 
-BUILD_PLUGIN(vsteffect VstEffect.cpp VstEffectControls.cpp VstEffectControlDialog.cpp VstSubPluginFeatures.cpp VstEffect.h VstEffectControls.h VstEffectControlDialog.h VstSubPluginFeatures.h MOCFILES VstEffectControlDialog.h VstEffectControls.h EMBEDDED_RESOURCES *.png *.svg)
-TARGET_LINK_LIBRARIES(vsteffect vstbase)
+target_link_libraries(vsteffect PRIVATE vstbase)
+target_link_directories(vsteffect PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/..")
+
+if(LMMS_BUILD_LINUX)
+	target_link_options(vsteffect PRIVATE -Wl,--enable-new-dtags)
+	set_target_properties(vsteffect PROPERTIES
+		BUILD_WITH_INSTALL_RPATH TRUE
+		INSTALL_RPATH "$ORIGIN"
+	)
+else()
+	set_target_properties(vsteffect PROPERTIES
+		INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${PLUGIN_DIR}"
+	)
+endif()

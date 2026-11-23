@@ -17,4 +17,4 @@ build_plugin(freeboy
 	MOCFILES FreeBoy.h
 	EMBEDDED_RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.png"
 )
-target_link_libraries(freeboy gme)
+target_link_libraries(freeboy PRIVATE gme)

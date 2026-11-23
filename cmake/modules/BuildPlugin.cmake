@@ -1,17 +1,45 @@
 # BuildPlugin.cmake - Copyright (c) 2008 Tobias Doerffel
-#
-# description: build LMMS-plugin
-# usage: BUILD_PLUGIN(<PLUGIN_NAME> <PLUGIN_SOURCES> MOCFILES <HEADERS_FOR_MOC> EMBEDDED_RESOURCES <LIST_OF_FILES_TO_EMBED> LINK <SHARED|MODULE>)
 
 INCLUDE(GenQrc)
 
-MACRO(BUILD_PLUGIN PLUGIN_NAME)
+if(NOT TARGET lmmsplugin)
+	# Interface target for building native LMMS plugins
+	add_library(lmmsplugin INTERFACE)
+	target_link_libraries(lmmsplugin INTERFACE lmmsglobal)
+	target_link_libraries(lmmsplugin INTERFACE
+		lmms
+		Qt${QT_VERSION_MAJOR}::Core
+		Qt${QT_VERSION_MAJOR}::Widgets
+		Qt${QT_VERSION_MAJOR}::Xml
+	)
+	target_include_directories(lmmsplugin SYSTEM INTERFACE ${QT_INCLUDE_DIRS})
+	target_include_directories(lmmsplugin INTERFACE
+		"${CMAKE_BINARY_DIR}"
+		"${CMAKE_BINARY_DIR}/src" # lmms_export.h
+		"${CMAKE_SOURCE_DIR}/include"
+	)
+	# TODO: Check if these are still needed:
+	if(LMMS_BUILD_APPLE)
+		target_link_directories(lmmsplugin INTERFACE "${CMAKE_BINARY_DIR}")
+		target_link_libraries(lmmsplugin INTERFACE ${QT_LIBRARIES})
+	endif()
+	if(LMMS_BUILD_WIN32)
+		target_link_directories(lmmsplugin INTERFACE "${CMAKE_BINARY_DIR}" "${CMAKE_SOURCE_DIR}")
+		target_link_libraries(lmmsplugin INTERFACE ${QT_LIBRARIES})
+	endif()
+endif()
+
+# Builds a native LMMS plugin
+# Usage:
+#     build_plugin(<PLUGIN_NAME>
+#         <PLUGIN_SOURCES>
+#         MOCFILES <HEADERS_FOR_MOC>
+#         EMBEDDED_RESOURCES <LIST_OF_FILES_TO_EMBED>
+#         LINK <SHARED|MODULE>
+#     )
+macro(build_plugin PLUGIN_NAME)
 	CMAKE_PARSE_ARGUMENTS(PLUGIN "" "LINK;EXPORT_BASE_NAME" "MOCFILES;EMBEDDED_RESOURCES" ${ARGN})
 	SET(PLUGIN_SOURCES ${PLUGIN_UNPARSED_ARGUMENTS})
-
-	INCLUDE_DIRECTORIES("${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_BINARY_DIR}" "${CMAKE_SOURCE_DIR}/include")
-
-	ADD_DEFINITIONS(-DPLUGIN_NAME=${PLUGIN_NAME})
 
 	LIST(LENGTH PLUGIN_EMBEDDED_RESOURCES ER_LEN)
 	IF(ER_LEN)
@@ -36,22 +64,14 @@ MACRO(BUILD_PLUGIN PLUGIN_NAME)
 		ADD_FILE_DEPENDENCIES(${f} ${RCC_OUT})
 	ENDFOREACH(f)
 
-	IF(LMMS_BUILD_APPLE)
-		LINK_DIRECTORIES("${CMAKE_BINARY_DIR}")
-		LINK_LIBRARIES(${QT_LIBRARIES})
-	ENDIF(LMMS_BUILD_APPLE)
-	IF(LMMS_BUILD_WIN32)
-		LINK_DIRECTORIES("${CMAKE_BINARY_DIR}" "${CMAKE_SOURCE_DIR}")
-		LINK_LIBRARIES(${QT_LIBRARIES})
-	ENDIF(LMMS_BUILD_WIN32)
-
 	IF (NOT PLUGIN_LINK)
 		SET(PLUGIN_LINK "MODULE")
 	ENDIF()
 
-	ADD_LIBRARY(${PLUGIN_NAME} ${PLUGIN_LINK} ${PLUGIN_SOURCES} ${plugin_MOC_out} ${RCC_OUT})
+	add_library(${PLUGIN_NAME} ${PLUGIN_LINK} ${PLUGIN_SOURCES} ${plugin_MOC_out} ${RCC_OUT})
 
-	target_link_libraries("${PLUGIN_NAME}" lmms Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Xml)
+	target_link_libraries(${PLUGIN_NAME} PRIVATE lmmsplugin)
+	target_compile_definitions(${PLUGIN_NAME} PRIVATE -DPLUGIN_NAME=${PLUGIN_NAME})
 
 	INSTALL(TARGETS ${PLUGIN_NAME}
 		LIBRARY DESTINATION "${PLUGIN_DIR}"
@@ -89,5 +109,4 @@ MACRO(BUILD_PLUGIN PLUGIN_NAME)
 
 	SET_PROPERTY(GLOBAL APPEND PROPERTY PLUGINS_BUILT ${PLUGIN_NAME})
 	GET_PROPERTY(PLUGINS_BUILT GLOBAL PROPERTY PLUGINS_BUILT)
-ENDMACRO(BUILD_PLUGIN)
-
+endmacro()

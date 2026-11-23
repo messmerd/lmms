@@ -5,7 +5,6 @@ if(LMMS_HAVE_WEAKJACK)
 	)
 	target_include_directories(weakjack PUBLIC weakjack)
 	target_link_libraries(weakjack PUBLIC jack_headers ${CMAKE_DL_LIBS})
-	target_compile_features(weakjack PRIVATE c_std_11)
 	# Enable weakjack, disable metadata support
 	target_compile_definitions(weakjack PUBLIC
 		USE_WEAK_JACK=1

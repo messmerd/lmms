@@ -4,4 +4,4 @@ build_plugin(malletsstk
 	MOCFILES Mallets.h
 	EMBEDDED_RESOURCES artwork.png logo.png
 )
-target_link_libraries(malletsstk unofficial::libstk::libstk)
+target_link_libraries(malletsstk PRIVATE unofficial::libstk::libstk)

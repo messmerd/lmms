@@ -13,4 +13,4 @@ build_plugin(opulenz
 	MOCFILES OpulenZ.h
 	EMBEDDED_RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.png"
 )
-target_link_libraries(opulenz adplug)
+target_link_libraries(opulenz PRIVATE adplug)

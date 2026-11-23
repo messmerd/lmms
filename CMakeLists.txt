@@ -26,8 +26,9 @@ SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" ${CMAKE_MODULE_PATH})
 SET(LMMS_BINARY_DIR ${CMAKE_BINARY_DIR})
 SET(LMMS_SOURCE_DIR ${CMAKE_SOURCE_DIR})
 
-# Import of windows.h breaks min()/max()
-ADD_DEFINITIONS(-DNOMINMAX)
+# Enable C++20
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Set symbol visibility
 set(CMAKE_C_VISIBILITY_PRESET hidden)
@@ -72,6 +73,9 @@ IF(VERSION_BUILD)
 	SET(VERSION     "${VERSION}-${VERSION_BUILD}")
 ENDIF()
 
+# Compiler options, definitions, and other settings to apply to all sub-targets
+add_library(lmmsglobal INTERFACE)
+
 # Override version information for non-base builds
 INCLUDE(VersionInfo)
 INCLUDE(DetectMachine)
@@ -112,83 +116,7 @@ option(WANT_DEBUG_CPACK "Show detailed logs for packaging commands" OFF)
 option(WANT_CPACK_TARBALL "Request CPack to create a tarball instead of an installer" OFF)
 option(WANT_QT6 "Build with experimental Qt6 support" OFF)
 
-
-# Set the target microarchitecture
-if(TARGET_UARCH_FLAGS)
-	if(TARGET_UARCH AND NOT TARGET_UARCH STREQUAL "custom")
-		message(WARNING "Ignoring TARGET_UARCH since TARGET_UARCH_FLAGS was set")
-	endif()
-
-	set(_default_target_uarch "custom")
-	message(STATUS "Setting target microarchitecture to 'custom'")
-	message(STATUS "Target microarchitecture flags: ${TARGET_UARCH_FLAGS}")
-elseif(TARGET_UARCH)
-	message(STATUS "Setting target microarchitecture to '${TARGET_UARCH}'")
-else()
-	set(_default_target_uarch "none")
-	message(STATUS "Setting target microarchitecture to 'none' since TARGET_UARCH was not set")
-endif()
-
-if(NOT TARGET_UARCH)
-	set(TARGET_UARCH ${_default_target_uarch} CACHE STRING "Choose the target microarchitecture" FORCE)
-	# Accepted options:
-	# - "none":     No microarchitecture is set. Uses the compiler default.
-	# - "official": Targets the baseline microarchitecture of official LMMS releases.
-	# - "custom":   Targets the microarchitecture specified by TARGET_UARCH_FLAGS.
-	# - "native":   Targets the highest microarchitecture level supported by the build machine.
-	set_property(CACHE TARGET_UARCH PROPERTY STRINGS "none" "official" "custom" "native")
-endif()
-
-if(TARGET_UARCH STREQUAL "custom" OR TARGET_UARCH_FLAGS)
-	add_compile_options(${TARGET_UARCH_FLAGS})
-elseif(TARGET_UARCH STREQUAL "none")
-	# Do nothing, use the compiler default
-elseif(TARGET_UARCH STREQUAL "official")
-	if(LMMS_HOST_X86_64)
-		if(MSVC)
-			# MSVC doesn't have /arch:x86-64-v2, but this is pretty close
-			add_compile_options(/arch:SSE4.2)
-		else()
-			add_compile_options(-march=x86-64-v2)
-		endif()
-	elseif(LMMS_HOST_ARM64)
-		if(LMMS_BUILD_WIN64)
-			# Using Windows 11 minimum requirements
-			# https://learn.microsoft.com/en-us/windows-hardware/design/minimum/minimum-hardware-requirements-overview
-			if(MSVC)
-				add_compile_options(/arch:armv8.1)
-			else()
-				add_compile_options(-march=armv8.1-a)
-			endif()
-		elseif(LMMS_BUILD_APPLE)
-			# Chosen for Apple M1 support
-			add_compile_options(-march=armv8.4-a)
-		else()
-			# Chosen for Raspberry Pi 4 support
-			add_compile_options(-march=armv8-a)
-		endif()
-	else()
-		message(WARNING "There are no official releases for the target architecture, so there is no official baseline microarchitecture")
-	endif()
-elseif(TARGET_UARCH STREQUAL "native")
-	if(CMAKE_CROSSCOMPILING)
-		message(FATAL_ERROR "Cannot target native microarchitecture while cross-compiling")
-	endif()
-
-	if(MSVC)
-		include(CheckCPUFeatures)
-		determine_msvc_native_arch(_arch_option)
-		if(NOT "${_arch_option}" STREQUAL "")
-			add_compile_options(${_arch_option})
-		endif()
-	else()
-		add_compile_options(-march=native -mtune=native)
-	endif()
-endif()
-
 IF(LMMS_BUILD_APPLE)
-	# Fix linking on 10.14+. See issue #4762 on github
-	LINK_DIRECTORIES("${APPLE_PREFIX}/lib")
 	SET(WANT_ALSA OFF)
 	SET(WANT_PULSEAUDIO OFF)
 	SET(WANT_VST OFF)
@@ -241,7 +169,22 @@ IF(LMMS_BUILD_OPENBSD)
 	SET(STATUS_VST_64 "<not supported on this platform>")
 ENDIF()
 
-SET(CMAKE_CXX_STANDARD_REQUIRED ON)
+# gcc builds support gprof for profiling
+# clang too seems to support gprof, but i couldn't get it working.
+# if needed, change the if condition to "GNU|CLANG"
+if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+	set(STATUS_GPROF ", NOT SUPPORTED BY THIS COMPILER")
+	set(WANT_DEBUG_GPROF OFF)
+endif()
+
+if(WANT_DEBUG_GPROF)
+	set(STATUS_GPROF "OK")
+else()
+	set(STATUS_GPROF "Disabled ${STATUS_GPROF}")
+endif()
+
+# Configure the lmmsglobal target
+include(GlobalSettings)
 
 CHECK_INCLUDE_FILES(pthread.h LMMS_HAVE_PTHREAD_H)
 CHECK_INCLUDE_FILES(semaphore.h LMMS_HAVE_SEMAPHORE_H)
@@ -280,13 +223,6 @@ find_package(Qt${QT_VERSION_MAJOR} COMPONENTS LinguistTools QUIET)
 
 message(STATUS "Using Qt version: ${Qt${QT_VERSION_MAJOR}_VERSION}")
 
-include_directories(SYSTEM
-	${Qt${QT_VERSION_MAJOR}Core_INCLUDE_DIRS}
-	${Qt${QT_VERSION_MAJOR}Gui_INCLUDE_DIRS}
-	${Qt${QT_VERSION_MAJOR}Widgets_INCLUDE_DIRS}
-	${Qt${QT_VERSION_MAJOR}Xml_INCLUDE_DIRS}
-)
-
 set(QT_LIBRARIES
 	Qt${QT_VERSION_MAJOR}::Core
 	Qt${QT_VERSION_MAJOR}::Gui
@@ -300,6 +236,13 @@ IF(LMMS_BUILD_LINUX AND WANT_VST AND NOT WANT_QT6)
     LIST(APPEND QT_LIBRARIES Qt5::X11Extras)
 ENDIF()
 
+set(QT_INCLUDE_DIRS
+	${Qt${QT_VERSION_MAJOR}Core_INCLUDE_DIRS}
+	${Qt${QT_VERSION_MAJOR}Gui_INCLUDE_DIRS}
+	${Qt${QT_VERSION_MAJOR}Widgets_INCLUDE_DIRS}
+	${Qt${QT_VERSION_MAJOR}Xml_INCLUDE_DIRS}
+)
+
 # Resolve qmake to full path for use in packaging scripts
 get_target_property(QT_QMAKE_EXECUTABLE Qt${QT_VERSION_MAJOR}::qmake IMPORTED_LOCATION)
 
@@ -309,10 +252,11 @@ execute_process(COMMAND ${QT_QMAKE_EXECUTABLE} -query QT_INSTALL_TRANSLATIONS
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 	ERROR_QUIET
 )
-IF(EXISTS "${QT_TRANSLATIONS_DIR}")
-	MESSAGE("-- Found Qt translations in ${QT_TRANSLATIONS_DIR}")
-	ADD_DEFINITIONS("-DQT_TRANSLATIONS_DIR=\"${QT_TRANSLATIONS_DIR}\"")
-ENDIF()
+if(EXISTS "${QT_TRANSLATIONS_DIR}")
+	message(STATUS "-- Found Qt translations in ${QT_TRANSLATIONS_DIR}")
+else()
+	message(WARNING "-- Could not find Qt translations directory")
+endif()
 
 FIND_PACKAGE(Qt${QT_VERSION_MAJOR}Test)
 SET(QT_QTTEST_LIBRARY Qt${QT_VERSION_MAJOR}::Test)
@@ -690,23 +634,10 @@ endif()
 # check for libsamplerate
 FIND_PACKAGE(Samplerate 0.1.8 MODULE REQUIRED)
 
-IF(NOT CMAKE_BUILD_TYPE)
-	message(STATUS "Setting build type to 'Release' as none was specified.")
-	set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
-	# Set the possible values of build type for cmake-gui
-	SET_PROPERTY(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release"
-		"MinSizeRel" "RelWithDebInfo")
-ENDIF()
-
-SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DLMMS_DEBUG")
-SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DLMMS_DEBUG")
-
 if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-	add_compile_definitions(NDEBUG)
-	SET(STATUS_ASSERTIONS "Disabled")
+	set(STATUS_ASSERTIONS "Disabled")
 else()
-	remove_definitions(-DNDEBUG)
-	SET(STATUS_ASSERTIONS "Enabled")
+	set(STATUS_ASSERTIONS "Enabled")
 endif()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.16")
@@ -767,39 +698,14 @@ endif()
 # we somehow have to make LMMS-binary depend on MOC-files
 ADD_FILE_DEPENDENCIES("${CMAKE_BINARY_DIR}/lmmsconfig.h")
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND NOT WIN32)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -DPIC")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -DPIC")
-elseif(MSVC)
-	# Use UTF-8 as the source and execution character set
-	add_compile_options("/utf-8")
-ENDIF()
-
-# gcc builds support gprof for profiling
-# clang too seems to support gprof, but i couldn't get it working.
-# if needed, change the if condition to "GNU|CLANG"
-if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-	set(STATUS_GPROF ", NOT SUPPORTED BY THIS COMPILER")
-	set(WANT_DEBUG_GPROF OFF)
-endif()
-
-if(WANT_DEBUG_GPROF)
-	add_compile_options(-pg)
-	add_link_options(-pg)
-	set(STATUS_GPROF "OK")
-else()
-	set(STATUS_GPROF "Disabled ${STATUS_GPROF}")
-endif()
-
 # add enabled sanitizers
 function(add_sanitizer sanitizer supported_compilers want_flag status_flag)
 	if(${want_flag})
 		if(CMAKE_CXX_COMPILER_ID MATCHES "${supported_compilers}")
 			set("${status_flag}" "Enabled" PARENT_SCOPE)
 			string(REPLACE ";" " " additional_flags "${ARGN}")
-			# todo CMake 3.13: use add_compile_options/add_link_options instead
-			set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=${sanitizer} ${additional_flags}" PARENT_SCOPE)
-			set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=${sanitizer} ${additional_flags}" PARENT_SCOPE)
+			target_compile_options(lmmsglobal INTERFACE "$<$<CONFIG:Debug>:-fsanitize=${sanitizer} ${additional_flags}>")
+			target_link_options(lmmsglobal INTERFACE "$<$<CONFIG:Debug>:-fsanitize=${sanitizer} ${additional_flags}>")
 		else()
 			set("${status_flag}" "Wanted but disabled due to unsupported compiler" PARENT_SCOPE)
 		endif()

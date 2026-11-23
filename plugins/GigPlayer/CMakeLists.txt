@@ -1,17 +1,20 @@
-if(LMMS_HAVE_GIG)
-	INCLUDE(BuildPlugin)
-	include_directories(SYSTEM ${GIG_INCLUDE_DIRS})
-	SET(CMAKE_AUTOUIC ON)
+if(NOT LMMS_HAVE_GIG)
+	return()
+endif()
 
-	# Required for not crashing loading files with libgig
-	add_compile_options("-fexceptions")
+set(CMAKE_AUTOUIC ON)
 
-	link_directories(${GIG_LIBRARY_DIRS})
-	link_libraries(${GIG_LIBRARIES})
-	build_plugin(gigplayer
-		GigPlayer.cpp GigPlayer.h PatchesDialog.cpp PatchesDialog.h PatchesDialog.ui
-		MOCFILES GigPlayer.h PatchesDialog.h
-		EMBEDDED_RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.png"
-	)
-	target_link_libraries(gigplayer SampleRate::samplerate)
-endif(LMMS_HAVE_GIG)
+include(BuildPlugin)
+build_plugin(gigplayer
+	GigPlayer.cpp GigPlayer.h PatchesDialog.cpp PatchesDialog.h PatchesDialog.ui
+	MOCFILES GigPlayer.h PatchesDialog.h
+	EMBEDDED_RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.png"
+)
+target_link_libraries(gigplayer PRIVATE SampleRate::samplerate)
+
+# Required for not crashing loading files with libgig
+target_compile_options(gigplayer PRIVATE $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-fexceptions>)
+
+target_include_directories(gigplayer SYSTEM PRIVATE ${GIG_INCLUDE_DIRS})
+target_link_directories(gigplayer PRIVATE ${GIG_LIBRARY_DIRS})
+target_link_libraries(gigplayer PRIVATE ${GIG_LIBRARIES})

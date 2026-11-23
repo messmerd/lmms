@@ -3,10 +3,15 @@ set_directory_properties(PROPERTIES SYSTEM TRUE)
 if(LMMS_BUILD_LINUX AND LMMS_HAVE_VST AND NOT WANT_QT6)
 	set(BUILD_SHARED_LIBS OFF)
 	add_subdirectory(qt5-x11embed)
+	# NOTE: Cannot just link lmmsglobal since it isn't in qx11embedcontainer's export set
+	target_compile_options(qx11embedcontainer PRIVATE
+		$<$<AND:$<NOT:$<BOOL:${WIN32}>>,$<CXX_COMPILER_ID:GNU,Clang,AppleClang>>:-fPIC>
+	)
 ENDIF()
 
 add_library(jack_headers INTERFACE)
 target_include_directories(jack_headers INTERFACE jack2/common)
+target_link_libraries(jack_headers INTERFACE lmmsglobal)
 
 ADD_SUBDIRECTORY(hiir)
 ADD_SUBDIRECTORY(weakjack)
@@ -15,7 +20,7 @@ ADD_SUBDIRECTORY(weakjack)
 add_library(ringbuffer OBJECT
 	ringbuffer/src/lib/ringbuffer.cpp
 )
-target_compile_features(ringbuffer PUBLIC cxx_std_20)
+target_link_libraries(ringbuffer PUBLIC lmmsglobal)
 target_include_directories(ringbuffer PUBLIC
 	ringbuffer/include
 	"${CMAKE_CURRENT_BINARY_DIR}"
@@ -31,9 +36,9 @@ target_compile_definitions(ringbuffer PRIVATE lmmsobjs_EXPORTS)
 INCLUDE(CheckIncludeFiles)
 CHECK_INCLUDE_FILES(sys/mman.h HAVE_SYS_MMAN)
 IF(HAVE_SYS_MMAN AND NOT CMAKE_SYSTEM_NAME MATCHES "Haiku")
-    SET(USE_MLOCK ON)
+	set(USE_MLOCK ON)
 ELSE()
-    SET(USE_MLOCK OFF)
+	set(USE_MLOCK OFF)
 ENDIF()
 # Generate ringbuffer configuration headers
 configure_file(ringbuffer/src/ringbuffer-config.h.in  ringbuffer-config.h)
